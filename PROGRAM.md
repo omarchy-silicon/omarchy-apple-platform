@@ -168,6 +168,8 @@ It consumes a signed installer manifest and board record. It must not decide pla
 
 Owns Omarchy's downstream m1n1 patch queue, reproducible stage-1/stage-2 builds, board bring-up instrumentation, serial/debug artifacts, and release notes describing supported firmware schemas.
 
+This repository is a HUMAN-ONLY workstream because its repository instructions prohibit AI/LLM use. Agents must not inspect, analyze, edit, test, or otherwise operate on its source. The automated factory treats human-produced m1n1 artifacts and signed metadata as opaque inputs and validates only their declared hashes, signatures, schemas, provenance, and behavior at the cross-repository/platform boundary.
+
 ### `omarchy-silicon/u-boot-omarchy`
 
 Owns Omarchy's downstream U-Boot patch queue, Apple board configuration, UEFI behavior, boot-slot selection, recovery selection, boot-success/failure transport, and compatibility with the pinned m1n1/DT tuple.
@@ -257,6 +259,8 @@ The primary session is the coordinator and sole DONE authority. Each slice follo
 
 One writer owns one branch/worktree. Reviewers are read-only, work from throwaway detached worktrees, default to REJECT, plant violations to prove guards bite, and rerun the gates rather than trusting reports.
 
+Repository-local instructions override factory assignments. `m1n1-omarchy` is excluded from all AI/LLM tasks and requires human design, implementation, review, and source-level verification. Agents may design and test only the external opaque-artifact contract without reading or operating on that repository.
+
 Every lane reports its branch tip, changed-file census, exact gate outputs, explicit failure census, deviations, and residuals. A build, passing unit test, recognized chip, or booting desktop is never reported as a support completion.
 
 The coordinator records rulings, integrations, rejections, incidents, and corrections in the append-only progress log. Existing log entries are never rewritten to hide errors.
@@ -301,6 +305,8 @@ The coordinator records rulings, integrations, rejections, incidents, and correc
 
 Only the coordinator changes a slice to DONE.
 
+`HUMAN-ONLY BLOCKED` is not a completion state. It means the slice cannot enter the agent factory and remains blocked until a qualified human owner accepts it.
+
 | ID | Repository | Deliverable | Depends on | Status |
 |---|---|---|---|---|
 | F-00 | organization | Create owned organization and seven repositories | none | DONE |
@@ -320,8 +326,8 @@ Only the coordinator changes a slice to DONE.
 | I-04 | omarchy-mac-installer | Implement journaled Apple platform provisioning and resume | I-03 | TODO |
 | I-05 | omarchy-mac-installer | Build the Omarchy ARM live/install image handoff | F-04, I-04 | TODO |
 | I-06 | omarchy-mac-installer | Implement uninstall, rollback, recovery, and DFU runbook | I-04, I-05 | TODO |
-| B-01 | m1n1-omarchy | Define reproducible build, artifact, firmware-schema, and debug contracts | F-02, F-04 | TODO |
-| B-02 | m1n1-omarchy | Package qualified M1/M2 stage-1 and stage-2 bundles | B-01 | TODO |
+| B-01 | m1n1-omarchy | Human owner defines reproducible build, artifact, firmware-schema, and debug contracts | F-02, F-04, human m1n1 owner | HUMAN-ONLY BLOCKED |
+| B-02 | m1n1-omarchy | Human owner packages qualified M1/M2 stage-1 and stage-2 bundles | B-01, human m1n1 owner | HUMAN-ONLY BLOCKED |
 | B-03 | u-boot-omarchy | Define reproducible Apple U-Boot and UEFI/slot contracts | F-02, F-04 | TODO |
 | B-04 | u-boot-omarchy | Implement versioned boot-slot selection, success marking, and fallback | B-03 | TODO |
 | K-01 | linux-omarchy | Define downstream kernel/DT configuration, patch-queue, ABI, and build contracts | F-02, F-04 | TODO |
@@ -404,6 +410,7 @@ Luna agents accelerate repository research, design, test construction, packaging
 | Agent output overclaims completion | Coordinator-only DONE, empirical reviewer probes, explicit fail census, public residuals |
 | Large repositories exhaust developer storage | Partial clones, dedicated build storage, cache budgets, automated cleanup and free-space gates |
 | Permanent downstream divergence becomes unmaintainable | Minimal patch queues, continuous upstreaming, documented rebases, compatibility manifests |
+| An agent violates a repository-local AI prohibition | Global stop fence, human-only slice state, no source inspection, opaque signed-artifact boundary, and coordinator audit |
 
 ## 16. Owner checkpoints
 
@@ -415,6 +422,7 @@ The project owner must decide or approve:
 - Telemetry default and privacy policy.
 - Stable-release publication and any support-level claim.
 - Actions with irreversible external impact, including production deployment, destructive lab tests outside disposable targets, and public announcements.
+- Appointment of qualified human m1n1 maintainers and reviewers who accept that repository's local contribution rules.
 
 Technical details within the approved architecture are coordinator rulings unless they change these owner boundaries.
 
@@ -442,6 +450,7 @@ The program mission is complete only when:
 | 2026-09-02 | Build a clean native installer without an intermediary distro login | The user experience and recovery responsibility must be one Omarchy-owned transaction |
 | 2026-09-02 | Require FULL to include all applicable hardware features | “No exception” cannot be represented honestly by a daily-driver subset |
 | 2026-09-02 | Use CNVS Luna workers under coordinator review and SWE/QA/reviewer separation | The program is too broad and safety-critical for ungoverned single-agent changes |
+| 2026-09-02 | Make m1n1 a human-only workstream and treat its outputs as opaque signed inputs to the agent-operated platform boundary | The repository's local instructions prohibit AI/LLM use and override the factory assignment |
 
 ## 19. Append-only progress log
 
@@ -452,3 +461,4 @@ Do not edit or delete existing rows. Corrections are new rows.
 | 2026-09-02 | Organization and repositories created | `omarchy-silicon` contains `omarchy-mac`, `omarchy-mac-installer`, `omarchy-apple-platform`, `linux-omarchy`, `m1n1-omarchy`, `u-boot-omarchy`, and `mesa-omarchy` |
 | 2026-09-02 | Repository ancestry verified | GitHub-native forks retain their parents; Mesa main history mirrors freedesktop.org at the verified upstream SHA from creation time |
 | 2026-09-02 | Coordinator established the canonical program plan | This document defines the mission, ownership, interfaces, safety invariants, acceptance criteria, slice ledger, decisions, and factory rules |
+| 2026-09-02 | m1n1 Luna design lane stopped before edits | Worker reported the repository-local AI/LLM prohibition; no design, code, checks, commit, or push occurred, and the coordinator broadcast a supersession fence to all active agents |
