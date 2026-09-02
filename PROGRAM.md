@@ -24,6 +24,14 @@ M6 is a target, not a supported board, until shipping hardware is acquired and c
 
 Support is keyed by exact board identity, SoC identity, device-tree compatibility records, firmware schema, and qualified platform release. Chip-family recognition is diagnostic metadata only.
 
+### 2.1 Intake is not admission
+
+CNVS audit task `5E649A10-4465-45DC-9D31-9164E554ECC8` reported 47 candidate M1-through-M4 intake rows and 12 candidate A18/M5/M6 intake rows. Those counts and findings are provisional research output, not a canonical dataset or install allowlist: no row is Omarchy-qualified and no row may authorize a privileged operation until Q-00 produces a cited, digest-addressed artifact and its selectors and evidence are encoded and validated through `board-registry/v1`.
+
+Each intake row records the marketing product and year, Apple model identifier, Apple/Asahi board selector where independently evidenced, device-tree compatible string, SoC identifier, shipped/announced lifecycle, upstream evidence tier, Omarchy evidence tier, retrieval date, source references, contradictions, and unknowns. Unknown values are null or empty; they are never filled from the nearest chip family.
+
+The worker reported unresolved selector gaps in the 12 newer candidate rows, contradictory M5 identity evidence, a model-identifier contradiction in the M3 Ultra candidate, incomplete device-tree evidence for M4 Pro/Max, and no physical Omarchy qualification record. Until Q-00 preserves the source bundle, retrieval metadata, record-level citations, contradictions, and content digest, every affected candidate is UNKNOWN and fails closed. A later evidence correction appends a superseding record; it never silently rewrites the historical observation.
+
 ## 3. Meaning of fully compatible
 
 A board may be promoted to FULL only when every capability physically present on that board passes the applicable qualification rows:
@@ -65,16 +73,20 @@ The unavoidable Apple owner-authentication and Recovery steps remain visible, gu
 #### Stage 1 — read-only inventory and plan
 
 - Read exact Mac product/board and SoC identifiers, macOS version, boot firmware version, disk/APFS topology, FileVault state, free space, power/battery state, network readiness, and existing alternative-OS containers.
+- Model FileVault state, Data-volume lock state, macOS administrator status, machine-owner authority, Linux encryption choice, and paired RecoveryOS/1TR state as distinct facts. Never infer one from another or describe all of them as an administrator password.
 - Resolve the board through the signed support registry.
-- Produce a human-readable and machine-readable installation plan showing every partition/container change, download size, target release, encryption choice, rollback boundary, and recovery requirement.
-- Perform no disk mutation during inventory or plan generation.
+- Identify disks by stable media and APFS identifiers and display model, capacity, connection, boot role, and ownership. Never select the first internal disk or identify an external disk only by its display name and size.
+- Produce a human-readable and machine-readable installation plan showing every partition/container change, exact byte allocation, macOS reserve, download size, target release, encryption choice, rollback boundary, Apple boot artifacts that may remain on internal storage, and recovery requirement.
+- Fetch and verify every required signed artifact into a content-addressed cache before the destructive boundary, including the exact Apple firmware input, Recovery/stub inputs, Omarchy image, and human-produced opaque boot artifact envelope selected by the manifest. Show bytes, rate, ETA, provenance, pause, retry, resume, verification, and cache state; an offline claim requires a complete signed bundle.
+- Perform no privileged operation, APFS or boot mutation, Recovery update, system configuration change, or target selection side effect during inventory, admission, artifact acquisition, verification, or plan generation. In particular, `updatePreboot` is a mutation and is forbidden before final consent.
 
 #### Stage 2 — owner confirmation and Apple platform provisioning
 
-- Obtain explicit confirmation of the final storage plan.
+- Present one final mutation summary and obtain explicit typed confirmation of every destructive operation. Approval binds the exact canonical `plan_digest`, `scope_digest`, schema-set digest, board-registry document ID and payload digest, platform-manifest document ID and payload digest, inventory/topology digest, target identifiers, ordered operations, actor identity, authority role binding, and expiry. The actor and role must resolve through the trusted authority context for the exact repository, slice, operation, and policy digest; an unbound, expired, replayed, or scope-mismatched approval is invalid. Any topology, identity, artifact, policy, schema set, authority, or operation change invalidates approval and returns to read-only planning. Security reduction, encryption, telemetry, and external-disk consequences require distinct decisions and may not be bundled into storage consent.
+- Use an Apple-supported owner-authorization surface where available; never collect a macOS, FileVault, Recovery, or Linux password in an Omarchy text field, command argument, environment variable, or log.
 - Use Apple's supported APFS and Recovery mechanisms to resize space; do not implement an independent APFS writer.
 - Create the per-OS stub macOS/APFS container, RecoveryOS relationship, LocalPolicy authorization, and OS-specific ESP required by Apple's platform model.
-- Acquire Apple-signed machine firmware from authoritative Apple sources, validate it, extract only the required artifacts, and record its provenance.
+- Deploy only the Apple-signed machine firmware already acquired and verified before consent; Stage 2 performs no network acquisition. Revalidate its build identity, digest, manifest binding, provenance, and target board immediately before use, then extract only the required artifacts.
 - Install the qualified m1n1 stage-1 payload through the owner-authorized boot policy flow.
 - Journal every durable mutation so restart/resume derives state from disk rather than carrying transient process state.
 
@@ -87,7 +99,7 @@ The unavoidable Apple owner-authentication and Recovery steps remain visible, gu
 
 #### Stage 4 — system installation
 
-- Install the qualified Omarchy ARM package set from mandatory-signature repositories.
+- Install the qualified Omarchy ARM package set only from the complete content-addressed cache acquired and verified before final consent. Repository metadata, indexes, packages, images, firmware, and boot inputs are immutable manifest-selected cache objects at this stage; Stage 4 runs with network acquisition denied and cannot refresh, substitute, or complete a missing input after the destructive boundary.
 - Create the selected Btrfs/LUKS2 layout while keeping boot artifacts in versioned boot slots outside root snapshots.
 - Configure users without shipped default passwords.
 - Install board-specific firmware, audio profiles, speaker protection, wireless data, display configuration, and capability policy from the signed board record.
@@ -98,25 +110,62 @@ The unavoidable Apple owner-authentication and Recovery steps remain visible, gu
 - Start the new slot once while preserving the last-known-good installer/recovery path.
 - Run the board's required hardware smoke suite and record the exact manifest, artifact, firmware, package, and source SHAs.
 - Mark the slot successful only after the required boot-health contract passes.
-- Present a precise capability report. Never translate a missing required component into a warning followed by “Install complete.”
+- Present a precise capability report containing the platform-manifest digest, component source and artifact digests, board identity, and required capability results. Never translate a missing required component into a warning followed by “Install complete.”
 
 #### Stage 6 — update, rollback, uninstall, and recovery
 
 - Update the platform as an atomic compatibility tuple rather than unrelated packages.
 - Write new boot and root artifacts to inactive/versioned slots, verify them, switch once, and require a boot-success marker.
 - Automatically fall back after failed boot attempts and retain a user-selectable last-known-good entry.
-- Provide clean removal that deletes only the Omarchy-owned APFS container, ESP, and Linux partitions after identity verification, then returns free space through Apple's supported tooling.
+- Provide clean removal that resolves and previews the exact Omarchy-owned APFS container, ESP, and Linux partition identifiers recorded by the transaction journal, revalidates them, obtains explicit authorization, and returns free space through Apple's supported tooling. Pattern-based discovery or deletion is forbidden.
 - Maintain a tested DFU recovery runbook and a recovery image whose version and supported boards are explicit.
 
 ### 4.2 Installer safety invariants
 
 - Unknown or ambiguous board, SoC, firmware, manifest, disk, or transaction state fails closed before mutation.
+- Mutable branches, moving tags, unpinned raw downloads, `TrustAll`, `skipinteg`, unsigned package databases, and successful network transport are never code or artifact authority. A hostile remote that returns valid-looking content must fail before privilege elevation.
 - Every target block device and APFS object is resolved to stable identifiers and revalidated immediately before use.
 - No destructive target is accepted from an unresolved environment variable, glob, user-provided raw device path, or mutable remote response.
 - Existing macOS and unrelated APFS containers are outside the mutation authority.
 - Every durable step is idempotent or has an explicit recovery transition.
+- The transaction journal is a versioned, bounded, hash-chained record bound to the signed plan header and transaction verification material. It is evidence, never mutation authority. Missing, divergent, truncated, replayed, stale, or unauthenticated replicas permit only fresh observation and a typed hold/recovery decision; they can never supply a destructive target or silently recreate approval.
+- Immediately before and after every mutation, the executor records and verifies the complete allowlisted identity/property snapshot for all targets and protected objects. A topology digest or object-property change invalidates approval; partial command output or an exit code cannot satisfy a postcondition.
+- The clean installer creates the final Btrfs/LUKS2 layout directly. It must not use an ext4-to-Btrfs rebuild or in-place LUKS re-encryption as an installation step; any separately offered legacy migration requires its own preserved recovery root, versioned journal, before/after boot-configuration proof, restart-after-every-phase tests, and independent acceptance.
+- A worker may not self-disarm or return success because it sees Btrfs, LUKS, an existing stub, or no pending low-level operation. Completion derives only from the full signed plan, journal, boot configuration, artifact identities, and postconditions.
 - Installer logs redact credentials, owner tokens, recovery secrets, device identifiers not needed for support, and encryption material.
 - Network loss, power loss, process death, full disk, stale metadata, signature failure, and unsupported firmware are explicit tested states.
+
+### 4.3 Required user-visible state machine
+
+The signed graphical application and equivalent CLI expose the same typed states and transitions. A restart, crash, or handoff to Recovery must resume by reading a versioned on-disk transaction journal and revalidating the machine, target identifiers, manifest, and artifacts.
+
+| State | User-visible result | Mutation authority |
+|---|---|---|
+| Launch | Product identity, signing identity, release/channel, manifest source, and network disclosure | None |
+| Readiness | Board, SoC, macOS/firmware, FileVault and Data-lock state, owner authority, power, network, disk topology, and existing OS inventory | Read-only |
+| Admission | Exact support tier and reason; ambiguous, unknown, and unsupported machines exit safely | None |
+| Storage plan | Stable target identifiers, exact byte changes, macOS reserve, Omarchy-owned objects, external-boot consequences, and rollback boundary | None |
+| Artifact acquisition | Signed sources, sizes, progress, ETA, retry/resume, digest verification, and offline-bundle completeness | User-cache writes only |
+| Consent | Final destructive-operation list plus separate security, encryption, telemetry, and external-disk decisions | Authorization only |
+| Apple authorization | Clear machine-owner/Recovery requirement without Omarchy handling credentials | Apple-owned authorization surface |
+| Provisioning | Before/after object identifiers and durable checkpoint for each APFS, RecoveryOS, LocalPolicy, firmware, and boot-policy operation | Only the consented plan |
+| Recovery handoff | Persisted checkpoint, exact visual boot-picker/1TR instructions, and a safe path back to macOS | Only the recorded transition |
+| Linux installation | Revalidated board, disk, manifest, artifacts, and approved layout | Only the consented plan |
+| First boot | Required smoke-test and boot-health evidence; incomplete requirements block completion | Qualified boot-slot transition |
+| Failure | Resume, rollback, safe macOS return, recovery image, and then explicit DFU escalation with second-host/cable checklist | Journal-defined recovery only |
+| Uninstall | Exact identity-based deletion preview, authorization, removal, and Apple-supported space reclamation | Recorded Omarchy objects only |
+| Support export | Local redacted bundle with a user-visible payload preview before save or upload | User-selected destination only |
+
+### 4.4 Installer experience, privacy, and recovery gates
+
+- The primary installer is a signed and notarized native macOS application. The CLI must be functionally equivalent for auditing, automation, diagnostics, and recovery; it is not a second, divergent installation path.
+- Every screen and recovery instruction must pass VoiceOver, keyboard-only navigation, Switch Control, Dynamic Type, high-contrast, reduced-motion, and no-color-only-meaning checks. Terminal ANSI prompts, raw-mode one-letter choices, and a second-stage shell script launched in Terminal are not the release UX.
+- All installer strings, errors, measurements, dates, recovery instructions, and support content are localizable. Apple-owned UI labels are quoted exactly so localized users can identify them.
+- Reboot, boot-picker, 1TR, owner authorization, and return-to-macOS handoffs use persisted checkpoints and both visual and textual instructions; timing-dependent prose alone is insufficient.
+- Telemetry is off by default. Artifact downloads disclose their endpoints and unavoidable server metadata but do not imply analytics consent. Optional metrics require a separate one-time opt-in, show the exact payload, never block installation, and exclude passwords, encryption material, owner tokens, serials, raw APFS identifiers, hostnames, usernames, home paths, MAC addresses, full partition maps, and raw command output.
+- Support bundles are local and redacted by default, available after failures, and previewable before saving or uploading. Exact board identity, detailed disk data, and upload are separate user choices.
+- Credential state is explicit and non-secret: FileVault status, Data-volume lock status, SecureToken/APFS crypto-user eligibility, macOS administrator status, machine-owner eligibility, Recovery authorization required/pending/accepted/cancelled/failed, paired RecoveryOS/1TR status, and Linux passphrase configured/verified/cleared. macOS, FileVault, machine-owner, SecureToken, APFS crypto-user, RecoveryOS, and 1TR secrets are entered only into Apple-owned authorization surfaces; Omarchy receives a typed result and never the secret. A Linux-encryption secret may enter only through a native secure-text control or a no-echo controlling-terminal read into bounded locked memory and may cross a process boundary only through a dedicated anonymous close-on-exec pipe opened for the single intended consumer, never general stdin, argv, environment, filesystem, cache, journal, telemetry, or logs. The buffer and pipe are zeroized and closed on success, cancellation, error, crash recovery, and timeout. Tests inject secrets into text fields, subprocess argv/environment/stdin and unintended descriptors, caches, swap/crash artifacts, structured events, journals, logs, telemetry, support bundles, and Apple-tool handoffs and require their absence outside that exact ephemeral channel.
+- No all-board, offline, encrypted, accessible, localized, recovery-safe, or uninstall-safe claim is permitted until its corresponding automated and physical acceptance evidence exists.
 
 ## 5. System architecture
 
@@ -184,15 +233,18 @@ Mirrors the authoritative freedesktop.org Mesa history and owns the minimal Omar
 
 ### Frozen cross-repository contracts
 
-The first design wave may propose details but may not create competing authorities. The intended interfaces are:
+The first design wave may propose details but may not create competing authorities. F-02 owns one closed authenticated vocabulary of exactly eight payload types. Every object is canonical UTF-8 JSON under RFC 8785 JCS, carried in the common authenticated envelope, bound to the exact schema-set digest, and accepted by consumers only as a verified trusted type. Stable document IDs are never content digests; the envelope carries the separately computed payload digest.
 
 - `board-registry/v1`: exact board and SoC identity, firmware schema, physical capabilities, lifecycle state, and required qualification profile.
-- `platform-manifest/v1`: exact source commits, build recipe digests, artifact hashes, package versions, inter-component constraints, signing identities, channel, and rollback compatibility.
-- `installer-plan/v1`: read-only inventory, stable disk/APFS identifiers, proposed mutations, selected board record, release manifest, and explicit owner approvals.
-- `qualification-record/v1`: physical board identity, firmware/macOS baseline, manifest SHA, performed tests, raw evidence references, failures, residuals, operator, and timestamps.
-- `boot-health/v1`: selected slot, attempt counter, manifest SHA, health checks, success mark, failure reason, and fallback decision.
+- `platform-manifest/v1`: typed Linux-kernel, DTB-set, firmware-bundle/ABI, Mesa-stack, and boot-stack component records, their exact source/config/patch/toolchain/report/artifact locks, typed inter-component constraints, channel, required boot-health policy, and rollback compatibility.
+- `installer-plan/v1`: read-only inventory, stable disk/APFS identifiers, proposed mutations, selected board record, release manifest, actor/role context, and approval requirements; the approval itself is a separate payload.
+- `qualification-record/v1`: physical board identity, firmware/macOS baseline, manifest identity and digest, performed tests, raw evidence references, failures, residuals, operator, and timestamps.
+- `boot-health/v1`: signed health core containing selected slot, generation and lineage, attempt counter, manifest-bound required checks, failure reason, and fallback set; it contains no embedded success marker.
+- `owner-approval/v1`: exact plan/scope/registry/manifest/topology/schema-set/target/operation binding, actor, authority role, issuance, expiry, and replay identity.
+- `boot-success-mark/v1`: separate authenticated success statement bound to the verified boot-health core, board, manifest, slot, generation, lineage, counter, source generation, required-check policy, and rollback set.
+- `dtb-mutation-envelope/v1`: schema set, complete board/source identity, manifest, pre/post DTB digests, exact policy/tool/artifact locks, ordered authorized mutations, firmware bundle/schema, signer, expiry, and replay identity.
 
-Only `omarchy-apple-platform` publishes these schemas. Consumer repositories generate language-native bindings or validators from the canonical schemas rather than copying field lists.
+Authority and CI roles resolve only through the closed `AuthorityRoleBinding` inside `Trusted<TrustContext>` supplied by F-03; no consumer-local `owners.v1` or shadow role table may grant authority. Only `omarchy-apple-platform` publishes these schemas. Consumer repositories generate language-native bindings or validators from the canonical schemas rather than copying field lists.
 
 ## 7. Platform implementation domains
 
@@ -231,12 +283,17 @@ Only `omarchy-apple-platform` publishes these schemas. Consumer repositories gen
 ## 8. Release and supply-chain model
 
 - Every source input is pinned by commit and fetched from an allowlisted repository.
+- Every fork records its exact upstream repository, base commit, ordered downstream commits, attribution, contribution provenance, and upstream disposition. A branch name or repository owner is not provenance.
 - Every build runs in a declared isolated builder with recorded toolchain/container digests.
 - Reproducible artifacts are compared across independent builders for high-trust components.
 - Packages, images, manifests, and boot bundles require project signatures. `Optional TrustAll` is forbidden in release channels.
-- SBOMs, source provenance, build attestations, artifact hashes, license inventory, vulnerability results, and secret scans accompany every candidate.
+- SBOMs, source provenance, build attestations, artifact hashes, per-file/component license inventory, third-party notices, corresponding-source offers, vulnerability results, and secret scans accompany every candidate.
+- The release evidence maps each shipped binary, firmware blob, font, theme, artwork asset, package, and bundled source to its version, digest, origin, applicable license/notices, redistribution decision, source-offer location where required, and build or acquisition recipe.
+- Apple firmware is fetched directly from authoritative Apple endpoints by default and is not mirrored or redistributed until an owner-approved legal and release-policy record authorizes the exact artifact class. Per-firmware redistributability is explicit; a permissive project license does not automatically cover bundled vendor firmware.
+- The opaque human-produced boot artifact boundary must arrive with a human-signed artifact identity, license/notice inventory, provenance, redistribution decision, source-offer statement where applicable, and interface attestation. Automated consumers validate that envelope without inspecting the fenced source repository.
 - Edge, RC, and stable are distinct immutable release namespaces. Promotion copies an already-built digest; it never rebuilds from a moving branch.
 - Revocation, key rotation, mirror compromise, expired metadata, and offline recovery are tested procedures.
+- Root, targets, snapshot, timestamp, artifact, package-index, and emergency/recovery signing roles have separated online/offline custody, thresholds, expiry, rollback/freeze protection, rotation, revocation, and incident exercises. One long-lived online key may not authorize every layer.
 - The complete boot/kernel/firmware/Mesa/userspace tuple remains available for rollback for the full support lifetime of a board.
 
 ## 9. Physical hardware lab and evidence
@@ -245,10 +302,14 @@ Representative boards may accelerate bring-up, but the final no-exception claim 
 
 The lab must provide:
 
-- A catalog of each device, board ID, SoC, RAM/storage configuration class, firmware/macOS baselines, peripherals, location, and recovery status.
-- A separate DFU host, controlled power, USB/UART capture where available, HDMI/DisplayPort capture, managed USB/TB devices, network endpoints, Bluetooth peripherals, storage/docks, audio measurement, thermal logging, and camera targets.
+- A catalog of each device, board ID, SoC and bin, RAM/storage/GPU configuration class, firmware/macOS baselines, battery health, port map, peripherals, location, calibration state, and recovery status. Final promotion requires two independently serialized units for every materially distinct board/profile; laptop/desktop, port-count, display, die/bin, and materially different RAM/storage/GPU profiles do not substitute for one another.
+- A separate DFU/recovery Mac with the correct direct cables and capture, controlled AC power, wattmeter and USB-PD analyzer, USB/UART capture where available, HDMI/DisplayPort capture, managed USB/TB devices, network endpoints, Bluetooth peripherals, storage/docks, audio loopback and calibrated SPL measurement, thermal chamber/controlled ambient and sensors, camera targets, and mechanical/input fixtures.
 - Automated clean-install, encryption, first-boot, update, rollback, uninstall, cold-boot loop, suspend-cycle, thermal soak, battery/idle-drain, external-display, port, wireless, audio-safety, camera, media, and recovery scenarios.
+- The initial minimum per exact profile is three clean installs per unit, encrypted and unencrypted paths where applicable, 50 cold/warm boot cycles for laptop profiles, five attach/detach cycles for every applicable port/device class, and ten complete update/rollback cycles. Any higher subsystem safety standard overrides these floors.
+- Automated evidence covers exact artifacts/configuration, command outcomes, logs, power and thermal measurements, reset/fault injection, repeatability, and immutable hashes. Human-observed evidence separately covers visual artifacts, panel quality, speaker distortion, microphone intelligibility, input feel and fit, thermal comfort, fan character, vibration, RF behavior, physical DFU sequencing, destructive consent, and fixture correctness.
 - Raw logs and measurements retained by immutable evidence ID, with redaction and privacy rules.
+- Each record carries the board/profile ID, unit pseudonym, manifest and source/artifact digests, macOS/firmware baseline, fixture/calibration IDs, operator, timestamps, exact steps, expected/actual results, raw evidence hashes, failures, reruns, and residuals. Raw material is encrypted and access-controlled; public exports redact serials, personal accounts, usernames, home paths, SSIDs/BSSIDs, MAC/IP addresses, filesystem UUIDs, notifications, secrets, tokens, and customer data.
+- Before execution, every quantitative capability row has an approved unit, procedure, fixture/calibration requirement, pass/fail threshold, measurement uncertainty, repetition count, and safety stop. Every qualitative human-observed row has a bounded rubric, required capture, two independent operators, disagreement/escalation rule, and named acceptance authority. Missing criteria, calibration, operator evidence, or a failed required row blocks promotion.
 - Quarantine for boards with failed stable candidates and an incident path that prevents promotion across related boards until impact is understood.
 
 Virtual machines, mocked device trees, static repository assertions, and compilation are useful lower gates but may never produce a physical qualification record.
@@ -289,8 +350,14 @@ The coordinator records rulings, integrations, rejections, incidents, and correc
 
 - Pure planning tests over versioned disk/APFS fixtures.
 - Property tests proving unrelated containers are never selected.
+- State-matrix tests for FileVault on/off, locked Data, stale Preboot, missing machine owner, non-owner administrator, wrong paired RecoveryOS/1TR, multiple internal disks, and multiple external disks.
 - Restart-after-every-step transaction tests.
 - Fault injection for network, power, disk-full, corrupt metadata, bad signatures, stale identities, and partial writes.
+- Download interruption, cache corruption, signed offline-bundle, and pre-destructive-boundary tests proving artifact readiness before APFS or boot changes.
+- Identity-based uninstall property tests proving no unrecorded APFS or block object can be selected, including hostile labels and misleading partition names.
+- Accessibility tests for VoiceOver, keyboard navigation, Switch Control, Dynamic Type, high contrast, reduced motion, and color-independent meaning, followed by physical UI verification.
+- Localization completeness tests for strings, errors, units, dates, boot-picker/1TR guidance, recovery, uninstall, and support export.
+- Support-bundle redaction fixtures proving prohibited credentials, identifiers, paths, partition maps, and raw output never enter the default bundle.
 - Destructive tests only on disposable lab machines with rehearsed DFU recovery.
 
 ### Boot, kernel, Mesa, and platform releases
@@ -300,12 +367,28 @@ The coordinator records rulings, integrations, rejections, incidents, and correc
 - Upstream test suites and subsystem-specific conformance.
 - Per-board boot and hardware suites.
 - Cross-repository candidate assembly and last-known-good rollback exercise.
+- A hostile promotion test proves every stable-channel writer routes through F-07 and rejects a missing slice, incomplete product-integration parity, missing applicable board/profile, failed physical row, stale evidence, legal-policy failure, digest substitution, rollback omission, or public-ledger mismatch.
 
 ## 12. Slice ledger
 
 Only the coordinator changes a slice to DONE.
 
 `HUMAN-ONLY BLOCKED` is not a completion state. It means the slice cannot enter the agent factory and remains blocked until a qualified human owner accepts it.
+
+Design prose is not an executable contract. F-02 through F-06 remain prerequisites until canonical schemas, generated bindings, positive and hostile test vectors, trust metadata, policy checks, candidate assembly, consumer guards, and CI gates run and fail closed. Component work may prepare isolated experiments, but no artifact can enter an Omarchy release candidate through a handwritten field list or an unenforced design note.
+
+### 12.1 Foundation slice acceptance
+
+| Slice | Required executable artifacts | Hard rejection conditions |
+|---|---|---|
+| F-02 | Canonical closed schemas, locked vocabulary, strict validators, canonicalization vectors, generated Python/Swift/bounded boot bindings, accepted and hostile fixtures, drift check, and cross-document conformance suite | Unknown/duplicate field accepted, inconsistent canonical bytes, stale binding, partial object returned after rejection, digest/identity mismatch admitted, or any consumer-specific shadow schema |
+| F-03 | Signed trust-root bundle, artifact-to-role matrix, public key IDs, delegation and threshold policy, online/offline custody record, verification order, expiry/freeze/rollback rules, rotation/revocation ceremony, compromise drill, and offline recovery fixture | One unrestricted online key, threshold shortfall accepted, expired/replayed metadata accepted, untrusted key treated as valid, rollback/freeze possible, or recovery impossible without network |
+| F-04 | Pinned builder definitions, two-builder comparison, source closure, SBOM and provenance attestations, immutable artifact store, signed package/index metadata, channel promotion and rollback exercise | Undeclared input, mutable fetch, artifact mismatch, rebuild during promotion, incomplete SBOM/provenance, unsigned index, missing rollback artifact, or non-reproducible high-trust component |
+| F-05 | Candidate assembler, generated consumer packages, exact tuple/ABI validator, hostile cross-repository fixtures, required-gate census, deterministic rejection codes, immutable manifest output, and end-to-end consumer guard tests | Handwritten field mapping, missing component/gate, incompatible tuple accepted, unqualified board targeted, hostile fixture passes, consumer bypasses manifest, or failure becomes warning-success |
+| F-06 | Per-artifact license/notice/source-offer inventory, consolidated NOTICE bundle, fork/upstream provenance, firmware/asset redistribution policy records, public source-offer index, policy engine, hostile fixtures, and release compliance attestation | `unknown`, `prohibited`, missing notice/source, unresolved provenance, direct-fetch-only artifact redistributed, license conflict, or policy result absent at candidate assembly |
+| F-07 | One promotion command/API that recomputes the authoritative required-slice closure, exact candidate and rollback digests, every applicable signed qualification record, release-compliance attestation, public-ledger projection, and channel target before an atomic digest copy | Any prerequisite incomplete or non-terminal, any applicable board/profile absent or failed, candidate/rollback/legal/ledger mismatch, stale or replayed evidence, warning-success, rebuild during promotion, or any alternate stable-write path |
+
+Every condition is enforced in CI and rerun from a clean checkout. A document, branch, build log, or coordinator intent does not satisfy these rows without the named artifacts and passing tests.
 
 | ID | Repository | Deliverable | Depends on | Status |
 |---|---|---|---|---|
@@ -314,41 +397,53 @@ Only the coordinator changes a slice to DONE.
 | F-02 | omarchy-apple-platform | Design and implement canonical schema package for board registry, platform manifest, installer plan, qualification record, and boot health | F-01 | TODO |
 | F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | TODO |
 | F-04 | omarchy-apple-platform | Establish reproducible builder definitions, SBOM/provenance, channel promotion, and immutable artifact storage | F-02 | TODO |
-| F-05 | omarchy-apple-platform | Build candidate assembly and cross-repository compatibility validator | F-03, F-04 | TODO |
-| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02 | TODO |
+| F-05 | omarchy-apple-platform | Build candidate assembly, hostile fixtures, generated consumer bindings, and cross-repository compatibility validator | F-03, F-04, F-06, Q-00, Q-01 | TODO |
+| F-06 | omarchy-apple-platform | Implement license/notice inventory, corresponding-source offers, redistribution decisions, fork provenance, policy enforcement, and release compliance bundle | F-01 | TODO |
+| F-07 | omarchy-apple-platform | Implement the sole stable-promotion terminal that recomputes the complete required-slice, product-integration parity, candidate, qualification, legal, rollback, and public-ledger closure before copying an immutable candidate digest | F-05, P-03, P-05, I-09, B-04, Q-04, Q-05, Q-06, Q-07, Q-08 | TODO |
+| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |
 | P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | TODO |
 | P-03 | omarchy-mac | Complete command/application ARM parity census and tracked porting queue | F-01 | TODO |
 | P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | TODO |
 | P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | TODO |
-| I-01 | omarchy-mac-installer | Threat model and design the installer transaction/state machine | F-01 | TODO |
-| I-02 | omarchy-mac-installer | Brand and self-host a pinned installer build with signed immutable metadata | I-01, F-03 | TODO |
-| I-03 | omarchy-mac-installer | Implement read-only board/disk/APFS inventory and plan generation | F-02, I-01 | TODO |
-| I-04 | omarchy-mac-installer | Implement journaled Apple platform provisioning and resume | I-03 | TODO |
-| I-05 | omarchy-mac-installer | Build the Omarchy ARM live/install image handoff | F-04, I-04 | TODO |
-| I-06 | omarchy-mac-installer | Implement uninstall, rollback, recovery, and DFU runbook | I-04, I-05 | TODO |
+| P-06 | omarchy-mac | Remove legacy ext4/Btrfs/LUKS conversion commands and packages from the clean-install dependency graph and prove the installer cannot invoke them | P-02 | TODO |
+| P-07 | omarchy-mac | Retire legacy in-place conversion or implement it as a separately approved journaled migration with preserved recovery root and crash-safe boot commit | P-05, P-06 | TODO |
+| I-01 | omarchy-mac-installer | Threat model and design the typed installer transaction/state machine, destructive boundary, and restart semantics | F-01 | TODO |
+| I-02 | omarchy-mac-installer | Build a signed/notarized native app and equivalent CLI with pinned immutable metadata and resumable pre-mutation artifact acquisition | I-01, F-03, F-06 | TODO |
+| I-03 | omarchy-mac-installer | Implement pure read-only board/disk/APFS inventory, fail-closed admission, stable target identities, exact plan generation, and final consent | F-02, Q-00, I-01, I-07 | TODO |
+| I-04 | omarchy-mac-installer | Implement versioned journaled Apple platform provisioning, idempotent resume, and safe macOS return | I-02, I-03, I-07 | TODO |
+| I-05 | omarchy-mac-installer | Build the Omarchy ARM live/install image handoff with identity and artifact revalidation | F-04, F-05, I-04 | TODO |
+| I-06 | omarchy-mac-installer | Implement exact-identity uninstall, rollback, recovery image, and DFU escalation runbook | I-04, I-05 | TODO |
+| I-07 | omarchy-mac-installer | Implement distinct FileVault, Data-lock, administrator, machine-owner, Linux-encryption, paired-RecoveryOS, and 1TR states with Apple-owned credential handling | I-01 | TODO |
+| I-08 | omarchy-mac-installer | Implement accessible and localized native UX, persisted reboot/Recovery guidance, progress, privacy consent, and redacted support export | I-01, I-07, P-04 | TODO |
+| I-09 | omarchy-mac-installer | Pass pure-planner, restart, fault-injection, disk-selection, uninstall, privacy, accessibility, localization, clean-path dependency, and disposable-hardware acceptance suites | Q-00, I-02, I-03, I-04, I-05, I-06, I-07, I-08, P-06, P-07 | TODO |
 | B-01 | m1n1-omarchy | Human owner defines reproducible build, artifact, firmware-schema, and debug contracts | F-02, F-04, human m1n1 owner | HUMAN-ONLY BLOCKED |
 | B-02 | m1n1-omarchy | Human owner packages qualified M1/M2 stage-1 and stage-2 bundles | B-01, human m1n1 owner | HUMAN-ONLY BLOCKED |
-| B-03 | u-boot-omarchy | Define reproducible Apple U-Boot and UEFI/slot contracts | F-02, F-04 | TODO |
+| B-03 | u-boot-omarchy | Define reproducible Apple U-Boot and UEFI/slot contracts | F-02, F-04, F-06 | TODO |
 | B-04 | u-boot-omarchy | Implement versioned boot-slot selection, success marking, and fallback | B-03 | TODO |
-| K-01 | linux-omarchy | Define downstream kernel/DT configuration, patch-queue, ABI, and build contracts | F-02, F-04 | TODO |
+| K-01 | linux-omarchy | Define downstream kernel/DT configuration, patch-queue, ABI, and build contracts | F-02, F-04, F-06 | TODO |
 | K-02 | linux-omarchy | Produce a qualified M1/M2 reference kernel/DT package set | K-01 | TODO |
 | K-03 | linux-omarchy | M3 base/Pro/Max/Ultra subsystem bring-up and board qualification | K-02 | TODO |
 | K-04 | linux-omarchy | M4 base/Pro/Max subsystem bring-up and board qualification | K-03 | TODO |
 | K-05 | linux-omarchy | A18 Pro and M5 family subsystem bring-up and board qualification | K-04 | TODO |
 | K-06 | linux-omarchy | M6 intake and subsystem bring-up | shipping hardware, K-05 | TODO |
-| G-01 | mesa-omarchy | Establish authoritative mirror sync, downstream patch queue, reproducible build, and conformance contract | F-02, F-04 | TODO |
+| B-05 | m1n1-omarchy | Human owner packages qualified M3 stage-1 and stage-2 bundles | B-01, K-03, human m1n1 owner | HUMAN-ONLY BLOCKED |
+| B-06 | m1n1-omarchy | Human owner packages qualified M4 stage-1 and stage-2 bundles | B-01, K-04, human m1n1 owner | HUMAN-ONLY BLOCKED |
+| B-07 | m1n1-omarchy | Human owner packages qualified A18 Pro and M5-family stage-1 and stage-2 bundles | B-01, K-05, human m1n1 owner | HUMAN-ONLY BLOCKED |
+| B-08 | m1n1-omarchy | Human owner packages qualified M6 stage-1 and stage-2 bundles | shipping hardware, B-01, K-06, human m1n1 owner | HUMAN-ONLY BLOCKED |
+| G-01 | mesa-omarchy | Establish authoritative mirror sync, downstream patch queue, reproducible build, and conformance contract | F-02, F-04, F-06 | TODO |
 | G-02 | mesa-omarchy | Qualify M1/M2 graphics reference tuple | G-01, K-02 | TODO |
 | G-03 | mesa-omarchy | Implement and qualify M3 graphics/display dependencies | G-02, K-03 | TODO |
 | G-04 | mesa-omarchy | Implement and qualify M4 graphics/display dependencies | G-03, K-04 | TODO |
 | G-05 | mesa-omarchy | Implement and qualify A18/M5/M6 graphics dependencies | G-04, K-05 | TODO |
-| Q-01 | omarchy-apple-platform | Define board inventory and qualification-record schema | F-02 | TODO |
+| Q-00 | omarchy-apple-platform | Produce a cited, immutable, digest-addressed Apple Silicon intake dataset and contradiction ledger from authoritative sources | F-02 | TODO |
+| Q-01 | omarchy-apple-platform | Define board inventory, capability criteria, and qualification-record schema | F-02, Q-00 | TODO |
 | Q-02 | omarchy-apple-platform | Build lab controller, evidence ingestion, redaction, and public ledger generation | Q-01 | TODO |
-| Q-03 | hardware lab | Acquire and inventory every released Apple Silicon board topology | Q-01 | TODO |
-| Q-04 | hardware lab | Certify M1/M2 reference and every M1/M2 board | B-02, B-04, K-02, G-02, I-06, Q-02 | TODO |
-| Q-05 | hardware lab | Certify M3 boards | K-03, G-03, Q-02 | TODO |
-| Q-06 | hardware lab | Certify M4 boards | K-04, G-04, Q-02 | TODO |
-| Q-07 | hardware lab | Certify A18 Pro and M5 boards | K-05, G-05, Q-02 | TODO |
-| Q-08 | hardware lab | Certify M6 boards | K-06, G-05, Q-02 | TODO |
+| Q-03 | hardware lab | Acquire, inventory, fixture, and recovery-certify two independent units of every materially distinct Apple Silicon board/profile | Q-00, Q-01 | TODO |
+| Q-04 | hardware lab | Certify M1/M2 reference and every M1/M2 board | B-02, B-04, K-02, G-02, I-09, Q-02, Q-03 | TODO |
+| Q-05 | hardware lab | Certify M3 boards | B-04, B-05, K-03, G-03, I-09, Q-02, Q-03 | TODO |
+| Q-06 | hardware lab | Certify M4 boards | B-04, B-06, K-04, G-04, I-09, Q-02, Q-03 | TODO |
+| Q-07 | hardware lab | Certify A18 Pro and M5 boards | B-04, B-07, K-05, G-05, I-09, Q-02, Q-03 | TODO |
+| Q-08 | hardware lab | Certify M6 boards | B-04, B-08, K-06, G-05, I-09, Q-02, Q-03 | TODO |
 
 ## 13. Milestones and promotion gates
 
@@ -388,6 +483,11 @@ Only the coordinator changes a slice to DONE.
 
 - Shipping M6 hardware is acquired and qualifies through unchanged safety and evidence gates.
 
+### Milestone H — complete-program stable promotion
+
+- F-07 recomputes the full graph and promotes the already-built immutable candidate digest only after P-03 product-integration parity, Q-04 through Q-08, the corresponding human-produced opaque boot bundles, installer acceptance, rollback, release compliance, and public-ledger projection all pass.
+- Independent adversarial review proves there is no second stable-channel writer and plants one failure from every prerequisite class to demonstrate that the terminal gate bites.
+
 No milestone has a calendar promise until its prerequisite discovery and physical-hardware gates have produced evidence. Literal all-board/full-feature support is expected to be a multi-year platform program.
 
 ## 14. Staffing model
@@ -402,9 +502,15 @@ Luna agents accelerate repository research, design, test construction, packaging
 |---|---|
 | An architecture check is mistaken for hardware support | Board registry plus physical qualification record required for promotion |
 | Installer damages macOS/APFS | Read-only plan, stable identifiers, Apple tools, property tests, journal, disposable-machine fault injection, DFU rehearsal |
+| Installer mutates during inspection or before complete consent | Pure inventory/admission/planning seams, pre-mutation artifact verification, explicit destructive boundary, and tests rejecting pre-consent `updatePreboot` or storage changes |
+| Credential states are conflated or secrets leak | Typed FileVault/owner/Recovery/Linux-encryption states, Apple-owned authorization UI, prohibited-secret fixtures, and redacted support exports |
+| Uninstall selects unrelated user data | Journal-recorded object identities, read-only deletion preview, immediate revalidation, explicit authorization, and property tests forbidding label/pattern selection |
+| Installer excludes users or strands them at Recovery | Native accessible UI, equivalent CLI, complete localization, persisted handoff checkpoints, safe macOS return, and DFU escalation rehearsal |
 | Cross-component update produces an unbootable tuple | Single signed platform manifest, inactive slots, boot-success marker, automatic fallback |
 | Upstream changes outrun downstream patches | Pinned sources, automated sync reports, owned patch queues, reproducible builds, explicit requalification |
 | Package or mirror compromise | Mandatory signatures, threshold/offline roles, expiry, provenance, SBOMs, revocation and rotation drills |
+| A license or redistribution gap blocks a release after engineering completes | Machine-enforced per-artifact license/notice/source-offer inventory, human decisions for uncertain firmware and opaque inputs, and F-06 before candidate assembly |
+| Design-only interfaces drift across repositories | Canonical executable schemas, generated bindings, conformance vectors, hostile fixtures, consumer fail-closed tests, and F-05 assembly validation |
 | Speakers or thermals are unsafe | Fail-closed board profiles, physical measurements, soak tests, no generic fallback |
 | New chips are marketed as supported before evidence | Dated intake versus support states; only qualification ledger drives public support |
 | Agent output overclaims completion | Coordinator-only DONE, empirical reviewer probes, explicit fail census, public residuals |
@@ -419,7 +525,8 @@ The project owner must decide or approve:
 - Public product name, trademarks, visual identity, and domain.
 - Signing identities, key custody, release authority membership, and incident contacts.
 - Hardware acquisition budget and physical lab location.
-- Telemetry default and privacy policy.
+- Apple firmware acquisition/redistribution policy, public corresponding-source hosting, trademark/branding clearance, and accountable release-compliance owner.
+- Privacy policy text and any future proposal to change the coordinator-set telemetry-off default.
 - Stable-release publication and any support-level claim.
 - Actions with irreversible external impact, including production deployment, destructive lab tests outside disposable targets, and public announcements.
 - Appointment of qualified human m1n1 maintainers and reviewers who accept that repository's local contribution rules.
@@ -435,7 +542,7 @@ The program mission is complete only when:
 3. Every applicable hardware capability in Section 3 passes on physical hardware with immutable evidence.
 4. Every installed artifact is reproducibly built, signed, traceable to pinned source, and selected by one qualified platform manifest.
 5. Unknown or unsupported machines fail before privileged mutation and receive an honest diagnostic.
-6. Stable promotion is structurally impossible without complete board qualification records and all required cross-repository gates.
+6. Stable promotion is structurally impossible outside the single F-07 terminal, and that terminal recomputes product-integration parity, complete board/profile qualification records, human-produced opaque boot-bundle evidence, installer acceptance, component/candidate compatibility, release compliance, rollback retention, and the public support ledger before copying an immutable candidate digest.
 7. The public support ledger names exact boards, firmware baselines, release manifests, evidence, and residuals without implying broader compatibility.
 8. An adversarial assembled-system review finds no untracked feature gap, unsafe fallback, false success, unsupported destructive path, or rollback hole.
 
@@ -451,6 +558,17 @@ The program mission is complete only when:
 | 2026-09-02 | Require FULL to include all applicable hardware features | “No exception” cannot be represented honestly by a daily-driver subset |
 | 2026-09-02 | Use CNVS Luna workers under coordinator review and SWE/QA/reviewer separation | The program is too broad and safety-critical for ungoverned single-agent changes |
 | 2026-09-02 | Make m1n1 a human-only workstream and treat its outputs as opaque signed inputs to the agent-operated platform boundary | The repository's local instructions prohibit AI/LLM use and override the factory assignment |
+| 2026-09-02 | Treat the clean-installer UX audit as release-blocking and adopt its state, accessibility, localization, privacy, and recovery gates | A terminal-driven multi-stage flow with pre-consent mutation, ambiguous disk selection, conflated credentials, or pattern-based deletion cannot satisfy the clean-installer or data-safety promise |
+| 2026-09-02 | Define inventory, admission, acquisition, and plan generation as pure with respect to system/APFS/boot state; `updatePreboot` belongs after final consent | A supposedly read-only phase must not alter the machine or make recovery harder before the user accepts the complete mutation plan |
+| 2026-09-02 | Make telemetry off by default and require separate inspectable consent for optional metrics and sensitive support data | Downloads must not silently become analytics consent, and installation cannot depend on telemetry |
+| 2026-09-02 | Forbid pattern-based uninstall and require journal-recorded stable object identities | Names and disk ordering are ambiguous; deletion authority must be narrower than discovery authority |
+| 2026-09-02 | Treat the worker-reported 59-row silicon research result as provisional and fail closed, not as a support or installer-admission list | The report is not locally auditable until Q-00 preserves the cited row-level dataset and digest; reported selector gaps and contradictions therefore remain UNKNOWN rather than canonical facts |
+| 2026-09-02 | Exclude in-place ext4-to-Btrfs conversion and LUKS re-encryption from the clean-install path | Power loss can occur after irreversible storage work but before boot configuration and recovery state are durable; a clean install can create the final layout directly |
+| 2026-09-02 | Require executable canonical contracts before cross-repository release integration | Frozen names in prose do not provide schemas, generated bindings, hostile fixtures, trust enforcement, or consumer guards |
+| 2026-09-02 | Make license, notice, source-offer, redistribution, and fork provenance an enforced release artifact | A build can be technically reproducible while remaining legally undistributable or unable to satisfy downstream source obligations |
+| 2026-09-02 | Require two independent physical units for each materially distinct board/profile and separate automated from human-observed evidence | A single unit or simulated result cannot expose unit variance, physical interaction failures, acoustic/visual defects, or recovery-operator errors |
+| 2026-09-02 | Make F-07 the only stable-promotion authority and add explicit human boot-bundle slices for every hardware cohort | Acyclic component and qualification work is insufficient if a release writer can bypass intake, later-board opaque boot inputs, physical evidence, legal policy, rollback, or the public ledger |
+| 2026-09-02 | Make P-03 product-integration parity a direct F-07 prerequisite | A stable release cannot be complete while the command/application ARM parity census and tracked porting queue remain outside the promotion terminal's transitive closure |
 
 ## 19. Append-only progress log
 
@@ -462,3 +580,22 @@ Do not edit or delete existing rows. Corrections are new rows.
 | 2026-09-02 | Repository ancestry verified | GitHub-native forks retain their parents; Mesa main history mirrors freedesktop.org at the verified upstream SHA from creation time |
 | 2026-09-02 | Coordinator established the canonical program plan | This document defines the mission, ownership, interfaces, safety invariants, acceptance criteria, slice ledger, decisions, and factory rules |
 | 2026-09-02 | m1n1 Luna design lane stopped before edits | Worker reported the repository-local AI/LLM prohibition; no design, code, checks, commit, or push occurred, and the coordinator broadcast a supersession fence to all active agents |
+| 2026-09-02 | Clean-installer UX audit rejected the current baseline | CNVS task `F3B211F9-6AB1-4E02-A610-DFD84B883A8B` found pre-consent mutation, ambiguous storage identity, credential-state conflation, no durable transaction journal, incomplete download/recovery UX, inaccessible and unlocalized terminal stages, unsafe pattern-based removal, and under-specified privacy; the coordinator converted every class into blocking contracts and slices I-01 through I-09 |
+| 2026-09-02 | Installer transaction design published for review | `omarchy-mac-installer` branch `factory/design-installer-transaction` commit `1042ef04d65a7a59c46c7ea8b4d2a7c0db61869e` adds a design-only transaction document; no implementation or installer slice is DONE |
+| 2026-09-02 | U-Boot release/slot design published for review | `u-boot-omarchy` branch `factory/design-uboot-slots` commit `e385874ca1987248b40aa150f10d3d3ad32fde02` adds a design-only document; its documentation build was blocked by the host GNU Make 3.81, and B-03/B-04 remain open |
+| 2026-09-02 | Mesa downstream design published for review | `mesa-omarchy` branch `factory/design-mesa-release` commit `6221cee01fecb4f452bd56d4cb6ebc8db1391724` adds a design-only document above verified mirror base `d870cef8b7c8a4a11edc669669c9f18ae402314a`; implementation, conformance, and qualification remain open |
+| 2026-09-02 | Kernel/DT bring-up design published for review | `linux-omarchy` branch `factory/design-linux-bringup` commit `e774b67114bdcb7e6d204b403f2ba380a5c51677` adds a design-only document above base `77cb8f24c2381a8abb7272d7bbdec548d6426a8a`; RST parsing passed, full docs build was blocked by host GNU Make 3.81, unrelated lane edits remain untouched, and K-01 through K-06 remain open |
+| 2026-09-02 | Installer safety audit rejected the current product path | CNVS task `7ECBAEFD-CC63-4D33-A6DB-64DAC97F282E` found mutable unsigned root inputs, ambiguous/stale disk and ESP authority, missing APFS/RecoveryOS/LocalPolicy transaction states, and crash-unsafe legacy storage conversion; the coordinator added hard gates and P-06 |
+| 2026-09-02 | Silicon intake audit rejected admission completeness | CNVS task `5E649A10-4465-45DC-9D31-9164E554ECC8` produced 47 M1-M4 and 12 A18/M5/M6 research rows but found selector gaps, contradictions, absent newer support matrices, and no physical Omarchy evidence; every row remains unqualified pending canonical import and review |
+| 2026-09-02 | Licensing and upstream-compliance audit rejected release readiness | CNVS task `E42B4646-FCB8-4622-BD64-1C5729BADC89` found missing consolidated notices, SBOM/license closure, source offers, exact fork provenance, firmware redistribution decisions, and policy enforcement; F-06 now blocks candidate assembly |
+| 2026-09-02 | Supply-chain audit rejected release readiness | CNVS task `52DCF525-FA95-4809-B165-5F63E1ADF865` found trust-root, signing-role, expiry, revocation, provenance, mirror, and offline-recovery controls are not yet executable; F-03 through F-05 remain blocking work |
+| 2026-09-02 | Cross-repository interface audit rejected paper-only contracts | CNVS task `D4D2AC8D-7D8D-446E-9627-03A6A4F33BC0` found no implemented canonical schemas, trust root, assembly validator, or executable consumer guards; design documents cannot advance those foundation slices to DONE |
+| 2026-09-02 | Physical fleet audit rejected qualification readiness | CNVS task `EF1DE608-FD7F-427E-83F1-50A633D7F523` found no physical hardware-in-loop evidence and incomplete board/peripheral coverage; the coordinator established fleet, fixture, numeric-cycle, evidence, and redaction minimums while keeping Q-03 through Q-08 open |
+| 2026-09-02 | Canonical schema design published for review | `omarchy-apple-platform` branch `factory/design-platform-schema` commit `64970b3bbef7f30b492bedff3ba2615c2d4d1d25` adds the F-02 design note and passes its post-push documentation gates; no schema, validator, binding, fixture, trust root, or admission implementation exists yet |
+| 2026-09-02 | Whole-program adversarial review rejected release readiness | CNVS task `AC5B6269-B98A-4FCE-BE55-733FD40F3342` confirmed that release authority, executable implementations, physical evidence, dependency closure, and acceptance gates remain absent; the honest public state remains design program with no new FULL support claim |
+| 2026-09-02 | Corrected the central release graph after adversarial rejection | Q-00 now blocks board admission and installer acceptance; F-05 consumes canonical intake and qualification schema; I-05 consumes candidate assembly; I-09 consumes the retired-or-journaled legacy path; B-05 through B-08 require human-produced opaque boot bundles for M3 through M6; Q-05 through Q-08 require those bundles and B-04; F-07 is the sole stable-promotion terminal across all physical cohorts |
+| 2026-09-02 | Second F-02 and K-01 reviews rejected their corrected design tips | CNVS tasks `7A652089-ECD7-441E-8D4E-E035859C4E6F` and `71F8B4E9-B9CE-4586-9626-5D8987C29C7B` found cross-contract manifest, provenance, authority, identity, firmware-envelope, AGX-census, and boot-health blockers; neither slice is DONE |
+| 2026-09-02 | F-02 and K-01 correction round restarted after a headless launcher failure | CNVS tasks `1BF54709-38C9-4D17-B9C9-B5237B7C380B` and `E63C8FBD-F52B-4B6B-8B84-0527EA38EF55` run as isolated normal-terminal writers with exact branch, file, remote-tip, and dirty-state verification gates |
+| 2026-09-02 | F-06 release-compliance design started | CNVS task `935604DA-1E6A-4C23-9BAE-A6B43FCF5B13` owns only `docs/design/release-compliance.md` in an isolated worktree; implementation, legal clearance, candidate admission, and DONE remain open |
+| 2026-09-02 | PROGRAM review rejected incomplete promotion closure | CNVS task `C9840160-1BE2-405F-B9B6-68D49615A2C3` recomputed 52 nodes and exercised 27 hostile probes; structural guards rejected their planted violations, but F-07 reached only 51 nodes because P-03 was omitted, so the coordinator added P-03 as a direct prerequisite and kept release readiness REJECTED |
+| 2026-09-02 | PROGRAM plan-integrity correction independently accepted | CNVS task `77526400-3505-4191-AE5C-A1CC54C0BCCA` verified the corrected F-07 closure reaches all 52 slices, planted graph violations fail closed, the append-only history remains intact, and release readiness remains REJECTED because executable implementation and physical proof are still absent |
