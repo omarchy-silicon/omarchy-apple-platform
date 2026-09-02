@@ -1,568 +1,268 @@
 # Program-integrity CI design
 
-Status: DESIGN NOTE ONLY. This document specifies a future validator, its hostile test
-surface, and its GitHub Actions enforcement. It does not implement any workflow, validator,
-test, fixture, schema, or production code. No slice or release is DONE from this note.
+Status: DESIGN NOTE ONLY. This document specifies a future validator, its hostile test surface, and its GitHub Actions enforcement. It does not implement a workflow, validator, test, fixture, schema, or production code. No slice or release is DONE from this note, and the default design verdict remains REJECT until a fresh independent review passes the corrected tip.
 
-Declared base: origin/main at 58302d148f0e8b855578f9aa518ff1c5eb48c515.
+Declared base commit: 58302d148f0e8b855578f9aa518ff1c5eb48c515.
+
+Declared parent: ecdc3408aa772c69964e4a62244456f1426bca2b.
 
 Declared lane: factory/design-program-integrity-ci.
 
-Declared worktree: /Users/simonbourdon/Documents/GitHub/Omarchy-Silicon/lanes/program-ci-design.
-
-## 1. Scope, authorities, and boundaries
-
-### Scope
-
-The future system validates the coordinator-owned PROGRAM.md as a signed-plan integrity
-input. It parses the canonical five-column slice ledger, computes its dependency graph,
-checks the status census, proves dynamic F-07 closure and direct prerequisites, proves the
-single stable-promotion writer seam, and verifies that decision and progress history is
-append-only against the actual pull-request base commit. It emits deterministic JSON and a
-human-readable fail census.
-
-The future workflow runs that validator from a trusted base checkout against the proposed
-merge tree as data. It also runs the standard-library hostile tests from a trusted checkout,
-records clean-checkout and toolchain evidence, and uploads only redacted validator output.
-
-### Non-goals
-
-This design does not validate platform behavior, signed artifact contents, board
-qualification, physical evidence, installer behavior, release compliance, cryptographic
-trust roots, or product wire errors. It does not replace F-02, F-03, F-05, F-06, or F-07.
-It does not inspect or operate on the human-produced opaque boot-artifact source boundary.
-It does not authorize a release, change a branch-protection rule, merge a pull request, or
-mark a PROGRAM slice DONE.
-
-The m1n1-omarchy repository and every m1n1 path are an opaque human-produced boundary for
-this design. The only permitted description of that boundary is the external signed
-artifact checks stated below; no source-level fact is inferred.
-
-The opaque boundary is represented only by the external checks already required by
-PROGRAM.md: a human-signed artifact identity, declared digest, signature, schema,
-provenance, license and notice inventory, redistribution decision, source-offer statement
-where applicable, and interface attestation. The future validator compares those declared
-external values at the platform boundary; it never reads, traverses, characterizes, builds,
-or tests the fenced source.
-
-### Consumed authorities
-
-The implementation consumes only these authorities at the declared base:
-
-1. AGENTS.md, especially the coordinator-only DONE rule, append-only history rule,
-   read-only reviewer rule, exact-base rule, and fail-closed unknown rule.
-2. PROGRAM.md, especially Sections 6, 8, 10, 11, 12, 13, 17, 18, and 19; the canonical
-   ledger, F-07 prerequisites, status vocabulary, decision history, and progress history
-   are read as authority rather than copied into a second policy file.
-3. GitHub pull-request event metadata and Git object identity for the canonical repository.
-   Event fields are untrusted until repository, SHA, format, ancestry, and availability
-   checks pass.
-
-The current PROGRAM structure has no explicit machine-readable marker identifying which Q
-rows are board-cohort qualification terminals. Before promotion-mode enforcement is
-considered complete, the coordinator must add this exact paragraph under Section 12:
-
-Q cohort rows are exactly ledger rows whose ID matches Q-[0-9]{2} and whose Deliverable cell begins with the exact case-sensitive verb Certify followed by one space. All other Q rows are intake, schema, lab-setup, or other non-cohort rows and are not Q cohorts.
-
-The validator recognizes that paragraph byte-for-byte in the Section 12 authority text.
-That sentence makes the classification part of the consumed coordinator authority without
-creating a validator-owned list or a second authority. Until it exists in the actual
-PROGRAM.md being validated, the validator fails closed with PI_POLICY_UNDECLARED for
-promotion mode; it may not silently fall back to the current Q-04 through Q-08 spelling.
-
-### Plan integrity is not release readiness
-
-Plan integrity answers whether the written plan is structurally closed, historically
-append-only, and governed by one declared promotion seam. Release readiness answers whether
-the assembled candidate is signed, reproducible, legally distributable, compatible,
-physically qualified, rollback-capable, and honestly represented. A green plan-integrity
-check therefore does not establish a release, support level, hardware compatibility, or
-qualification result. Conversely, a release gate may not waive a failed plan-integrity
-check because its artifacts or physical tests look good.
-
-## 2. Exact future ownership
-
-The following paths are reserved for later work. Every path is named now, the ownership
-sets are disjoint, and none of these files exists at the declared base or in this design
-lane. This document is the only file owned by the current lane.
-
-| Future path | Owner | Responsibility |
-|---|---|---|
-| src/release/stable_store.py | F-07 implementation lane | One immutable channel-copy sink; it accepts only an authenticated F07PromotionReceipt and never decides readiness |
-| src/release/f07_promotion.py | F-07 implementation lane | The sole caller that may copy an already-built candidate digest to stable after recomputing closure |
-| tools/program_integrity/validate.py | Program-integrity implementation lane | Standalone Python CLI, canonical parser, graph/history/policy checks, deterministic JSON, and human fail census |
-| tests/program_integrity/test_validate.py | Program-integrity QA lane | Python standard-library unit tests and hostile tests; it invokes only the validator contract and temporary data |
-| tests/program_integrity/fixtures/valid-program.md | Program-integrity QA lane | Positive ledger and history fixture |
-| tests/program_integrity/fixtures/malformed-table.md | Program-integrity QA lane | Malformed five-column ledger fixture |
-| tests/program_integrity/fixtures/duplicate-id.md | Program-integrity QA lane | Duplicate ledger ID fixture |
-| tests/program_integrity/fixtures/unknown-dependency.md | Program-integrity QA lane | Missing or unknown dependency fixture |
-| tests/program_integrity/fixtures/self-edge.md | Program-integrity QA lane | Self-dependency fixture |
-| tests/program_integrity/fixtures/cycle.md | Program-integrity QA lane | Dependency-cycle fixture |
-| tests/program_integrity/fixtures/missing-f07-closure.md | Program-integrity QA lane | F-07 reachability gap fixture |
-| tests/program_integrity/fixtures/missing-direct-p03.md | Program-integrity QA lane | Removed F-07 to P-03 direct edge |
-| tests/program_integrity/fixtures/missing-direct-p05.md | Program-integrity QA lane | Removed F-07 to P-05 direct edge |
-| tests/program_integrity/fixtures/missing-direct-i09.md | Program-integrity QA lane | Removed F-07 to I-09 direct edge |
-| tests/program_integrity/fixtures/missing-direct-b04.md | Program-integrity QA lane | Removed F-07 to B-04 direct edge |
-| tests/program_integrity/fixtures/missing-direct-q04.md | Program-integrity QA lane | Removed F-07 to the Q-04 cohort edge |
-| tests/program_integrity/fixtures/missing-direct-q05.md | Program-integrity QA lane | Removed F-07 to the Q-05 cohort edge |
-| tests/program_integrity/fixtures/missing-direct-q06.md | Program-integrity QA lane | Removed F-07 to the Q-06 cohort edge |
-| tests/program_integrity/fixtures/missing-direct-q07.md | Program-integrity QA lane | Removed F-07 to the Q-07 cohort edge |
-| tests/program_integrity/fixtures/missing-direct-q08.md | Program-integrity QA lane | Removed F-07 to the Q-08 cohort edge |
-| tests/program_integrity/fixtures/duplicate-progress-row.md | Program-integrity QA lane | Duplicated progress-history row fixture |
-| tests/program_integrity/fixtures/rewritten-progress-row.md | Program-integrity QA lane | Rewritten retained progress-history row fixture |
-| tests/program_integrity/fixtures/deleted-progress-row.md | Program-integrity QA lane | Deleted retained progress-history row fixture |
-| tests/program_integrity/fixtures/reordered-decision-row.md | Program-integrity QA lane | Reordered decision-history row fixture |
-| tests/program_integrity/fixtures/second-stable-writer.py | Program-integrity QA lane | AST input that adds a second stable sink caller |
-| tests/program_integrity/fixtures/unknown-status.md | Program-integrity QA lane | Unknown status fixture |
-| tests/program_integrity/fixtures/control-characters.md | Program-integrity QA lane | Control-character fixture |
-| tests/program_integrity/fixtures/unicode-confusable-id.md | Program-integrity QA lane | Non-ASCII confusable ID fixture |
-| tests/program_integrity/fixtures/warning-success.md | Program-integrity QA lane | Required failure relabeled as a warning fixture |
-| .github/workflows/program-integrity.yml | Repository CI owner | Read-only PR and branch workflow, trusted-base execution, network isolation, and artifact upload |
-
-The oversized-input, unavailable-base, and shallow-history cases are generated in temporary
-directories by test_validate.py; they are deliberately not checked-in megabyte or Git
-database fixtures. No future implementation file outside this table may be created as part
-of this design.
-
-## 3. Canonical validator contract
-
-### Input and output
-
-validate.py is a standalone Python 3.13.5 standard-library program. It runs with
-python -I -S, imports no third-party package, reads only explicitly named paths and Git
-metadata, and never executes a file from the candidate tree. The maximum input size is
-1,048,576 bytes per PROGRAM.md and 10,000 ledger rows. UTF-8 decoding is strict. A
-candidate exceeding either bound returns PI_INPUT_TOO_LARGE and cannot return success.
-
-The JSON result uses UTF-8 with ensure_ascii=true, sorted keys, stable list ordering, and
-one final newline. Success has exit status 0 and contains result PASS, the exact base SHA,
-merge-base SHA, candidate tree identity, topological order, closure list, direct-edge
-set, and status census. Failure contains result FAIL, one primary stable error code,
-phase, path, line when known, a deterministic detail, and the complete fail census for
-all failures observed after the primary phase. Human output contains one line in the form
-FAIL code phase path detail for every failure and never reports a required failure as a
-warning followed by success.
-
-Unknown input, an unavailable required authority, an unsupported syntax variant, an
-unhandled parser exception, or an unrecognized executable path is a hard failure. The
-validator must return PI_UNKNOWN with exit status 70 for an internal or otherwise
-uncategorized condition; it must not default, skip, warn, or synthesize a result.
-
-### Five-column ledger parser
-
-The parser locates exactly one heading named ## 12. Slice ledger and exactly one ledger
-table after the Section 12.1 acceptance table. It does not search all Markdown tables and
-does not use a grep pattern as a parser. The ledger header cells must be exactly ID,
-Repository, Deliverable, Depends on, and Status, enclosed by the five outer pipe
-boundaries. The delimiter cells must each contain exactly three hyphens.
-
-Each data row must contain exactly five cells in the same order: ID, Repository,
-Deliverable, Depends on, Status. A row is split on its six outer pipe boundaries, with
-ASCII spaces trimmed from the cell edges. Tabs, embedded unescaped pipes, empty ID, empty
-repository, empty deliverable, empty dependency expression, and empty status are rejected.
-The parser stops only at the blank line or next structural heading that terminates this
-table; a pipe-prefixed malformed line in the table region is PI_ROW_SHAPE, not an ignored
-paragraph. The line number is carried into every row diagnostic.
-
-The ID grammar is ASCII and case-sensitive: (B|F|G|I|K|P|Q)-[0-9]{2}. The complete ID
-set is derived from the rows, not from a hard-coded list of current IDs. Status is also
-ASCII and case-sensitive and must be exactly one of DONE, IN PROGRESS, REVIEW, TODO, or
-HUMAN-ONLY BLOCKED. REVIEW is allowed by the factory lifecycle even though the exact base
-ledger has no REVIEW row. No other status, prefix, width, separator, Unicode lookalike,
-or normalization is accepted.
-
-The dependency cell is either none or a comma-and-one-space separated sequence of exact
-IDs and the two existing external prerequisite literals already present in PROGRAM.md:
-shipping hardware and the human-owner qualifier. The external literals are opaque,
-non-graph prerequisites; they are compared exactly and never resolved to a repository,
-path, source, or executable. none cannot be combined with another token. Empty tokens,
-duplicate tokens, unknown IDs, and unknown external literals fail closed.
-
-The parser returns an immutable row record containing raw row bytes, line number, ID,
-repository, deliverable, ordered dependency tokens, graph dependency IDs, external
-prerequisites, and status. All downstream checks consume these records. No check reparses
-the ledger or maintains a consumer-specific field list.
-
-### Graph checks and traversal
-
-After parsing all rows, the validator checks duplicate IDs, missing graph dependencies,
-self-edges, duplicate dependency tokens, and cycles in that order. A missing dependency is
-PI_DEP_UNKNOWN even when the missing token resembles a valid ID. A self-edge is
-PI_DEP_SELF. A cycle is PI_DEP_CYCLE.
-
-The deterministic topological traversal represents each declaration A depends on B as a
-graph edge B to A, so dependencies precede their consumers. It uses Kahn's algorithm with
-a min-heap ordered by the canonical ASCII ID string. The emitted order is therefore
-independent of hash-table ordering or file-system order. For a cycle, the witness starts
-at the lexicographically smallest unvisited node and follows lexicographically sorted
-outgoing dependency edges; the closed cycle is rotated to its lexicographically smallest
-first ID. The same input always emits the same order and witness.
-
-The exact status census is computed only after lexical and graph validation succeeds. It
-contains total, counts for all five allowed statuses including zero, and sorted ID lists
-for every status. It does not infer state from decision history, progress history, branch
-names, commit messages, or prose. For the exact base ledger, the expected census is
-52 total rows: 1 DONE, 1 IN PROGRESS, 0 REVIEW, 44 TODO, and 6 HUMAN-ONLY BLOCKED. The
-future test must recompute this value from the base rather than hard-code it as its only
-assertion.
-
-## 4. Dynamic F-07 policy and sole-writer proof
-
-### Closure and direct edges
-
-The validator requires exactly one row with ID F-07. It traverses only graph dependency
-edges from F-07, recursively and deterministically, and requires the reachable set to
-equal the complete parsed ledger ID set. Any missing ID is reported in sorted order as
-PI_F07_CLOSURE at policy.f07.closure. This makes the closure dynamic: a newly added ledger
-ID is automatically a required F-07 descendant without editing validator code.
-
-The direct-edge policy is checked separately from transitive closure. F-07 must directly
-depend on F-05 and on P-03, P-05, I-09, and B-04. It must also directly depend on every
-Q cohort derived from the coordinator-owned classification amendment in Section 1. The
-validator reports each missing edge separately as PI_F07_DIRECT_EDGE at
-policy.f07.direct_edges.ID. A transitive path never satisfies a mandatory direct edge.
-The Q set is computed from the parsed rows on every run; Q-04 through Q-08 are the
-current expected result, not a validator-owned enumeration.
-
-If the classification amendment is absent or cannot be parsed exactly, the validator
-returns PI_POLICY_UNDECLARED at policy.q_cohorts before evaluating promotion-mode
-closure. It never invents a second cohort list. If a future coordinator changes the
-classification rule, the change is a PROGRAM authority change and must be reviewed as
-such.
-
-### Structural proof of the sole stable writer
-
-The future F-07 production seam has exactly two reserved files. stable_store.py defines
-the only low-level function named copy_immutable_digest_to_channel. f07_promotion.py is
-the only permitted caller, and its only permitted channel argument is the literal stable.
-The store accepts a verified F07PromotionReceipt and performs the atomic copy; it does
-not calculate closure or accept a status override. The workflow in this design never
-writes a channel.
-
-The validator proves this with a syntax-aware AST and control-flow audit, not a vague grep:
-
-1. Enumerate tracked files under src/release using Git's NUL-delimited file list. An
-   unrecognized executable suffix, symlink, generated launcher, or unreadable file in that
-   directory is PI_UNKNOWN.
-2. Parse every Python source file with ast.parse under the pinned interpreter. Syntax
-   errors, dynamic import constructs, eval, exec, getattr-based sink lookup, shell
-   execution, subprocess calls, and network imports in the release seam are hard failures.
-3. Resolve only direct, non-aliased imports of
-   release.stable_store.copy_immutable_digest_to_channel. Count every call AST node to
-   that resolved symbol and require exactly one call site.
-4. Require that the one call site is in src/release/f07_promotion.py, passes the literal
-   stable as its first argument, and is dominated on every control-flow path in that
-   module by construction of an F07PromotionReceipt. A small standard-library control-flow
-   and data-flow pass proves that the receipt cannot be replaced before the call; an
-   unknown control-flow shape is PI_UNKNOWN.
-5. Require that stable_store.py defines the sink and that no other production file defines
-   a channel-copy primitive, calls the sink, or exposes a second stable channel. The audit
-   enumerates every tracked production Python source file, and rejects any executable
-   production file outside the two reserved release paths because its write capability is
-   not closed. Test and fixture files are input data for this audit, not production
-   writers. The audit reports the resolved module, symbol, call count, and call paths in
-   JSON so a reviewer can reproduce the proof.
-
-The hostile second-stable-writer fixture adds a direct call in another source file; the
-test also covers an import alias and a dynamic lookup. Each must fail the AST contract.
-The proof is bounded by the closed Python release seam. Unknown code shape or language
-boundary is a failure, never an implied pass.
-
-## 5. Append-only decision and progress history
-
-### Trusted base selection
-
-For a pull request, the workflow reads base.repo.full_name, base.sha, head.repo.full_name,
-head.sha, and the pull-request number from the event. The base repository must equal
-github.repository. The base and head SHA values must each be exactly 40 lowercase or
-uppercase hexadecimal characters and must resolve to commit objects fetched from the
-canonical GitHub repository and the declared head repository respectively. Fork heads
-are permitted as data sources; fork credentials, secrets, and arbitrary URLs are not.
-
-The workflow uses actions/checkout with fetch-depth 0, fetches no tags, submodules, or LFS,
-and persists no credentials. It materializes the base tree at the actual base.sha, the
-head tree at head.sha, and the synthetic pull-request merge commit from the event's
-pull-request merge ref. It first verifies that git merge-base base.sha head.sha succeeds
-and records that SHA. It requires the synthetic merge commit to exist, to be
-conflict-free, and to have actual base.sha as its first parent; its tree is the candidate
-tree. It does not require the head branch to contain the newest base commit, because a
-pull request may be based on an older common ancestor. A missing base object, repository
-mismatch, invalid SHA, missing merge-base, shallow repository, conflicting merge, or
-unavailable pull-request merge context returns a base-trust failure before any candidate
-code is executed.
-
-The trusted validator and trusted test harness are loaded from the base tree. The
-candidate tree is mounted read-only as input. No Python, shell, binary, workflow helper,
-test, or build script from the candidate tree is executed. This is required for fork PRs
-and for any event whose base cannot be proven trusted. If the validator is absent from the
-base tree during bootstrap, the check returns PI_BASE_UNAVAILABLE; the rollout must
-land the validator and its tests before the workflow is introduced.
-
-For a branch push, the parent commit supplied by the push event is the base commit. An
-all-zero before SHA, missing parent, shallow history, or failed merge-base is a hard
-failure. Branch validation never substitutes the local checkout tip or origin/main for a
-missing event parent.
-
-### Exact append-only algorithm
-
-The trusted validator extracts the raw UTF-8 table-row bytes under the decision-log and
-progress-log headings from PROGRAM.md at the actual base tree and from the candidate merge
-tree. The decision-log header cells must be exactly Date, Decision, and Reason. The
-progress-log header cells must be exactly Timestamp, Event, and Evidence or result. Both
-delimiter rows must have exactly three hyphens in each cell. Their data-row bytes are
-otherwise opaque to the ledger parser. No whitespace, Unicode, line-ending, or Markdown
-normalization is applied.
-
-For each history:
-
-1. Verify that every base row occurs byte-for-byte at the same index in the candidate
-   sequence. The base sequence is an immutable prefix, not a set and not a sorted list.
-2. If the candidate has the same length and row multiset as base but a different order,
-   return PI_HISTORY_REORDER.
-3. If the candidate has the same length but a different row multiset, return
-   PI_HISTORY_REWRITE.
-4. If the candidate is shorter than base, return PI_HISTORY_DELETE. If it is longer but
-   does not contain the complete base-row multiset, return PI_HISTORY_DELETE.
-5. For a retained prefix and appended rows, validate the exact table shape, reject control
-   characters, and reject
-   duplicate raw progress rows or duplicate decision identity keys. The first appended
-   duplicate in byte order is PI_HISTORY_DUPLICATE.
-
-The history checks use the actual base commit, not origin/main, a local branch name, a
-checkout's default merge ref, or a contributor-provided base file. The JSON evidence
-contains base.sha, merge_base, base row counts, candidate row counts, exact retained-prefix
-digest, and appended-row digests. A failure contains the first differing index and the
-base/candidate row digests without echoing secrets.
-
-## 6. CI workflow and security contract
-
-### Triggers and exact check
-
-The future workflow path is .github/workflows/program-integrity.yml. It triggers on pull
-request opened, synchronize, reopened, and ready_for_review events, and on pushes to main
-and factory/** branches. It runs all gates in one job named validate under workflow name
-program-integrity. The exact branch-protection check name is program-integrity / validate.
-No alternate job, neutral conclusion, skipped required phase, or renamed check may satisfy
-the handoff.
-
-The workflow uses concurrency group program-integrity-${{ github.event.pull_request.number
-|| github.ref }} with cancel-in-progress true. A superseded run is not a pass; the newest
-uncancelled run must produce the required check.
-
-### Permissions and actions
-
-The job declares permissions contents: read and no other permission. It uses no repository
-secrets, deployment token, write token, OIDC identity, artifact signing key, or
-pull_request_target event. Fork pull requests therefore receive the same read-only path.
-The only actions are pinned by immutable commit SHA:
-
-- actions/checkout v4.2.2 at 11bd71901bbe5b1630ceea73d27597364c9af683.
-- actions/upload-artifact v4.6.2 at ea165f8d65b6e75b540449e92b4886f43607fa02.
-
-Checkout uses fetch-depth 0, fetch-tags false, submodules false, lfs false, and
-persist-credentials false. Any action reference that is a tag, branch, shortened SHA, or
-mutable container tag is a workflow failure.
-
-### Pinned tools, network, and cache
-
-The runner contract is ubuntu-24.04 with Git 2.47.2 and Docker Engine 27.5.1; a preflight
-checks exact versions and returns PI_TOOLCHAIN_UNAVAILABLE if either is unavailable.
-The isolated validator image is the amd64 Linux image
-python:3.13.5-slim-bookworm@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718.
-The image reports Python 3.13.5 and is used with python -I -S. No pip, package index,
-formatter, linter, compiler, or third-party module is needed.
-
-Network is allowed only for the pinned GitHub checkout actions, the canonical GitHub
-repository and permitted fork object fetch, the pinned Docker image digest from
-registry-1.docker.io, and the final upload-artifact call. No contributor URL, submodule,
-LFS endpoint, package index, arbitrary curl, arbitrary download, or release endpoint is
-allowed. After the image is present, validator and test containers run with
---network=none, read-only source mounts, dropped capabilities, no-new-privileges, and a
-small tmpfs for the JSON report. The workflow records the network-isolated command in its
-evidence.
-
-No actions/cache, pip cache, Docker layer cache, or cross-run workspace cache is used.
-Cache reuse can launder contributor-controlled content into a structural check, so every
-run uses a fresh checkout and an immutable image digest. The uploaded report and human
-fail census are retained for 14 days and contain no credentials or raw environment.
-
-### Clean-checkout and evidence requirements
-
-The job fails unless the base and candidate directories are clean read-only checkouts,
-the expected commit identities match the event, the merge-base evidence is present, and
-the changed-file census is recorded. It runs git status --porcelain=v1 and
-git diff --exit-code in each checkout, then runs git diff --check against the allowlisted
-program-integrity paths. It checks conflict markers only in the allowlisted paths
-PROGRAM.md, tools/program_integrity, tests/program_integrity, and
-.github/workflows/program-integrity.yml; it never performs an unbounded repository
-traversal across an opaque external source boundary.
-
-The report must include exact base, merge-base, head, candidate-tree, validator-source,
-runner, container-image, action-SHA, command, exit-status, and changed-file values. The
-human section must include PASS count, FAIL count, and an explicit fail census by stable
-code and path. A zero FAIL count with a missing phase, missing evidence item, unavailable
-tool, or warning-success is itself PI_UNKNOWN.
-
-## 7. Exit classes, error codes, and precedence
-
-The validator's exit status is separate from F-02 product wire error codes. It emits no
-F-02 error identifier and does not reuse a product error number. All validator codes have
-the PI_ prefix and all failures are machine-readable.
-
-| Exit status | Class | Stable codes |
-|---|---|---|
-| 0 | Valid plan-integrity result | PI_OK |
-| 2 | Invocation or argument failure | PI_USAGE |
-| 10 | UTF-8, control, table, row, ID, or status grammar | PI_INPUT_TOO_LARGE, PI_UTF8, PI_CONTROL_CHAR, PI_LEDGER_TABLE, PI_ROW_SHAPE, PI_ID_SYNTAX, PI_STATUS_UNKNOWN |
-| 11 | Dependency graph failure | PI_DUPLICATE_ID, PI_DEP_UNKNOWN, PI_DEP_DUPLICATE, PI_DEP_SELF, PI_DEP_CYCLE |
-| 12 | Promotion policy or stable-writer failure | PI_F07_MISSING, PI_POLICY_UNDECLARED, PI_F07_DIRECT_EDGE, PI_F07_CLOSURE, PI_SECOND_STABLE_WRITER, PI_WARNING_SUCCESS |
-| 13 | Append-only history failure | PI_HISTORY_DELETE, PI_HISTORY_REWRITE, PI_HISTORY_REORDER, PI_HISTORY_DUPLICATE |
-| 14 | Base, merge, trust, or toolchain failure | PI_BASE_REPOSITORY, PI_BASE_SHA, PI_BASE_UNAVAILABLE, PI_BASE_SHALLOW, PI_MERGE_BASE, PI_TOOLCHAIN_UNAVAILABLE |
+Declared worktree: lanes/program-ci-design, relative to the repository root.
+
+## 1. Purpose, authorities, and boundaries
+
+The future system validates the coordinator-owned PROGRAM.md as a plan-integrity input. It parses the canonical five-column slice ledger, computes its dependency graph, checks the status census, proves dynamic F-07 closure and coordinator-declared direct prerequisites, audits the sole stable-promotion seam, and verifies that decision and progress history is append-only against the immutable event base. It emits deterministic JSON, a human fail census, and phase-gating evidence.
+
+Plan integrity is not release readiness. A passing plan-integrity result does not establish implementation, signing, reproducibility, legal distribution, board qualification, physical evidence, installer safety, hardware compatibility, support, release, or DONE. F-07 remains the sole stable-promotion authority, and this design never authorizes a release or changes branch protection.
+
+The human-produced opaque boundary named by PROGRAM.md is outside this design. The future validator receives only externally declared boundary metadata and never reads, traverses, characterizes, builds, or tests any source under that boundary.
+
+The consumed authorities are the pinned-parent AGENTS.md, the pinned-parent PROGRAM.md, and canonical GitHub event and Git-object metadata. AGENTS.md supplies one-writer, coordinator-only DONE, append-only history, reviewer, and fail-closed rules; it does not supply an exact-base rule. The task assignment and event contract supply the immutable base and parent requirements. PROGRAM.md supplies the ledger, its acceptance section, its policy declaration when added, its status vocabulary, and Sections 18 and 19.
+
+## 2. Future ownership and exact input surface
+
+This note reserves future implementation ownership without creating any of the named files. The validator implementation owns `tools/program_integrity/validate.py`; its standard-library test implementation owns `tests/program_integrity/test_validate.py`; its generated fixture implementation owns `tests/program_integrity/fixtures/`; the F-07 implementation owns `src/release/stable_store.py` and `src/release/f07_promotion.py`; and the CI owner owns `.github/workflows/program-integrity.yml`. The current lane owns only this document.
+
+The future-path census has exactly these 30 tracked paths and must be recomputed from Git rather than treated as a hard-coded support claim: `src/release/stable_store.py`, `src/release/f07_promotion.py`, `tools/program_integrity/validate.py`, `tests/program_integrity/test_validate.py`, `tests/program_integrity/fixtures/valid-program.md`, `tests/program_integrity/fixtures/malformed-table.md`, `tests/program_integrity/fixtures/duplicate-id.md`, `tests/program_integrity/fixtures/unknown-dependency.md`, `tests/program_integrity/fixtures/self-edge.md`, `tests/program_integrity/fixtures/cycle.md`, `tests/program_integrity/fixtures/missing-f07-closure.md`, `tests/program_integrity/fixtures/missing-direct-p03.md`, `tests/program_integrity/fixtures/missing-direct-p05.md`, `tests/program_integrity/fixtures/missing-direct-i09.md`, `tests/program_integrity/fixtures/missing-direct-b04.md`, `tests/program_integrity/fixtures/missing-direct-q04.md`, `tests/program_integrity/fixtures/missing-direct-q05.md`, `tests/program_integrity/fixtures/missing-direct-q06.md`, `tests/program_integrity/fixtures/missing-direct-q07.md`, `tests/program_integrity/fixtures/missing-direct-q08.md`, `tests/program_integrity/fixtures/duplicate-progress-row.md`, `tests/program_integrity/fixtures/rewritten-progress-row.md`, `tests/program_integrity/fixtures/deleted-progress-row.md`, `tests/program_integrity/fixtures/reordered-decision-row.md`, `tests/program_integrity/fixtures/second-stable-writer.py`, `tests/program_integrity/fixtures/unknown-status.md`, `tests/program_integrity/fixtures/control-characters.md`, `tests/program_integrity/fixtures/unicode-confusable-id.md`, `tests/program_integrity/fixtures/warning-required-failure.md`, and `.github/workflows/program-integrity.yml`.
+
+The pinned-base current-path result for that manifest is 30 absent paths. The manifest is a coverage input, not a validator-owned ledger or promotion authority; adding a future implementation path requires updating the manifest and its absence census before implementation proceeds.
+
+The generated fixture family includes a valid PROGRAM input, malformed ledger inputs, graph mutations, policy mutations, generated one-fixture-per-required-edge inputs, generated one-fixture-per-Q-cohort inputs, history mutations, stable-writer AST inputs, candidate-tree trust inputs, workflow-event inputs, report-reuse inputs, and command-propagation inputs. For the current pinned base, the raw policy source is the exact coordinator declaration specified in Section 4 because the pinned PROGRAM has no Section 12.2 policy yet; the base policy byte sequence is therefore empty and its validation result is PI_POLICY_UNDECLARED. Once the coordinator adds that declaration, generation reads its exact bytes from the pinned PROGRAM object. No fixture is generated from a hard-coded current ID or row count.
+
+The future validator accepts only explicitly named immutable byte inputs and metadata arguments. It never accepts a symbolic base name, a branch name, a candidate filesystem root, a candidate PROGRAM.md filesystem path, a contributor-supplied URL, or a mode that disables promotion checks.
+
+The maximum size is 1,048,576 bytes for each PROGRAM byte input and 10,000 parsed ledger rows. UTF-8 decoding is strict. A limit violation is PI_INPUT_TOO_LARGE with exit status 10, and no parse or semantic phase may report success after it.
+
+## 3. Raw-byte and Markdown contract
+
+The validator consumes raw bytes without Markdown rendering, HTML conversion, Unicode normalization, whitespace normalization, line-ending conversion, or reserialization. All input lines must end in one ASCII LF byte except that the final line may omit LF; any CR byte, including CRLF, is PI_LINE_ENDING at `PROGRAM.md` in phase `preflight` with exit status 10. UTF-8 is decoded only after the raw line-ending check.
+
+The rejected control set is U+0000 through U+0009, U+000B through U+000C, U+000E through U+001F, and U+007F through U+009F. LF U+000A is the only permitted control character. Tabs, DEL, C1 controls, and CR are therefore never accepted. PI_CONTROL_CHAR reports the byte offset, code point, source path, and phase `preflight`; PI_LINE_ENDING takes precedence for CR.
+
+All structural delimiters are ASCII bytes: `|` U+007C, `-` U+002D, `,` U+002C, and ASCII space U+0020. Fullwidth, confusable, non-ASCII, or normalized delimiter characters are not delimiters. Cell-edge trimming removes ASCII spaces only; it does not remove tabs, non-breaking spaces, or any other character.
+
+The parser selects exactly one structural raw line `## 12. Slice ledger` and exactly one structural raw line `### 12.1 Foundation slice acceptance`, with those exact bytes and no trailing spaces. A structural line begins at column zero and is recognized only outside an active fenced code block or an HTML comment; a fence is a run of at least three matching backticks or tildes and a comment may span lines. A four-space-indented line is nonstructural code. A target-shaped line inside any of those states is recorded as a lookalike and is a rejection, not ignored input. The Section 12 region runs from the exact `## 12. Slice ledger` line through the byte before the next exact structural `## ` heading, and every raw byte in that region is scanned for duplicate or laundered target material.
+
+The Section 12.1 acceptance region starts at its exact structural heading and contains exactly one contiguous acceptance table with the exact three-column header `| Slice | Required executable artifacts | Hard rejection conditions |`, one delimiter row with three cells containing exactly `---`, and the six foundation rows F-02 through F-07 from the authority. Its table ends at the first blank line after the contiguous table. The text between that acceptance table and the ledger is treated as prose and must not contain another ledger header or table candidate, whether rendered, fenced, commented, or HTML-shaped.
+
+The ledger is the only table in the Section 12 region with the exact structural header `| ID | Repository | Deliverable | Depends on | Status |`. The selected ledger begins at that exact header, includes its exact delimiter row and at least one data row, and ends at the first blank line or exact structural heading after the contiguous data rows; every intervening pipe-prefixed line is part of the table and must parse. There must be exactly one such header, exactly one five-column ledger table, and no duplicate exact heading, duplicate table, table-shaped lookalike, or alternate rendering of it anywhere in the raw Section 12 region. An HTML table, rendered HTML, Markdown AST, code-fence table, HTML-comment table, or second table cannot satisfy selection; a fake target in any of those forms is evidence of laundering and fails PI_LEDGER_TABLE.
+
+A five-column ledger row has exactly six ASCII `|` delimiters: a leading delimiter, four internal delimiters, and a trailing delimiter, yielding five cells. “Six delimiters” is the precise boundary rule; five delimiters is malformed. The header, delimiter row, and every data row use this same six-delimiter rule. A cell cannot contain a pipe, including a backslash-escaped pipe or a pipe inside a code span; multiline cells are forbidden because each row is exactly one physical source line.
+
+The ledger header cells must be exactly `ID`, `Repository`, `Deliverable`, `Depends on`, and `Status` after ASCII-space edge trimming. The delimiter row must contain exactly five cells, each exactly `---` after ASCII-space edge trimming. Any missing, duplicated, or lookalike header, delimiter, or data table is PI_LEDGER_TABLE at `PROGRAM.md` in phase `ledger_parse` with exit status 10. A pipe-prefixed malformed line within the selected table is PI_ROW_SHAPE, not ignored prose.
+
+Each data row has exactly five non-empty cells in the same order. Empty ID, repository, deliverable, dependency expression, or status cells are PI_ROW_SHAPE. The row record retains the exact raw row bytes, exact source line, and parsed fields; every downstream phase consumes that record and never reparses the source.
+
+The ID grammar is ASCII and case-sensitive: `(B|F|G|I|K|P|Q)-[0-9]{2}`. The set of IDs is derived from the rows and never hard-coded. Status is exactly one of `DONE`, `IN PROGRESS`, `REVIEW`, `TODO`, or `HUMAN-ONLY BLOCKED`; an unknown status is PI_STATUS_UNKNOWN at the row path in phase `ledger_parse` with exit status 10. A malformed ID prefix, width, separator, Unicode lookalike, or normalization is PI_ID_SYNTAX at the row path in phase `ledger_parse` with exit status 10.
+
+The dependency cell is either the exact ASCII token `none` or a non-empty sequence separated only by the exact two-byte delimiter `, `. No leading or trailing comma, extra space, missing space, empty token, tab, or other separator is accepted. A dependency token matching the ASCII ID-shaped grammar `[A-Z]-[0-9]{2}` is admitted to graph checking and becomes PI_DEP_UNKNOWN if that exact token is absent from the parsed row-ID set; this makes `Z-99` a graph unknown rather than a parser error. A token that does not match that ASCII shape is PI_DEP_SYNTAX at `ledger.rows.ID.depends` in phase `ledger_parse` with exit status 10. The only other accepted tokens are the exact opaque external literals `shipping hardware` and `human m1n1 owner`; they are never resolved to paths, repositories, source, or executables. An empty dependency cell after ASCII-space edge trimming is PI_ROW_SHAPE; a leading, trailing, or doubled comma that creates an empty token is PI_DEP_EMPTY; doubled spaces, tabs, or another separator are PI_DEP_SYNTAX; and `none` combined with any other token is PI_DEP_SYNTAX. All three parser classifications use the stated path, phase, and exit status.
+
+The graph phase, not the parser phase, reports repeated dependency tokens as PI_DEP_DUPLICATE at `ledger.rows.ID.depends` with exit status 11. This fixes the duplicate-token phase boundary: lexical separator errors are parser failures, while exact repeated tokens are graph failures. Unknown graph IDs are PI_DEP_UNKNOWN, self-edges are PI_DEP_SELF, and cycles are PI_DEP_CYCLE, each with the graph phase and exit status 11.
+
+## 4. Coordinator-owned promotion policy
+
+There is no promotion mode switch. Every invocation has the same promotion-policy precondition, and no invocation can return PI_OK until the required PROGRAM policy declaration exists and parses exactly. Until the declaration exists and parses exactly in the candidate PROGRAM, the policy phase is PI_POLICY_UNDECLARED at `policy.program_integrity` in phase `policy` with exit status 12, regardless of whether the invocation is local, pull-request, merge-queue, direct-push, or post-merge; an earlier trust or input failure may still control the overall primary result.
+
+The minimum coordinator-owned declaration is an append-only policy history under Section 12 with this exact structural heading and exact record grammar:
+
+```text
+### 12.2 Program-integrity policy history
+
+Program-integrity policy version: 1
+F-07 mandatory direct prerequisites: F-05, P-03, P-05, I-09, B-04
+Q cohort rows: ID matches Q-[0-9]{2} and Deliverable begins with the exact case-sensitive verb Certify followed by one ASCII space.
+```
+
+The code block above specifies source bytes; the backticks are not part of the required PROGRAM declaration. The raw declaration is one exact heading line with LF, one blank LF, and one or more exact three-line records, with one blank LF between records; the final record ends at the first exact structural `## ` heading. The heading must occur exactly once outside fences and comments, and no target-shaped heading or record may occur elsewhere in Section 12. The record version is a positive ASCII decimal without leading zeroes, versions are unique and strictly increasing, and the direct-prerequisite value is a non-empty exact ASCII ID list separated by `, ` with no duplicate IDs; each ID must exist in the same ledger. The Q rule is the exact sentence shown above, including capitalization, punctuation, and the final period.
+
+The policy parser requires exactly one Section 12.2 policy-history heading, at least one valid record, unique strictly increasing versions, and the highest version as the effective record. Missing or non-exact policy declaration is PI_POLICY_UNDECLARED at `policy.program_integrity` in phase `policy` with exit status 12, so no malformed or partial declaration can create a promotion pass. It rejects duplicate headings, duplicate versions, reordered records, altered retained records, missing direct prerequisites, malformed Q text, and any second policy authority with the same PI_POLICY_UNDECLARED code, path, phase, and exit status. A policy change is append-only: the prior exact policy-history bytes remain unchanged and a higher-version complete record is appended, while Section 18 records the coordinator decision. In a candidate compared with a base that already has policy history, the base policy bytes must be an exact prefix ending at a complete record boundary; an inserted, deleted, reordered, or rewritten retained record is PI_POLICY_UNDECLARED.
+
+The direct-prerequisite set is read only from the effective coordinator record. The validator has no F-05/P-03/P-05/I-09/B-04 list in executable code, no validator-owned direct-edge table, and no fixture-owned authority. The Q cohort set is derived on every run from ledger rows whose ID matches `Q-[0-9]{2}` and whose Deliverable cell begins with exact `Certify ` after ASCII-space edge trimming. The derived Q set must be non-empty; zero cohorts is PI_Q_COHORT_EMPTY at `policy.q_cohorts` in phase `policy` with exit status 12. The report includes the sorted Q census, count, source line, raw deliverable bytes, and effective policy version, and the policy phase cannot pass without that non-empty census.
+
+Adding Q-09 with a qualifying Deliverable automatically changes the derived Q census and mandatory F-07 direct-edge set. Adding any new mandatory direct prerequisite requires a higher policy version and generated per-edge coverage. No stale fixture or omitted direct edge may pass because current counts are never authorities.
+
+## 5. Graph, closure, and phase gating
+
+After a complete ledger parse, graph checks run in this exact order: duplicate IDs, unknown graph dependencies, repeated dependency tokens, self-edges, and cycles. A graph error prevents topological traversal, status census, F-07 closure, and F-07 direct-edge evaluation from claiming success. Kahn traversal represents `A depends on B` as edge B to A and uses a min-heap ordered by the canonical ASCII ID, so dependencies precede consumers deterministically. A cycle witness follows lexicographically sorted outgoing dependency edges from the smallest unvisited node and rotates the closed witness to its smallest first ID.
+
+F-07 policy checks require exactly one F-07 row. The closure is the recursively reachable graph-dependency set from F-07 and must equal the complete parsed ID set. A missing ID is PI_F07_CLOSURE at `policy.f07.closure.ID` in phase `promotion` with exit status 12. The closure check is dynamic and automatically includes a newly added ledger ID when that ID is connected to F-07.
+
+The direct-edge set is the union of the exact IDs parsed from the effective policy record and the non-empty derived Q cohort set. Each required edge must occur literally in F-07’s dependency token sequence. A transitive path, an independently observed artifact, or an evidence claim never substitutes for a direct declaration. Each missing edge is PI_F07_DIRECT_EDGE at `policy.f07.direct_edges.ID` in phase `promotion` with exit status 12; the fail census includes all missing edges and the lexicographically first missing edge controls the primary detail.
+
+Each phase has exactly one state: PASS, FAIL, or BLOCKED. Trust and preflight failures block every dependent phase. A ledger-parse failure blocks graph, status, closure, and promotion phases, so a simultaneous table and graph mutation reports PI_LEDGER_TABLE as primary and records graph as BLOCKED rather than claiming a semantic graph error. Policy presence and exact grammar are checked after preflight and before promotion; PI_POLICY_UNDECLARED is recorded whenever the declaration is absent or invalid, but an earlier trust or syntax failure controls the primary result by the precedence table. History is independent of graph semantics and may run after trust and preflight. The report records every phase state and its `blocked_by` code; “skipped” is not a possible unreported state.
+
+The status census is computed only after complete lexical and graph validation. It contains total, counts for all five allowed statuses including zero, and sorted ID lists for each status. It never infers state from prose, branch names, commit messages, or Sections 18 and 19.
+
+The pinned-base ground truth is a recomputed baseline, not a structural policy constant: 52 ledger rows, 52 unique IDs, zero missing internal dependencies, zero cycles, a deterministic 52-node traversal, F-07 closure 52/52 including P-03, status census 1 DONE / 1 IN PROGRESS / 0 REVIEW / 44 TODO / 6 HUMAN-ONLY BLOCKED, one future stable-promotion writer model, and 30 future paths absent. The implementation and tests must derive and print these values from the pinned bytes and policy; they must not use a hard-coded 52, current Q list, or current path count as authority. The current base has no stable seam, so its stable-writer phase is PI_STABLE_WRITER_SEAM_ABSENT when that audit is invoked, and its real overall validation result remains PI_POLICY_UNDECLARED until the coordinator adds the exact declaration.
+
+## 6. Sole stable-promotion writer audit
+
+F-07 remains the only stable-promotion authority. The future F-07 seam consists of `src/release/stable_store.py`, which defines the single low-level function `copy_immutable_digest_to_channel`, and `src/release/f07_promotion.py`, which is the only permitted caller. The sink accepts a verified F07PromotionReceipt, accepts only the literal channel `stable`, performs the atomic digest copy, and never computes closure or accepts a status override. The workflow and validator never write a channel.
+
+The audit scope is exact and bounded to the NUL-delimited tracked path list returned by `git ls-tree -r -z --full-tree "$CANDIDATE_TREE_SHA" -- src/release/`; no glob expansion or repository-wide production-file enumeration is permitted. Python source entries ending in `.py` and exact mode 100644 are included in AST analysis, while every other in-scope entry must be a regular 100644 source object accepted by the declared language-specific writer audit or the result is PI_UNKNOWN. It does not enumerate or reject `tools/program_integrity/**`, `tests/**`, documentation, workflows, or unrelated production files; future F-02 validator files therefore cannot be rejected as alternate stable writers. Other files inside `src/release/**` are permitted release code and are rejected only when they define, resolve, call, alias, or obscure the exact stable sink or a second stable-channel primitive.
+
+The host extracts that exact scope from Git objects and passes the immutable source bytes and path manifest as data. The container parses every in-scope Python source with the pinned interpreter. It rejects a symlink, submodule, path-traversal entry, non-regular entry, wrong mode, syntax error, dynamic import or lookup used to reach the stable sink, `eval`, `exec`, shell execution, network import, or unresolved call shape in the stable-writer analysis. Ordinary non-stable release functionality is not forbidden merely because it is executable.
+
+The audit requires the two seam files, resolves only direct non-aliased imports of `release.stable_store.copy_immutable_digest_to_channel`, counts every AST call to that resolved symbol, and requires exactly one call. The call must be in `src/release/f07_promotion.py`, pass the literal `stable` as its first argument, and be dominated on every control-flow path by construction of an authenticated F07PromotionReceipt. A second definition, alias, direct call, dynamic lookup, or stable-channel primitive in any other in-scope file is PI_SECOND_STABLE_WRITER at `policy.stable_writer.callers` in phase `stable_writer` with exit status 12.
+
+If either reserved seam file, the sink definition, or the one allowed caller is absent, the audit does not infer safety and returns PI_STABLE_WRITER_SEAM_ABSENT at the exact missing path, such as `src/release/stable_store.py`, in phase `stable_writer` with exit status 12. Its JSON evidence is exact and includes `policy.stable_writer.seam=absent`, `status=FAIL`, `code=PI_STABLE_WRITER_SEAM_ABSENT`, and `phase=stable_writer`. This result is distinct from PI_SECOND_STABLE_WRITER and is never a warning or success.
+
+## 7. Append-only history contract
+
+The history parser selects exactly one structural raw heading `## 18. Decision log` and exactly one structural raw heading `## 19. Append-only progress log` in each input, with no trailing spaces. Each heading starts its region, which ends immediately before the next exact structural `## ` heading. Section 18 contains exactly one selected table beginning at the exact header `| Date | Decision | Reason |` and one exact delimiter row with exactly four ASCII pipe delimiters and three cells each containing exactly `---`; Section 19 uses the same rule with exact header `| Timestamp | Event | Evidence or result |`. Each region contains exactly one selected header and delimiter pair, and every history data row is one physical line with the exact four-delimiter table shape for its three columns. A duplicate heading, duplicate header, duplicate delimiter row, table-like line outside the selected table, or malformed lookalike is PI_HISTORY_REWRITE at `PROGRAM.md` in phase `history`; fenced, commented, rendered, or HTML text is not a region and cannot hide that rejection.
+
+History row identity is the raw UTF-8 byte sequence of the complete physical table row including its exact line terminator bytes, or including no terminator when it is the final line. No trimming, decoding-and-encoding, Markdown parsing, or field normalization occurs before comparison. The base sequence and candidate sequence are compared by exact index.
+
+Acceptance requires the candidate sequence to have at least the base length and to satisfy `candidate[i] == base[i]` for every base index. First, a candidate shorter than the base, or any candidate whose raw-row multiset lacks any base row with its full base multiplicity, is PI_HISTORY_DELETE; this covers base-row loss even when unrelated rows were appended. Second, a same-length candidate with the same raw-row multiset but any row at a different index is PI_HISTORY_REORDER; the multiset is a byte-value counter, so duplicate rows retain their multiplicity. Third, an exact base prefix permits only complete new rows after that prefix, and an appended duplicate is checked after the prefix test. Every remaining non-prefix mutation is PI_HISTORY_REWRITE. These classifications are deterministic and total.
+
+An insert in the middle is PI_HISTORY_REWRITE because the first differing base index is before the retained prefix. Reorder-then-append is PI_HISTORY_REWRITE because the candidate raw-row multiset differs from the base and the base prefix is not intact. Append-then-rotate is PI_HISTORY_REWRITE for the same reason. A pure same-length permutation is PI_HISTORY_REORDER. There is no normalized or semantic duplicate identity key: an appended raw row is a duplicate only when its complete raw bytes, including its line terminator, equal a retained or earlier appended row. Such an appended duplicate is PI_HISTORY_DUPLICATE after the prefix test. A duplicate replacing a retained row is PI_HISTORY_REWRITE unless it is a same-multiset permutation, which is PI_HISTORY_REORDER. Simultaneous history faults are classified by the same rules and then ordered by the global primary precedence.
+
+PI_HISTORY_DELETE, PI_HISTORY_REORDER, PI_HISTORY_REWRITE, and PI_HISTORY_DUPLICATE report the exact section, first differing index, base and candidate row counts, raw row digests, and retained-prefix digest without echoing raw secrets. Section 18 and 19 comparisons always use the actual immutable event base commit, never a branch name, a contributor-provided base file, or a symbolic merge ref.
+
+## 8. Immutable Git-object trust boundary
+
+All Git object access happens outside the isolated container in a trusted host adapter. The adapter obtains immutable event-bound commit SHAs, verifies exact 40-hex syntax, verifies canonical repository ownership, resolves commit objects, and computes the merge base from those SHAs. It uses canonical GitHub pull-request refs `refs/pull/N/head` and `refs/pull/N/merge` only; N is the validated pull-request number, and it never fetches a contributor-fork URL, clone URL, arbitrary ref, or event-supplied remote.
+
+For every base, candidate, and merge object, the adapter records and verifies the commit SHA, root tree SHA, and required blob SHAs with Git object commands before container execution, and verifies each recorded root tree SHA equals its commit's immutable root tree. It resolves each root-tree entry with `git ls-tree --full-tree -r -z`, verifies the entry with `git cat-file -t` and `git cat-file -s`, and extracts bytes only with `git cat-file blob "$VERIFIED_BLOB_SHA"`; it never reads `PROGRAM.md` through a candidate filesystem path. Base and candidate PROGRAM.md are resolved only as root-tree entries whose exact path bytes are `PROGRAM.md`, exact type `blob`, and exact mode 100644. A missing candidate entry is PI_PROGRAM_MISSING at `PROGRAM.md` in phase `candidate_tree` with exit status 14. A symlink mode 120000, submodule mode 160000, path containing `..` or an unexpected slash, duplicate tree entry, wrong mode, or non-blob base or candidate entry is PI_CANDIDATE_TREE_ENTRY at `candidate.tree.PROGRAM.md` or the exact offending entry in phase `candidate_tree` with exit status 14.
+
+The adapter extracts the verified base and candidate PROGRAM blob bytes into fresh immutable input files with names `base-program.bytes` and `candidate-program.bytes`; these are not candidate checkout paths. It extracts the bounded `src/release/**` source scope into a separate immutable input bundle and passes its verified path/blob manifest. The container receives read-only mounts for those bytes, the trusted-base validator source, and the trusted-base tests only. It never receives a candidate checkout and never opens a candidate filesystem path named PROGRAM.md; the report binds the candidate commit, root tree, PROGRAM blob, source-manifest digest, and source-bundle digest that produced the mounted bytes.
+
+The exact validator arguments are `--base-program-bytes`, `--candidate-program-bytes`, `--base-commit-sha`, `--base-tree-sha`, `--base-program-blob-sha`, `--candidate-commit-sha`, `--candidate-tree-sha`, `--candidate-program-blob-sha`, `--merge-base-sha`, `--candidate-source-manifest`, `--candidate-source-bundle`, and `--report-json`. The exact report keys are `base.commit_sha`, `base.tree_sha`, `base.program_blob_sha`, `candidate.commit_sha`, `candidate.tree_sha`, `candidate.program_blob_sha`, `merge_base.sha`, `candidate.source_manifest_sha256`, and `candidate.source_bundle_sha256`. `--base-ref`, `--head-ref`, `--candidate-root`, `--candidate-program`, and a symbolic base argument do not exist. Every SHA argument is a verified immutable 40-hex object identity supplied by the host adapter, not a branch or mutable value.
+
+The report binds event kind, repository, pull-request number when applicable, all immutable SHAs, exact candidate tree and blob resolution, workflow source SHA, toolchain, image, command argv, exit status, phase states, and changed-path census. A report with a candidate SHA, tree SHA, blob SHA, or event binding different from the current run is PI_REPORT_STALE at `report.binding` in phase `report` with exit status 15.
+
+## 9. CI workflow and protection contract
+
+The future workflow path is `.github/workflows/program-integrity.yml` with exact workflow name `program-integrity-ci` and exact job display name `program-integrity__9a6d4c2e8f17b0a3`. GitHub exposes the required check context exactly as `program-integrity-ci / program-integrity__9a6d4c2e8f17b0a3`; branch protection must require that exact context and no shorter or renamed variant.
+
+The workflow triggers on `pull_request` types opened, synchronize, reopened, ready_for_review, and converted_to_draft; `merge_group` type checks_requested; and `push` to `main` and `factory/**`. The push-to-main invocation is the post-merge verification. Its concurrency group is `program-integrity-${{ github.event.pull_request.number || github.ref }}` with cancel-in-progress true, and a superseded run is not a pass. The workflow does not use `pull_request_target`, repository secrets, write tokens, deployment credentials, OIDC, or artifact-signing keys.
+
+Branch protection must require the exact check, require branches to be up to date before merge, require the merge queue to emit the same check, restrict direct pushes to the owner-controlled policy, and require CODEOWNERS review for workflow and CODEOWNERS changes. The future CODEOWNERS entries are exact: `/.github/workflows/ @omarchy-silicon/platform-ci-owners` and `/.github/CODEOWNERS @omarchy-silicon/platform-ci-owners`; this governance file is owner-controlled configuration, not one of the 30 implementation and fixture paths in the future-path manifest. The repository owner and that owner team are the named remediation owner for any post-merge failure; a failed main verification quarantines promotion, opens the owner-routed incident, and cannot be converted to success by a rerun or warning.
+
+For a pull request, the immutable event binding is base repository `pull_request.base.repo.full_name`, base commit `pull_request.base.sha`, canonical PR number N, canonical `refs/pull/N/head` head commit, and canonical `refs/pull/N/merge` candidate commit and tree. The candidate merge commit must contain the event base as its first parent and the canonical PR head as its other parent, and the branch must be up to date. A stale base is PI_BRANCH_NOT_UP_TO_DATE at `event.pull_request.base.sha` in phase `trust` with exit status 14.
+
+For a merge queue event, the binding is canonical repository, `merge_group.base_sha`, `merge_group.head_sha`, and `github.sha` as the queue candidate commit and tree. The adapter verifies that the immutable queue candidate has the declared base as its first parent and the declared head in its ancestry, records all three values, and does not substitute a pull-request head or local branch. For a push event, the binding is canonical repository, `after` or `github.sha` as candidate commit, and the first parent of that immutable candidate as base commit; `before` must equal that first parent for post-merge main verification. Any missing or inconsistent event binding is PI_EVENT_UNSUPPORTED at `event` in phase `trust` with exit status 14.
+
+A PR-side workflow with the same display name cannot satisfy protection. The required context is accepted only from a run whose workflow path is the canonical file on the protected base workflow ref, whose workflow source commit and workflow blob SHA are bound to that protected source, and whose event is one of the three declared classes. A workflow-only PR is rejected with PI_WORKFLOW_REVIEW_REQUIRED at `.github/workflows/program-integrity.yml` in phase `workflow_trust` with exit status 14 until the owner review and branch-protection requirements are present. A duplicate job or same-name job emitted from an untrusted PR workflow is PI_WORKFLOW_SOURCE_UNTRUSTED at `workflow.source` in phase `workflow_trust` with exit status 14.
+
+Actions are pinned by full commit SHA. If actions are used, the only permitted actions are `actions/checkout` at `11bd71901bbe5b1630ceea73d27597364c9af683` and `actions/upload-artifact` at `ea165f8d65b6e75b540449e92b4886f43607fa02`. Checkout uses depth zero, no tags, no submodules, no LFS, and no persisted credentials, and checks out only the trusted base workflow and validator source at immutable SHAs; it never executes candidate-tree code. Any tag, branch, shortened SHA, mutable container tag, or contributor URL is a workflow failure.
+
+## 10. Container, local command, and report contract
+
+Git object extraction, event verification, changed-path census, and workflow-source verification are host operations. No Git command runs in the container, so the validator image does not need Git. If a future test changes that contract, the image must contain an exact pinned Git build and the toolchain report must record it; an unavailable required tool is PI_TOOLCHAIN_UNAVAILABLE, never PASS.
+
+The runner contract is ubuntu-24.04 with Git 2.47.2 and Docker Engine 27.5.1. The isolated image is `python:3.13.5-slim-bookworm@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718`, and it must report Python 3.13.5. No package index, pip, third-party module, formatter, linter, compiler, or network access is required.
+
+Local and CI use the identical validator argv vector; only the immutable input mount paths differ. The canonical local form is:
+
+```text
+python3.13 -I -S tools/program_integrity/validate.py --base-program-bytes input/base-program.bytes --candidate-program-bytes input/candidate-program.bytes --base-commit-sha "$BASE_COMMIT_SHA" --base-tree-sha "$BASE_TREE_SHA" --base-program-blob-sha "$BASE_PROGRAM_BLOB_SHA" --candidate-commit-sha "$CANDIDATE_COMMIT_SHA" --candidate-tree-sha "$CANDIDATE_TREE_SHA" --candidate-program-blob-sha "$CANDIDATE_PROGRAM_BLOB_SHA" --merge-base-sha "$MERGE_BASE_SHA" --candidate-source-manifest input/candidate-source-manifest.json --candidate-source-bundle input/candidate-source.bundle --report-json output/program-integrity-report.json
+```
+
+The container invokes the same command and arguments with `/base/tools/program_integrity/validate.py`, `/input/base-program.bytes`, `/input/candidate-program.bytes`, `/input/candidate-source-manifest.json`, `/input/candidate-source.bundle`, and `/out/program-integrity-report.json`; all non-path flags and their order are identical to the local argv. It runs with `--network=none`, `--read-only`, dropped capabilities, `no-new-privileges`, read-only input mounts, and exact writable tmpfs mounts `--tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m` and `--tmpfs /out:rw,noexec,nosuid,nodev,size=8m`. The test command uses the same read-only `/base` source mount and exactly those `/tmp` and `/out` tmpfs mounts, so its temporary test output and reports have the declared writable destination without weakening source immutability.
+
+The standard-library test command is identical locally and in the container: `python3.13 -I -S -m unittest discover -s tests/program_integrity -p 'test_*.py' -v`. It must print a case census, phase census, stable-code census, and unavailable-tool limitations. The container test command changes only the source path to `/base/tests/program_integrity` and uses the exact same interpreter, flags, discovery pattern, and verbose mode.
+
+Before each invocation, the output directory is newly created and verified empty. The validator opens same-directory temporary names `program-integrity-report.json.tmp.PID` and `program-integrity-census.txt.tmp.PID` with exclusive creation, writes complete bytes, flushes and fsyncs each file, atomically replaces the final names, fsyncs the containing directory, and verifies the final JSON binding before writing `program-integrity-command.status` only after the child exit status is captured. A stale or mismatched binding is PI_REPORT_STALE in phase `report` with exit status 15; a stale output file, partial file, failed fsync, or failed replace is PI_REPORT_WRITE in phase `report` with exit status 15.
+
+The workflow shell is Bash with `set -Eeuo pipefail`. The validator is invoked without a pipeline; if a future wrapper pipes output, it must capture the direct child status immediately, capture Bash `PIPESTATUS` before any later command, and exit with the child status after writing the failure report. A nonzero child status hidden by a later successful command is PI_OUTPUT_INCONSISTENT at `ci.command` in phase `report` with exit status 15. A nonzero validator exit can never produce a PASS report. The uploaded artifact name is exactly `program-integrity-${CANDIDATE_COMMIT_SHA}-${GITHUB_RUN_ID}` and contains only the JSON report, human census, command status, and redacted trust manifest.
+
+## 11. Exit codes, evidence, and precedence
+
+All validator codes have the `PI_` prefix and are separate from F-02 product wire codes. Success is exit status 0 with `PI_OK`. Invocation failure is exit status 2 with `PI_USAGE`. Grammar and preflight failures use exit status 10; graph failures use 11; policy and stable-writer failures use 12; history failures use 13; trust and toolchain failures use 14; fixture and report failures use 15; unknown hard failure is exit status 70 with PI_UNKNOWN.
+
+| Exit | Phase class | Stable codes |
+|---:|---|---|
+| 0 | Valid result | PI_OK |
+| 2 | Invocation | PI_USAGE |
+| 10 | Preflight and ledger grammar | PI_INPUT_TOO_LARGE, PI_UTF8, PI_LINE_ENDING, PI_CONTROL_CHAR, PI_LEDGER_TABLE, PI_ROW_SHAPE, PI_ID_SYNTAX, PI_STATUS_UNKNOWN, PI_DEP_SYNTAX, PI_DEP_EMPTY |
+| 11 | Dependency graph | PI_DUPLICATE_ID, PI_DEP_UNKNOWN, PI_DEP_DUPLICATE, PI_DEP_SELF, PI_DEP_CYCLE |
+| 12 | Promotion policy and stable writer | PI_POLICY_UNDECLARED, PI_Q_COHORT_EMPTY, PI_F07_MISSING, PI_F07_DIRECT_EDGE, PI_F07_CLOSURE, PI_STABLE_WRITER_SEAM_ABSENT, PI_SECOND_STABLE_WRITER |
+| 13 | Append-only history | PI_HISTORY_DELETE, PI_HISTORY_REORDER, PI_HISTORY_REWRITE, PI_HISTORY_DUPLICATE |
+| 14 | Git trust, workflow trust, and tools | PI_BASE_REPOSITORY, PI_SHA_FORMAT, PI_BASE_UNAVAILABLE, PI_CANDIDATE_UNAVAILABLE, PI_PROGRAM_MISSING, PI_CANDIDATE_TREE_ENTRY, PI_BASE_SHALLOW, PI_MERGE_BASE, PI_BRANCH_NOT_UP_TO_DATE, PI_EVENT_UNSUPPORTED, PI_WORKFLOW_SOURCE_UNTRUSTED, PI_WORKFLOW_REVIEW_REQUIRED, PI_TOOLCHAIN_UNAVAILABLE |
+| 15 | Fixture and report integrity | PI_FIXTURE_STALE, PI_REPORT_STALE, PI_REPORT_WRITE, PI_OUTPUT_INCONSISTENT |
 | 70 | Unknown hard failure | PI_UNKNOWN |
 
-The primary-error precedence is fixed and evaluated before any later phase can replace it:
-PI_USAGE; PI_BASE_REPOSITORY; PI_BASE_SHA; PI_BASE_UNAVAILABLE; PI_BASE_SHALLOW;
-PI_MERGE_BASE; PI_TOOLCHAIN_UNAVAILABLE; PI_INPUT_TOO_LARGE; PI_UTF8; PI_CONTROL_CHAR;
-PI_LEDGER_TABLE; PI_ROW_SHAPE; PI_ID_SYNTAX; PI_STATUS_UNKNOWN; PI_DUPLICATE_ID;
-PI_DEP_UNKNOWN; PI_DEP_DUPLICATE; PI_DEP_SELF; PI_DEP_CYCLE; PI_F07_MISSING;
-PI_POLICY_UNDECLARED; PI_F07_DIRECT_EDGE; PI_F07_CLOSURE; PI_SECOND_STABLE_WRITER;
-PI_WARNING_SUCCESS; PI_HISTORY_DELETE; PI_HISTORY_REORDER; PI_HISTORY_REWRITE;
-PI_HISTORY_DUPLICATE; PI_UNKNOWN.
+The primary precedence is exact and global: PI_USAGE; PI_BASE_REPOSITORY; PI_SHA_FORMAT; PI_BASE_UNAVAILABLE; PI_CANDIDATE_UNAVAILABLE; PI_PROGRAM_MISSING; PI_CANDIDATE_TREE_ENTRY; PI_BASE_SHALLOW; PI_MERGE_BASE; PI_BRANCH_NOT_UP_TO_DATE; PI_EVENT_UNSUPPORTED; PI_WORKFLOW_SOURCE_UNTRUSTED; PI_WORKFLOW_REVIEW_REQUIRED; PI_TOOLCHAIN_UNAVAILABLE; PI_INPUT_TOO_LARGE; PI_UTF8; PI_LINE_ENDING; PI_CONTROL_CHAR; PI_LEDGER_TABLE; PI_ROW_SHAPE; PI_ID_SYNTAX; PI_STATUS_UNKNOWN; PI_DEP_SYNTAX; PI_DEP_EMPTY; PI_DUPLICATE_ID; PI_DEP_UNKNOWN; PI_DEP_DUPLICATE; PI_DEP_SELF; PI_DEP_CYCLE; PI_POLICY_UNDECLARED; PI_Q_COHORT_EMPTY; PI_F07_MISSING; PI_F07_DIRECT_EDGE; PI_F07_CLOSURE; PI_STABLE_WRITER_SEAM_ABSENT; PI_SECOND_STABLE_WRITER; PI_HISTORY_DELETE; PI_HISTORY_REORDER; PI_HISTORY_REWRITE; PI_HISTORY_DUPLICATE; PI_FIXTURE_STALE; PI_REPORT_STALE; PI_REPORT_WRITE; PI_OUTPUT_INCONSISTENT; PI_UNKNOWN.
 
-Within a code, diagnostics are sorted by phase, source path, one-based line number, and
-canonical ID or raw digest. If multiple mandatory edges are missing, all missing edges
-appear in the fail census but the first lexicographic edge controls the primary detail.
-Warnings are informational only for non-required observations; a required failure labeled
-warning is PI_WARNING_SUCCESS with exit 12. No unknown condition is downgraded.
+The JSON result is UTF-8 with ensure_ascii=true, sorted keys, stable ordering, and exactly one final LF. Strict decode failure is PI_UTF8 at `PROGRAM.md` in phase `preflight` with exit status 10. Invalid immutable SHA syntax is PI_SHA_FORMAT at the exact SHA field in phase `trust` with exit status 14. It contains `result`, `primary`, `phases`, `fail_census`, all immutable identity bindings, derived ledger and graph counts, Q census, direct-edge census, history evidence, stable-writer evidence, fixture evidence, command argv, and exit status. PASS requires `result=PASS`, exit status 0, every required phase PASS, zero failures, complete evidence, and no unavailable tool. FAIL requires `result=FAIL`, a primary code, exact phase and path, deterministic detail, all executed failures, and explicit BLOCKED phase records. A nonempty fail census, warning-like text, missing evidence, or nonzero child status cannot coexist with PASS. There is no warning-success identifier or state.
 
-## 8. Hostile test matrix
+Human output is one deterministic line per failure in the form `FAIL code phase path detail` plus one `BLOCKED phase blocked_by` line for each gated phase. It never labels a required failure as a warning and never prints PASS after a failure. Reports redact credentials, raw environment, and source bytes while retaining digests and exact structural evidence.
 
-Every hostile test runs from a clean temporary copy of valid-program.md, applies exactly
-the stated mutation, invokes the trusted validator, captures JSON and human output, and
-asserts the stable code, path, phase, exit status, and evidence. The fixture name is the
-checked-in input unless the row explicitly says runtime-generated. Positive tests also
-assert the exact base census and deterministic topological order.
+## 12. Generated fixtures and hostile matrix
 
-| Case | Input mutation | Expected code, path, and phase | Exit | Required evidence |
+The QA implementation first extracts the pinned base ledger region as raw bytes and asserts that `tests/program_integrity/fixtures/valid-program.md` has a ledger region byte-identical to it. It separately asserts the exact base ledger-region SHA-256, row sequence, policy-record bytes, base commit SHA, source-manifest SHA, and source-bundle SHA recorded in the generated fixture manifest; for the current base, policy-record bytes are empty and the positive fixture records the exact Section 4 policy bytes it adds outside the ledger, plus a generated two-file future stable seam bundle for the PI_OK contract test. The generated seam bundle is temporary fixture input, not a claimed implementation or one of the 30 tracked paths. A positive fixture may add the required policy declaration outside the ledger region, but it may not change one ledger byte. A stale manifest or fixture is PI_FIXTURE_STALE at `tests/program_integrity/fixtures/fixture-manifest.json` in phase `fixtures` with exit status 15.
+
+Required-edge fixtures are generated by iterating the effective direct-prerequisite IDs from the exact Section 4 policy bytes used by the positive fixture and the derived Q cohort census from the pinned ledger. Every generated fixture removes exactly one F-07 direct token and expects PI_F07_DIRECT_EDGE. A Q-09 or new mandatory slice mutation regenerates the census and required-edge fixture set; a checked-in fixture set that lacks the new case, retains an old policy digest, or assumes a hard-coded 52 count is rejected as PI_FIXTURE_STALE. The valid fixture, edge fixtures, and closure fixtures therefore cannot masquerade current counts as authority.
+
+Every hostile case runs from a clean generated positive input, applies exactly the stated mutation, invokes the trusted-base validator, captures JSON and human output, and asserts code, path, phase, nonzero exit, and evidence. The merge-group positive case is the sole non-hostile event-shape row with exit 0.
+
+| Case | Planted input | Expected code, path, and phase | Exit | Required evidence |
 |---|---|---|---:|---|
-| valid baseline | No mutation to valid-program.md | PI_OK; report.result; report | 0 | JSON PASS, 52-row census, closure contains every ledger ID, deterministic topological order, zero FAIL |
-| malformed header | Change the exact ledger header cell text | PI_LEDGER_TABLE; ledger.header; parse | 10 | Expected header cells, actual header cells, source line, human FAIL, no PASS |
-| malformed row shape | Remove one delimiter cell or add a sixth ledger cell | PI_ROW_SHAPE; ledger.rows.line; parse | 10 | First malformed line, expected five cells, actual count, human FAIL, no PASS |
-| duplicate ID | Copy one ledger row and retain its ID | PI_DUPLICATE_ID; ledger.rows.ID; graph | 11 | Duplicate ID, both source lines, sorted ID census absent, no status-derived success |
-| unknown dependency | Replace one dependency with Z-99 | PI_DEP_UNKNOWN; ledger.rows.ID.depends; graph | 11 | Raw token, source line, known-ID set not used as fallback, no topological order |
-| self-edge | Add the row ID to its own dependency cell | PI_DEP_SELF; ledger.rows.ID.depends; graph | 11 | Self edge, row line, no cycle witness substituted |
-| cycle | Change two dependency cells to form A to B and B to A | PI_DEP_CYCLE; graph.cycle; graph | 11 | Canonical closed witness, sorted traversal seed, no partial closure |
-| missing F-07 closure | Remove G-05 from both applicable Q-cohort dependency rows so G-05 is unreachable from F-07 | PI_F07_CLOSURE; policy.f07.closure.G-05; policy | 12 | Sorted missing-ID list, complete ledger total, direct-edge evidence still present |
-| missing direct P-03 | Remove only F-07 to P-03 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.P-03; policy | 12 | Transitive reachability shown separately, missing direct edge, no warning-success |
-| missing direct P-05 | Remove only F-07 to P-05 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.P-05; policy | 12 | Transitive reachability shown separately, missing direct edge, no warning-success |
-| missing direct I-09 | Remove only F-07 to I-09 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.I-09; policy | 12 | Transitive reachability shown separately, missing direct edge, no warning-success |
-| missing direct B-04 | Remove only F-07 to B-04 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.B-04; policy | 12 | Transitive reachability shown separately, missing direct edge, no warning-success |
-| missing direct Q-04 | Remove only F-07 to Q-04 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.Q-04; policy | 12 | Q-04 derived from PROGRAM classification, missing direct edge, no warning-success |
-| missing direct Q-05 | Remove only F-07 to Q-05 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.Q-05; policy | 12 | Q-05 derived from PROGRAM classification, missing direct edge, no warning-success |
-| missing direct Q-06 | Remove only F-07 to Q-06 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.Q-06; policy | 12 | Q-06 derived from PROGRAM classification, missing direct edge, no warning-success |
-| missing direct Q-07 | Remove only F-07 to Q-07 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.Q-07; policy | 12 | Q-07 derived from PROGRAM classification, missing direct edge, no warning-success |
-| missing direct Q-08 | Remove only F-07 to Q-08 | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.Q-08; policy | 12 | Q-08 derived from PROGRAM classification, missing direct edge, no warning-success |
-| duplicate progress row | Append an exact retained progress row after the base prefix | PI_HISTORY_DUPLICATE; history.progress.append; history | 13 | Base prefix digest unchanged, duplicate raw-row digest and appended line, human FAIL |
-| rewritten progress row | Change one retained progress evidence cell without appending a correction row | PI_HISTORY_REWRITE; history.progress.prefix.index; history | 13 | First differing index, base and candidate row digests, no normalized comparison |
-| deleted progress row | Delete one retained progress row | PI_HISTORY_DELETE; history.progress.prefix.index; history | 13 | Missing base row identity and base/candidate counts, no prefix truncation accepted |
-| reordered decision row | Permute two retained decision rows | PI_HISTORY_REORDER; history.decision.order; history | 13 | Same row multiset with different order, first inversion, no sorted-set acceptance |
-| second stable writer | Add a second direct sink call using second-stable-writer.py | PI_SECOND_STABLE_WRITER; policy.stable_writer.callers; policy | 12 | AST-resolved sink symbol, two call paths, allowed caller path, no grep-only evidence |
-| unknown status | Replace TODO with BLOCKED | PI_STATUS_UNKNOWN; ledger.rows.ID.status; parse | 10 | Raw status, allowed-status grammar, no census or success |
-| control characters | Insert U+0000, U+000B, or U+007F into a cell | PI_CONTROL_CHAR; input.bytes.offset; parse | 10 | Byte offset, Unicode code point, no terminal control emitted |
-| Unicode confusable ID | Replace ASCII F-01 with a fullwidth or Cyrillic lookalike | PI_ID_SYNTAX; ledger.rows.line.id; parse | 10 | Escaped raw ID, ASCII grammar, no Unicode normalization |
-| oversized input | Runtime-generate a file of 1,048,577 bytes | PI_INPUT_TOO_LARGE; input.size; preflight | 10 | Actual byte count, configured limit, no parse attempt |
-| base unavailable | Omit the base commit object | PI_BASE_UNAVAILABLE; base.commit; trust | 14 | Event SHA, failed object check, no candidate code execution |
-| base repository mismatch | Set base.repo.full_name to a repository other than github.repository | PI_BASE_REPOSITORY; base.repository; trust | 14 | Event repository values, canonical expected repository, no candidate code execution |
-| shallow history | Set up a shallow temporary Git repository | PI_BASE_SHALLOW; base.history; trust | 14 | is-shallow result, fetch-depth evidence, no local-tip substitution |
-| merge-base unavailable | Use unrelated base and head histories | PI_MERGE_BASE; base.merge_base; trust | 14 | Failed merge-base command, both commit identities, no candidate code execution |
-| warning-success | Remove P-03 and label the required failure warning in the fixture text | PI_F07_DIRECT_EDGE; policy.f07.direct_edges.P-03; policy | 12 | Human FAIL, exit 12, no PASS, no success true, warning cannot downgrade |
+| valid baseline | Positive fixture with byte-identical base ledger, exact Section 4 policy bytes, and generated minimal two-file stable seam bundle | PI_OK; `report`; `validation` | 0 | 52 derived rows, 52 unique IDs, derived status census, deterministic traversal, Q census, direct-edge census, stable seam evidence, all phase PASS |
+| promotion policy absent | Remove the exact Section 12.2 policy history | PI_POLICY_UNDECLARED; `policy.program_integrity`; `policy` | 12 | No promotion mode, no fallback direct-edge list, no PASS |
+| zero Q cohorts | Change every qualifying Deliverable so no row begins with exact `Certify ` | PI_Q_COHORT_EMPTY; `policy.q_cohorts`; `policy` | 12 | Non-empty-Q requirement, count zero, policy version, no direct-edge success |
+| P-08 added then direct edge removed | Add P-08 to the generated ledger and a new policy record, then remove only F-07 to P-08 | PI_F07_DIRECT_EDGE; `policy.f07.direct_edges.P-08`; `promotion` | 12 | Effective policy version, generated P-08 case, closure and missing direct edge kept distinct |
+| Q-09 addition | Add Q-09 with qualifying Deliverable and verify generated direct-edge coverage, then remove its edge in the hostile variant | PI_F07_DIRECT_EDGE; `policy.f07.direct_edges.Q-09`; `promotion` | 12 | Q census contains Q-09, stale fixtures fail, missing edge is not replaced by transitive reachability |
+| stale fixture after new required slice | Add a new required ledger or policy ID without regenerating fixture manifest | PI_FIXTURE_STALE; `tests/program_integrity/fixtures/fixture-manifest.json`; `fixtures` | 15 | Base/policy digests, derived IDs, missing generated case, no hard-coded count acceptance |
+| malformed ledger header | Change one exact ledger header cell or add a duplicate header | PI_LEDGER_TABLE; `PROGRAM.md`; `ledger_parse` | 10 | Exact expected/actual header bytes, duplicate count, graph BLOCKED |
+| code-fence or HTML-comment ledger | Put a fake ledger heading/table in a fence or comment and remove or duplicate the real target | PI_LEDGER_TABLE; `PROGRAM.md`; `ledger_parse` | 10 | Raw-source selection, lookalike evidence, rendered/non-rendered form not accepted |
+| five-versus-six boundary fault | Remove one row pipe or add a sixth cell | PI_ROW_SHAPE; `ledger.rows.LINE`; `ledger_parse` | 10 | Expected six ASCII delimiters and five cells, first malformed line |
+| multiline, escaped, or code-span pipe | Split a row over two lines or add any pipe inside a cell, escaped or in code span | PI_ROW_SHAPE; `ledger.rows.LINE`; `ledger_parse` | 10 | One physical line, raw pipe rejection, no rendered parser |
+| duplicate ID | Copy a row without changing its ID | PI_DUPLICATE_ID; `ledger.rows.ID`; `graph` | 11 | Both source lines, no status census, no traversal |
+| unknown dependency | Replace a dependency with Z-99 | PI_DEP_UNKNOWN; `ledger.rows.ID.depends`; `graph` | 11 | Raw token, known-ID evidence, graph primary |
+| duplicate dependency token | Repeat one exact dependency token with valid `, ` spacing | PI_DEP_DUPLICATE; `ledger.rows.ID.depends`; `graph` | 11 | Duplicate-token phase is graph, not parser |
+| empty dependency token | Use `F-01,`, `, F-01`, or `F-01,, P-01` | PI_DEP_EMPTY; `ledger.rows.ID.depends`; `ledger_parse` | 10 | Raw dependency bytes, exact comma-space rule, empty-token index |
+| badly spaced dependency token | Use `F-01,  P-01`, a tab separator, or another non-`, ` separator | PI_DEP_SYNTAX; `ledger.rows.ID.depends`; `ledger_parse` | 10 | Raw dependency bytes, exact comma-space rule, separator classification |
+| self-edge | Add the row ID to its own dependencies | PI_DEP_SELF; `ledger.rows.ID.depends`; `graph` | 11 | Self witness, no cycle substitute |
+| cycle | Form a two-node dependency cycle | PI_DEP_CYCLE; `graph.cycle`; `graph` | 11 | Canonical witness and seed, no partial traversal |
+| missing F-07 closure | Add a ledger ID and leave it unreachable from F-07 | PI_F07_CLOSURE; `policy.f07.closure.ID`; `promotion` | 12 | Sorted missing IDs, total ledger count, direct policy evidence |
+| missing direct generated edge | Remove one generated required direct token | PI_F07_DIRECT_EDGE; `policy.f07.direct_edges.ID`; `promotion` | 12 | Effective policy and Q-derived set, all missing-edge census |
+| missing F-07 row | Remove the F-07 ledger row | PI_F07_MISSING; `ledger.rows.F-07`; `promotion` | 12 | Exact row absence and blocked closure/direct-edge phases |
+| absent stable seam | Omit `src/release/stable_store.py` or its sink definition | PI_STABLE_WRITER_SEAM_ABSENT; `src/release/stable_store.py`; `stable_writer` | 12 | `policy.stable_writer.seam=absent`, status, code, phase |
+| second stable writer | Add a direct sink call, import alias, dynamic lookup, or second stable primitive in `src/release/**` | PI_SECOND_STABLE_WRITER; `policy.stable_writer.callers`; `stable_writer` | 12 | AST-resolved symbol, all call paths, exact bounded scope, no grep-only proof |
+| deleted history row | Remove a retained Section 18 or 19 row | PI_HISTORY_DELETE; `history.SECTION.prefix.INDEX`; `history` | 13 | Raw base/candidate counts, first missing index, prefix digest |
+| base row loss with append | Delete a retained Section 18 or 19 row and append a new row | PI_HISTORY_DELETE; `history.SECTION.prefix.INDEX`; `history` | 13 | Missing base-row multiplicity, raw counts, first differing index, prefix digest |
+| inserted-middle history row | Insert a new row before the retained base prefix ends | PI_HISTORY_REWRITE; `history.SECTION.prefix.INDEX`; `history` | 13 | First differing index, raw row digests, no insertion acceptance |
+| reordered history | Permute two retained rows with no append | PI_HISTORY_REORDER; `history.SECTION.order`; `history` | 13 | Same multiset, changed indexes, first inversion |
+| reorder then append | Permute retained rows and append a new row | PI_HISTORY_REWRITE; `history.SECTION.prefix.INDEX`; `history` | 13 | Non-prefix classification, not REORDER |
+| append then rotate | Append a row and rotate the sequence | PI_HISTORY_REWRITE; `history.SECTION.prefix.INDEX`; `history` | 13 | Non-prefix classification, raw multiset evidence |
+| appended duplicate | Append an exact retained history row, including its line terminator | PI_HISTORY_DUPLICATE; `history.SECTION.append`; `history` | 13 | Exact raw duplicate bytes, appended index, unchanged retained-prefix digest |
+| wrong Git mode | Resolve candidate PROGRAM.md root-tree entry as mode other than 100644 | PI_CANDIDATE_TREE_ENTRY; `candidate.tree.PROGRAM.md`; `candidate_tree` | 14 | Commit/tree/blob SHAs, mode, type, exact path bytes |
+| symlink candidate | Resolve candidate PROGRAM.md as a symlink | PI_CANDIDATE_TREE_ENTRY; `candidate.tree.PROGRAM.md`; `candidate_tree` | 14 | Symlink type, rejected target, no filesystem read |
+| missing candidate PROGRAM.md | Remove the root PROGRAM.md blob | PI_PROGRAM_MISSING; `PROGRAM.md`; `candidate_tree` | 14 | Candidate commit/tree, missing entry, no candidate path access |
+| contributor fork repository | Set the event base repository to a contributor fork | PI_BASE_REPOSITORY; `event.repository`; `trust` | 14 | Canonical repository comparison, no fork URL fetch |
+| arbitrary object endpoint | Supply a fork clone URL or arbitrary object endpoint instead of canonical refs | PI_EVENT_UNSUPPORTED; `event`; `trust` | 14 | Validated PR number, trusted `refs/pull/N/head` and `refs/pull/N/merge`, no URL fetch |
+| shallow history | Present a shallow object store | PI_BASE_SHALLOW; `base.history`; `trust` | 14 | Exact shallow result and no local-tip substitution |
+| stale branch | Candidate merge lacks the event base as required parent | PI_BRANCH_NOT_UP_TO_DATE; `event.pull_request.base.sha`; `trust` | 14 | Base/candidate ancestry and exact merge base |
+| merge-group candidate | Use a valid `merge_group` event with immutable base, head, and candidate SHAs | PI_OK; `report`; `trust` | 0 | Merge-group bindings, candidate tree/blob SHAs, exact required context |
+| PR-side duplicate job | Untrusted workflow emits the same display/job context | PI_WORKFLOW_SOURCE_UNTRUSTED; `workflow.source`; `workflow_trust` | 14 | Workflow path/ref/source SHA and rejected duplicate context |
+| workflow-only PR | Change `.github/workflows/program-integrity.yml` without required owner review | PI_WORKFLOW_REVIEW_REQUIRED; `.github/workflows/program-integrity.yml`; `workflow_trust` | 14 | Changed-path census, CODEOWNERS owner, required review, no protection satisfaction |
+| simultaneous table and graph faults | Malformed ledger plus planted unknown dependency | PI_LEDGER_TABLE; `PROGRAM.md`; `ledger_parse` | 10 | Graph phase BLOCKED, no PI_DEP_UNKNOWN claim, exact precedence |
+| simultaneous trust and candidate faults | Unavailable base plus malformed candidate | PI_BASE_UNAVAILABLE; `base.commit`; `trust` | 14 | Candidate phases BLOCKED, no candidate execution or fallback |
+| required failure labeled warning | Remove a required direct edge and label the fixture text as a warning | PI_F07_DIRECT_EDGE; `policy.f07.direct_edges.ID`; `promotion` | 12 | Human FAIL, no warning-success state, no PASS or zero-fail census |
+| stale report reuse | Reuse a report bound to a different candidate SHA or tree/blob | PI_REPORT_STALE; `report.binding`; `report` | 15 | Current and stale bindings, fresh output directory, atomic-write evidence |
+| hidden nonzero in pipe | Make the validator exit nonzero and let a later pipeline command exit zero | PI_OUTPUT_INCONSISTENT; `ci.command`; `report` | 15 | `pipefail`, child status, PIPESTATUS, no PASS artifact |
 
-The QA lane must add at least one simultaneous-failure assertion: a malformed table,
-unknown status, missing direct edge, and rewritten history in one candidate must report
-PI_LEDGER_TABLE as primary according to the precedence table and retain the later failures
-in the JSON fail census. It must also assert that an unavailable base wins over every
-candidate mutation and that an unavailable pinned tool is a limitation with exit 14,
-never PASS.
+The hostile test suite also asserts that every unavailable required tool is a limitation with nonzero exit and explicit census entry, never a PASS. It asserts that a failed earlier phase produces explicit BLOCKED records for dependent phases, and that all simultaneous faults resolve through the one precedence table.
 
-## 9. Local and CI commands
+## 13. CI gates and verification evidence
 
-These are future commands, not commands that pass in this design-only lane.
+The future CI job records the exact event binding, workflow source, base/candidate/merge SHAs, root tree SHAs, PROGRAM blob SHAs, candidate source manifest, runner and tool versions, image digest, action SHAs, command argv, command exit status, changed-path census, phase census, fixture census, and report artifact names. It runs from clean trusted host object state and never treats an open cluster, a local branch, a rendered page, a successful checkout, or a prior report as evidence.
 
-Local trusted-base validation after the validator is available:
+The required gate battery is `git diff --check`, exact one-file changed-path census for this design lane, no tabs, no conflict markers, no unfinished markers, no secrets, no absolute local paths, Markdown full-line checks, table-shape checks, link checks, exact parent check, clean status after commit, and remote-equality check after push. The future implementation lane adds its own executable validator and fixture tests only after this design is independently accepted.
 
-    python3.13 -I -S tools/program_integrity/validate.py --program PROGRAM.md --base-ref origin/main --head-ref HEAD --json-out /tmp/program-integrity.json
+The design-lane self-check does not claim validator, schema, fixture, workflow, branch-protection, stable-writer, release, qualification, or support success. Unavailable Markdown or external CI tooling is reported as a limitation and is never converted to PASS.
 
-Local standard-library tests:
+## 14. Rollout and owner checkpoints
 
-    python3.13 -I -S -m unittest discover -s tests/program_integrity -p 'test_*.py' -v
+The coordinator first decides whether to add the exact Section 12.2 policy history declaration to PROGRAM.md. Until that happens, PI_POLICY_UNDECLARED is the only honest promotion-policy result for the pinned base.
 
-Local hostile-only census:
+The implementation lane then creates the validator, host Git adapter, generated fixture manifest, and standard-library hostile tests from this contract. It must prove raw-byte parsing, policy append-only behavior, graph and closure semantics, generated direct-edge coverage, bounded stable-writer analysis, immutable candidate extraction, history classification, report atomicity, and exit propagation.
 
-    python3.13 -I -S -m unittest discover -s tests/program_integrity -p 'test_validate.py' -k HostileMatrix -v
+The CI owner creates the pinned workflow only after the validator and test surface receive an independent adversarial review. The owner review must plant every hostile case in Section 12, verify the exact check context on pull-request, merge-group, direct-push, and post-merge events, and verify that a PR-side duplicate workflow cannot satisfy protection.
 
-CI preflight:
+The repository owner decides whether to require `program-integrity-ci / program-integrity__9a6d4c2e8f17b0a3` in branch protection and whether to approve the exact CODEOWNERS owner. The repository owner and `@omarchy-silicon/platform-ci-owners` remediate any post-merge failure before any promotion review proceeds.
 
-    git --version
-    docker version --format '{{.Server.Version}}'
-    git rev-parse --is-shallow-repository
-    git merge-base "$BASE_SHA" "$HEAD_SHA"
-
-CI isolated validator and tests:
-
-    docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges -v "$BASE_DIR:/base:ro" -v "$CANDIDATE_DIR:/candidate:ro" -v "$REPORT_DIR:/report:rw" python:3.13.5-slim-bookworm@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718 python -I -S /base/tools/program_integrity/validate.py --base-program /base/PROGRAM.md --candidate-program /candidate/PROGRAM.md --base-sha "$BASE_SHA" --merge-base "$MERGE_BASE" --candidate-root /candidate --json-out /report/program-integrity.json
-
-    docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges -v "$BASE_DIR:/base:ro" -v "$FIXTURE_DIR:/fixtures:ro" -v "$REPORT_DIR:/report:rw" python:3.13.5-slim-bookworm@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718 python -I -S -m unittest discover -s /base/tests/program_integrity -p 'test_*.py' -v
-
-The local and CI commands must print a PASS/FAIL census, not just a process exit code.
-The census includes every test case, every validator phase, every stable error code, and
-every unavailable-tool limitation. A formatter or third-party static checker is not part
-of this design because no concrete pinned formatter or checker is selected. Python
-ast.parse under Python 3.13.5 is the only specified static syntax check. If a future
-owner adds a formatter or checker, its exact version and immutable acquisition must be
-recorded before a green result can be claimed; an unavailable tool is not PASS.
-
-## 10. Rollout and ownership checkpoints
-
-The rollout order is fixed:
-
-1. Coordinator rules on this design and separately decides whether to add the minimum
-   Q-cohort classification amendment to PROGRAM.md.
-2. The implementation lane creates validate.py, test_validate.py, and the named fixtures;
-   it proves the parser, graph, history, policy, AST writer, and exit-code contracts.
-3. A read-only adversarial reviewer plants every listed violation, including a second
-   stable writer, fork-style base failure, shallow history, warning-success, and combined
-   failures. The default verdict is REJECT until the planted guard trips with the specified
-   evidence.
-4. After the validator and test surface are independently accepted, the CI owner creates
-   program-integrity.yml with the pinned actions, runner/toolchain, trust-boundary, and
-   network policy in this note.
-5. The coordinator obtains GitHub run proof from valid PRs and hostile PRs, including a
-   fork PR, an unavailable-base simulation, and a shallow-history simulation. The proof
-   includes check name, exact tip, artifacts, exit status, and fail census.
-6. The repository owner decides whether branch protection may require
-   program-integrity / validate and whether workflow changes require an owner-approved
-   review. Only that owner checkpoint can change repository policy.
-
-No slice or release becomes DONE from this design. Even after the workflow is green,
-PROGRAM.md remains a plan authority and F-07 remains responsible for release readiness.
-
-## 11. Open questions
-
-1. Coordinator ruling: will the exact Q-cohort classification sentence in Section 1 be
-   added to PROGRAM.md before promotion-mode implementation begins?
-2. Owner ruling: is the repository owner authorizing a branch-protection policy change
-   that makes program-integrity / validate required on main? This design does not assume
-   that authority.
-3. Coordinator and CI-owner ruling: does the repository-hosted runner actually provide
-   Git 2.47.2 and Docker Engine 27.5.1, or must an owner-approved immutable runner image
-   provide them? An unavailable version remains a failed gate.
-4. Coordinator ruling: are src/release/stable_store.py and
-   src/release/f07_promotion.py the accepted F-07 production seam names, or should the
-   same two-role seam receive different exact paths before implementation?
-5. Owner ruling: is registry-1.docker.io an approved CI dependency for the pinned
-   Python image, or must the image be mirrored under an owner-controlled immutable
-   registry and its digest re-recorded?
-6. Coordinator ruling: after validator/tests land, may the workflow run only trusted-base
-   test code on PRs, with candidate tests becoming executable only after merge? This
-   design chooses the fail-closed trusted-base behavior to prevent contributor code
-   execution during fork validation.
+No slice or release becomes DONE from this design. Even after executable CI is green, the program remains subject to independent review, implementation evidence, physical qualification, release compliance, and coordinator-controlled F-07 promotion.
