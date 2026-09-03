@@ -42,6 +42,13 @@ def test_inventory_has_closed_full_capability_criteria():
     assert all(item["evidence_modality"] in {"automated", "human-observed", "automated-and-human"} for item in inventory["boards"][0]["capabilities"])
 
 
+def test_qualification_workflow_installs_test_runner_and_limits_push_to_main():
+    workflow = (ROOT / ".github/workflows/qualification.yml").read_text()
+    assert "pytest==8.3.5" in workflow
+    assert "push:\n    branches:\n      - main" in workflow
+    assert "pull_request:" in workflow
+
+
 def test_missing_capability_rejected():
     inventory, record = values()
     record["capabilities"].pop()
