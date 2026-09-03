@@ -199,6 +199,17 @@ class ProgramIntegrityTests(unittest.TestCase):
             result = validate_program(program, lock, baseline_program, baseline_lock)
             self.assertEqual(result["status_counts"]["IN PROGRESS"], 7)
 
+    def test_done_transition_is_unauthorized_even_with_exact_evidence(self):
+        def done_transition(path):
+            text = path.read_text().replace(
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | DONE |",
+            )
+            text += "| 2026-09-03 | status transition: P-01 from TODO to DONE | coordinator evidence |\n"
+            path.write_text(text)
+
+        self.assertEqual(self.run_trusted_mutation(done_transition).code, "DONE_TRANSITION_UNAUTHORIZED")
+
     def test_workflow_selects_event_base_and_fetches_full_history(self):
         workflow = (ROOT / ".github/workflows/program-integrity.yml").read_text()
         self.assertIn("fetch-depth: 0", workflow)

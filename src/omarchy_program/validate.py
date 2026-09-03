@@ -282,6 +282,8 @@ def _validate_progress(slices: list[Slice], progress: list[Progress], lock: dict
     if baseline_slices is None:
         changed = {identifier for identifier, status in current_statuses.items() if baseline_statuses.get(identifier) != status}
     for identifier in changed:
+        if current_statuses[identifier] == "DONE" and baseline_statuses.get(identifier) != "DONE":
+            _fail("DONE_TRANSITION_UNAUTHORIZED", "PROGRAM.md:19", f"{identifier} cannot transition into DONE without the coordinator authorization contract")
         matches = transitions.get(identifier, [])
         if len(matches) != 1 or matches[0][0] != baseline_statuses.get(identifier) or matches[0][1] != current_statuses[identifier]:
             _fail("STATUS_TRANSITION_EVIDENCE_MISSING", "PROGRAM.md:19", f"{identifier} requires one exact status transition in appended progress")
