@@ -1,0 +1,121 @@
+{
+  "version": "release-compliance/v1",
+  "policy": {
+    "version": "f06-policy/v1",
+    "digest": "sha256:d2454c12284649518ecccab6603b546ffa64b76e7deb533b1974a19455bfe9ca"
+  },
+  "candidate": {
+    "id": "omarchy-silicon",
+    "version": "1.0.0",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "manifest": {
+    "id": "release-manifest",
+    "version": "1.0.0",
+    "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "schema_set": {
+    "id": "platform-schema-set",
+    "version": "1.0.0",
+    "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "omarchy-base",
+      "component_id": "omarchy-base",
+      "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "upstream_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "fork_digest": null,
+      "source_uri": "https://example.invalid/omarchy-base-v1.0.0-sha256:4444444444444444444444444444444444444444444444444444444444444444.tar.gz",
+      "artifact_class": "system",
+      "spdx_expression": "MIT",
+      "copyright_notice": [
+        {"id": "notice-omarchy", "text": "Copyright Omarchy contributors"}
+      ],
+      "source_offer": {
+        "status": "offered",
+        "location": "https://example.invalid/omarchy-base-v1.0.0-sha256:4444444444444444444444444444444444444444444444444444444444444444.tar.gz",
+        "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "expires_at": "2030-01-01T00:00:00Z"
+      },
+      "redistribution": "allowed",
+      "owner_decision": {
+        "decision_id": "legal-omarchy-base-1",
+        "evidence_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "decided_at": "2025-01-01T00:00:00Z",
+        "expires_at": "2030-01-01T00:00:00Z"
+      },
+      "firmware_policy": "not-applicable",
+      "asset_policy": "not-applicable",
+      "generated": false,
+      "build_provenance": null,
+      "sbom_ref": null,
+      "candidate_ref": {
+        "id": "omarchy-silicon",
+        "version": "1.0.0",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "manifest_ref": {
+        "id": "release-manifest",
+        "version": "1.0.0",
+        "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "schema_set_ref": {
+        "id": "platform-schema-set",
+        "version": "1.0.0",
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    {
+      "artifact_id": "omarchy-launcher",
+      "component_id": "omarchy-launcher",
+      "content_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "upstream_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "fork_digest": null,
+      "source_uri": "https://example.invalid/omarchy-launcher-v2.0.0-sha256:7777777777777777777777777777777777777777777777777777777777777777.tar.gz",
+      "artifact_class": "generated",
+      "spdx_expression": "Apache-2.0",
+      "copyright_notice": [
+        {"id": "notice-launcher", "text": "Copyright Omarchy contributors"}
+      ],
+      "source_offer": {
+        "status": "offered",
+        "location": "https://example.invalid/omarchy-launcher-v2.0.0-sha256:7777777777777777777777777777777777777777777777777777777777777777.tar.gz",
+        "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "expires_at": "2030-01-01T00:00:00Z"
+      },
+      "redistribution": "allowed",
+      "owner_decision": {
+        "decision_id": "legal-omarchy-launcher-1",
+        "evidence_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "decided_at": "2025-01-01T00:00:00Z",
+        "expires_at": "2030-01-01T00:00:00Z"
+      },
+      "firmware_policy": "not-applicable",
+      "asset_policy": "not-applicable",
+      "generated": true,
+      "build_provenance": {
+        "builder": "omarchy-ci",
+        "recipe_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "sbom_ref": "sbom://omarchy-launcher/2.0.0",
+      "candidate_ref": {
+        "id": "omarchy-silicon",
+        "version": "1.0.0",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "manifest_ref": {
+        "id": "release-manifest",
+        "version": "1.0.0",
+        "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "schema_set_ref": {
+        "id": "platform-schema-set",
+        "version": "1.0.0",
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    }
+  ]
+}

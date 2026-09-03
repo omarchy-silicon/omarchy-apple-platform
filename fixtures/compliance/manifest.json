@@ -1,0 +1,26 @@
+{
+  "version": "f06-fixtures/v1",
+  "accepted": "accepted.json",
+  "hostile": [
+    {"name": "incomplete", "code": "INCOMPLETE_INVENTORY"},
+    {"name": "unknown-field", "code": "UNKNOWN_FIELD"},
+    {"name": "duplicate-artifact-id", "code": "DUPLICATE_ID"},
+    {"name": "unsorted-artifacts", "code": "UNSORTED_IDS"},
+    {"name": "unknown-redistribution", "code": "REDISTRIBUTION_UNKNOWN"},
+    {"name": "prohibited-redistribution", "code": "REDISTRIBUTION_PROHIBITED"},
+    {"name": "direct-fetch-only", "code": "REDISTRIBUTION_DIRECT_FETCH_ONLY"},
+    {"name": "owner-decision-missing", "code": "OWNER_DECISION_MISSING"},
+    {"name": "owner-decision-expired", "code": "OWNER_DECISION_EXPIRED"},
+    {"name": "notice-missing", "code": "NOTICE_MISSING"},
+    {"name": "source-offer-missing", "code": "SOURCE_OFFER_MISSING"},
+    {"name": "source-offer-expired", "code": "SOURCE_OFFER_EXPIRED"},
+    {"name": "mutable-uri", "code": "MUTABLE_SOURCE_URI"},
+    {"name": "digest-mismatch", "code": "DIGEST_MISMATCH"},
+    {"name": "fork-upstream-ambiguous", "code": "FORK_UPSTREAM_AMBIGUOUS"},
+    {"name": "candidate-transplant", "code": "TARGET_BINDING_MISMATCH"},
+    {"name": "manifest-transplant", "code": "TARGET_BINDING_MISMATCH"},
+    {"name": "schema-set-transplant", "code": "TARGET_BINDING_MISMATCH"},
+    {"name": "provenance-missing", "code": "PROVENANCE_MISSING"},
+    {"name": "sbom-missing", "code": "SBOM_MISSING"}
+  ]
+}

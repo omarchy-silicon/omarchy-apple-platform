@@ -1,0 +1,1 @@
+{"mutation":"set","path":"artifacts[0].redistribution","value":"direct-fetch-only","code":"REDISTRIBUTION_DIRECT_FETCH_ONLY"}

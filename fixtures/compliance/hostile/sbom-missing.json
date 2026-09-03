@@ -1,0 +1,1 @@
+{"mutation":"set","path":"artifacts[1].sbom_ref","value":null,"code":"SBOM_MISSING"}

@@ -1,0 +1,1 @@
+{"mutation":"set","path":"artifacts[0].fork_digest","value":"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","code":"FORK_UPSTREAM_AMBIGUOUS"}

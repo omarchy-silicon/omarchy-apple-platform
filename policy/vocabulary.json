@@ -1,0 +1,9 @@
+{
+  "version": "f06-policy/v1",
+  "artifact_classes": ["application", "asset", "firmware", "fork", "generated", "source", "system"],
+  "spdx_expressions": ["Apache-2.0", "BSD-3-Clause", "GPL-2.0-only", "MIT", "NOASSERTION"],
+  "redistribution": ["allowed", "direct-fetch-only", "prohibited", "unknown"],
+  "asset_policy": ["not-applicable", "opaque-reference", "redistributable"],
+  "firmware_policy": ["not-applicable", "opaque-reference", "redistributable"],
+  "source_offer_status": ["not-required", "offered"]
+}

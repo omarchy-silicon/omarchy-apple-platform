@@ -1,0 +1,1 @@
+{"mutation":"set","path":"artifacts[0].source_offer.digest","value":"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","code":"DIGEST_MISMATCH"}
