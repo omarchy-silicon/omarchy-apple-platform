@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/f04/builder-definition/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "builder_id", "backend", "architecture", "image_digest", "toolchain_digest", "environment_digest", "network_policy", "root_policy", "high_trust_classes", "definition_digest"],
+  "properties": {
+    "version": {"const": "builder-definition/v1"},
+    "builder_id": {"type": "string", "pattern": "^builder:[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "backend": {"const": "fixture-subprocess/v1"},
+    "architecture": {"enum": ["aarch64", "x86_64"]},
+    "image_digest": {"$ref": "#/$defs/digest"},
+    "toolchain_digest": {"$ref": "#/$defs/digest"},
+    "environment_digest": {"$ref": "#/$defs/digest"},
+    "network_policy": {"const": "denied"},
+    "root_policy": {"const": "isolated-temp-root"},
+    "high_trust_classes": {"type": "array", "items": {"enum": ["bootloader", "kernel", "firmware", "device-tree", "mesa", "userspace-package", "release-index"]}, "uniqueItems": true, "minItems": 1},
+    "definition_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

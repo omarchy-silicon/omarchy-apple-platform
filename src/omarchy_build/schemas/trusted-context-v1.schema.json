@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/f04/trusted-context/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted_role", "key_ids", "threshold", "metadata_digest", "schema_set_digest", "channel", "expires_at", "replay_id"],
+  "properties": {
+    "accepted_role": {"type": "string", "minLength": 1},
+    "key_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "threshold": {"type": "integer", "minimum": 1},
+    "metadata_digest": {"$ref": "#/$defs/digest"},
+    "schema_set_digest": {"$ref": "#/$defs/digest"},
+    "channel": {"enum": ["edge", "rc", "stable"]},
+    "expires_at": {"type": "string", "pattern": "^.+Z$"},
+    "replay_id": {"type": "string", "minLength": 1}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

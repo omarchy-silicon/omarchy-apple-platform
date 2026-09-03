@@ -1,0 +1,1 @@
+{"version":"fixture-recipe/v1","recipe_id":"recipe:fixture","input_ids":["input:source"],"read_paths":["src/source.bin"],"output_path":"dist/artifact.bin","output_media_type":"application/octet-stream","prefix":"omarchy-fixture/v1","recipe_digest":"sha256:cc10cd6bd36d2471277934a07cac19b7b808c43e1e85e07bbfc31294f4135155"}
