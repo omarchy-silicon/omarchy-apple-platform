@@ -1,10 +1,104 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/owner-approval/v1/owner-approval.schema.json",
-  "title": "F-02 owner-approval/v1 payload foundation",
+  "title": "F-02 owner-approval/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "owner-approval/v1"}}}
-  ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "plan_id",
+        "plan_digest",
+        "scope",
+        "operation",
+        "approved",
+        "operations"
+      ],
+      "properties": {
+        "schema": {
+          "const": "owner-approval/v1"
+        },
+        "plan_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "plan_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "scope": {
+          "enum": [
+            "installer-plan",
+            "installer-plan-execution"
+          ]
+        },
+        "operation": {
+          "enum": [
+            "inspect/v1",
+            "write/v1",
+            "replace/v1",
+            "remove/v1",
+            "rollback/v1"
+          ]
+        },
+        "approved": {
+          "const": true
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sequence",
+              "operation",
+              "target_id"
+            ],
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "operation": {
+                "enum": [
+                  "inspect/v1",
+                  "write/v1",
+                  "replace/v1",
+                  "remove/v1",
+                  "rollback/v1"
+                ]
+              },
+              "target_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              }
+            }
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
 }

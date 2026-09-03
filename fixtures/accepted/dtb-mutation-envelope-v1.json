@@ -4,7 +4,32 @@
   "payload_version": "v1",
   "domain": "omarchy-dtb-authority",
   "context": "dtb-mutation-authorization",
-  "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135",
-  "payload": {"schema": "dtb-mutation-envelope/v1", "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135", "document_id": "fixture-dtb-mutation-envelope", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
-  "signatures": [{"key_id": "key-fixture", "signer_role": "dtb-authority", "algorithm": "ed25519", "signature_format": "raw-ed25519/v1", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}]
+  "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+  "payload": {
+    "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+    "issuer": "fixture-issuer",
+    "issued_at": "2026-01-01T00:00:00Z",
+    "expires_at": "2030-01-01T00:00:00Z",
+    "schema": "dtb-mutation-envelope/v1",
+    "document_id": "fixture-dtb-mutation-envelope",
+    "board_id": "apple:j274",
+    "manifest_id": "fixture-platform-manifest",
+    "manifest_digest": "sha256:e9c842924fd30b702ed72c645537534f24767ba1b9b620dc1a7adf79c8488eb4",
+    "source_digest": "sha256:313046720f1305fab4eec6bc761a5b38f26601e4efcb65f044e3c0813473506d",
+    "artifact_digest": "sha256:e7ce15bb0946707f3145d94c16c6946cef9b92b157527c1a64c2c8903fdbe86f",
+    "pre_mutation_digest": "sha256:730463adb2d6a33bece3b33effe6860b1e4849857f1998d3534277503058d9f6",
+    "post_mutation_digest": "sha256:d5c1ea3a73b319016e963c998d21023316add7e20c6ef9d94986dfbab028836d",
+    "mutation_sequence": 0,
+    "target_id": "volume:fixture",
+    "operation": "write/v1"
+  },
+  "signatures": [
+    {
+      "key_id": "key:fixture",
+      "signer_role": "dtb-authority",
+      "algorithm": "ed25519",
+      "signature_format": "raw-ed25519/v1",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ]
 }

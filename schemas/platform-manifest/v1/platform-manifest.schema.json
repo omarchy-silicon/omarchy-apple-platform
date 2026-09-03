@@ -1,10 +1,279 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/platform-manifest/v1/platform-manifest.schema.json",
-  "title": "F-02 platform-manifest/v1 payload foundation",
+  "title": "F-02 platform-manifest/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "platform-manifest/v1"}}}
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "channel",
+        "release_version",
+        "board_registry_digest",
+        "board_targets",
+        "qualification_bindings",
+        "components",
+        "artifacts",
+        "artifact_set_digest",
+        "board_identities",
+        "allowed_mutations"
+      ],
+      "properties": {
+        "schema": {
+          "const": "platform-manifest/v1"
+        },
+        "channel": {
+          "enum": [
+            "edge",
+            "rc",
+            "stable"
+          ]
+        },
+        "release_version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$"
+        },
+        "board_registry_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "board_targets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+          },
+          "maxItems": 1
+        },
+        "qualification_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/qualificationBinding"
+          },
+          "maxItems": 1,
+          "uniqueItems": true
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "linux_kernel",
+            "dtb_set",
+            "firmware_bundle",
+            "mesa_stack",
+            "boot_stack"
+          ],
+          "properties": {
+            "linux_kernel": {
+              "$ref": "#/$defs/component"
+            },
+            "dtb_set": {
+              "$ref": "#/$defs/component"
+            },
+            "firmware_bundle": {
+              "$ref": "#/$defs/component"
+            },
+            "mesa_stack": {
+              "$ref": "#/$defs/component"
+            },
+            "boot_stack": {
+              "$ref": "#/$defs/component"
+            }
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "maxItems": 1024,
+          "uniqueItems": true
+        },
+        "artifact_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "board_identities": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "board_id",
+              "macos_compatible",
+              "linux_compatible",
+              "soc_id"
+            ],
+            "properties": {
+              "board_id": {
+                "type": "string",
+                "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "macos_compatible": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._,:-]{0,127}$"
+              },
+              "linux_compatible": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._,:-]{0,127}$"
+              },
+              "soc_id": {
+                "type": "string",
+                "pattern": "^apple-soc:[a-z0-9][a-z0-9-]{0,63}$"
+              }
+            }
+          },
+          "uniqueItems": true
+        },
+        "allowed_mutations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sequence",
+              "operation",
+              "target_id"
+            ],
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "operation": {
+                "enum": [
+                  "inspect/v1",
+                  "write/v1",
+                  "replace/v1",
+                  "remove/v1",
+                  "rollback/v1"
+                ]
+              },
+              "target_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              }
+            }
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
   ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+  "$defs": {
+    "qualificationBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "board_id",
+        "qualification_record_id",
+        "required_outcome"
+      ],
+      "properties": {
+        "board_id": {
+          "type": "string",
+          "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "qualification_record_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "required_outcome": {
+          "const": "pass"
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "source_digest",
+        "artifact_ids"
+      ],
+      "properties": {
+        "component_id": {
+          "enum": [
+            "linux-kernel",
+            "dtb-set",
+            "firmware-bundle",
+            "mesa-stack",
+            "boot-stack"
+          ]
+        },
+        "source_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "artifact_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^artifact:[a-z0-9][a-z0-9._:-]{0,127}$"
+          },
+          "maxItems": 1024
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "component_id",
+        "content_digest",
+        "version"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^artifact:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "component_id": {
+          "enum": [
+            "linux-kernel",
+            "dtb-set",
+            "firmware-bundle",
+            "mesa-stack",
+            "boot-stack"
+          ]
+        },
+        "content_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$"
+        }
+      }
+    }
+  }
 }

@@ -4,7 +4,125 @@
   "payload_version": "v1",
   "domain": "omarchy-platform-manifest",
   "context": "manifest-publication",
-  "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135",
-  "payload": {"schema": "platform-manifest/v1", "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135", "document_id": "fixture-platform-manifest", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
-  "signatures": [{"key_id": "key-fixture", "signer_role": "manifest-release", "algorithm": "ed25519", "signature_format": "raw-ed25519/v1", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}]
+  "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+  "payload": {
+    "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+    "issuer": "fixture-issuer",
+    "issued_at": "2026-01-01T00:00:00Z",
+    "expires_at": "2030-01-01T00:00:00Z",
+    "schema": "platform-manifest/v1",
+    "document_id": "fixture-platform-manifest",
+    "channel": "stable",
+    "release_version": "1.0.0",
+    "board_registry_digest": "sha256:4bc40e437921ca88e57cf716db097befa6a43909ad1bd6773541f851d73d1309",
+    "board_targets": [
+      "apple:j274"
+    ],
+    "board_identities": [
+      {
+        "board_id": "apple:j274",
+        "macos_compatible": "macbookpro18,3",
+        "linux_compatible": "apple,j274",
+        "soc_id": "apple-soc:m1"
+      }
+    ],
+    "qualification_bindings": [
+      {
+        "board_id": "apple:j274",
+        "qualification_record_id": "fixture-qualification-record",
+        "required_outcome": "pass"
+      }
+    ],
+    "components": {
+      "boot_stack": {
+        "component_id": "boot-stack",
+        "source_digest": "sha256:dc3cdad746e5eb877f0bef23420941b203899f30f81338ef54bb9348de914115",
+        "artifact_ids": [
+          "artifact:boot"
+        ]
+      },
+      "dtb_set": {
+        "component_id": "dtb-set",
+        "source_digest": "sha256:313046720f1305fab4eec6bc761a5b38f26601e4efcb65f044e3c0813473506d",
+        "artifact_ids": [
+          "artifact:dtb"
+        ]
+      },
+      "firmware_bundle": {
+        "component_id": "firmware-bundle",
+        "source_digest": "sha256:99a7fe8cd1375b73e3555fb8061f0a4aac0fefb3aebbc0ecc16e2f1f00627726",
+        "artifact_ids": [
+          "artifact:firmware"
+        ]
+      },
+      "linux_kernel": {
+        "component_id": "linux-kernel",
+        "source_digest": "sha256:31a037be0fe2e4ed080d2342c5daebd4e1febfb167ae366d28fee62a81536711",
+        "artifact_ids": [
+          "artifact:kernel"
+        ]
+      },
+      "mesa_stack": {
+        "component_id": "mesa-stack",
+        "source_digest": "sha256:791c99527da285d4b8af4a623295deba9f9b512b340580dc8a41835783509e20",
+        "artifact_ids": [
+          "artifact:mesa"
+        ]
+      }
+    },
+    "artifacts": [
+      {
+        "artifact_id": "artifact:boot",
+        "component_id": "boot-stack",
+        "content_digest": "sha256:4509beb0ab401d71fa4a5cd94a55c9a74f13332776ae4019c5bfc4c2005157ff",
+        "version": "1.0.0"
+      },
+      {
+        "artifact_id": "artifact:dtb",
+        "component_id": "dtb-set",
+        "content_digest": "sha256:e7ce15bb0946707f3145d94c16c6946cef9b92b157527c1a64c2c8903fdbe86f",
+        "version": "1.0.0"
+      },
+      {
+        "artifact_id": "artifact:firmware",
+        "component_id": "firmware-bundle",
+        "content_digest": "sha256:c3bf47ea1f4a4a605470313cacb3a44f4a461f68c6faeab07e737610cb5ac835",
+        "version": "1.0.0"
+      },
+      {
+        "artifact_id": "artifact:kernel",
+        "component_id": "linux-kernel",
+        "content_digest": "sha256:6923dd1bc0460082c5d55a831908c24a282860b7f1cd6c2b79cf1bc8857c639c",
+        "version": "1.0.0"
+      },
+      {
+        "artifact_id": "artifact:mesa",
+        "component_id": "mesa-stack",
+        "content_digest": "sha256:73e29454bd930074942b1784b43dc4a57a669751871b38c92f2c7293e06a9720",
+        "version": "1.0.0"
+      }
+    ],
+    "artifact_set_digest": "sha256:bdd88f8e5c88b10168ac5f9813451bac72b63fa3e8a221ce262067dd00bf14d6",
+    "allowed_mutations": [
+      {
+        "sequence": 0,
+        "operation": "write/v1",
+        "target_id": "volume:fixture"
+      },
+      {
+        "sequence": 1,
+        "operation": "replace/v1",
+        "target_id": "volume:fixture2"
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "key:fixture",
+      "signer_role": "manifest-release",
+      "algorithm": "ed25519",
+      "signature_format": "raw-ed25519/v1",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ]
 }

@@ -1,10 +1,148 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/board-registry/v1/board-registry.schema.json",
-  "title": "F-02 board-registry/v1 payload foundation",
+  "title": "F-02 board-registry/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "board-registry/v1"}}}
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "registry_revision",
+        "boards",
+        "capability_vocabulary"
+      ],
+      "properties": {
+        "schema": {
+          "const": "board-registry/v1"
+        },
+        "registry_revision": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "boards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/board"
+          },
+          "maxItems": 1024,
+          "uniqueItems": true
+        },
+        "capability_vocabulary": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/capability"
+          },
+          "maxItems": 1024
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
   ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+  "$defs": {
+    "capability": {
+      "enum": [
+        "audio",
+        "backlight",
+        "bluetooth",
+        "camera",
+        "charging-battery",
+        "ethernet",
+        "external-display",
+        "gpu",
+        "internal-display",
+        "keyboard",
+        "media",
+        "memory",
+        "nvme",
+        "recovery",
+        "sd",
+        "suspend-resume",
+        "thermal-fan",
+        "thunderbolt",
+        "touch-id-sep",
+        "trackpad",
+        "usb",
+        "virtualization",
+        "wifi"
+      ]
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "board_id",
+        "identity_match",
+        "soc_id",
+        "physical_capabilities",
+        "lifecycle"
+      ],
+      "properties": {
+        "board_id": {
+          "type": "string",
+          "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "identity_match": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "macos_compatible",
+            "linux_compatible"
+          ],
+          "properties": {
+            "macos_compatible": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._,:-]{0,127}$"
+            },
+            "linux_compatible": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9._,:-]{0,127}$"
+            }
+          }
+        },
+        "soc_id": {
+          "type": "string",
+          "pattern": "^apple-soc:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "physical_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/capability"
+          },
+          "uniqueItems": true,
+          "maxItems": 1024
+        },
+        "lifecycle": {
+          "enum": [
+            "active",
+            "deprecated",
+            "withdrawn"
+          ]
+        }
+      }
+    }
+  }
 }

@@ -4,7 +4,60 @@
   "payload_version": "v1",
   "domain": "omarchy-qualification-record",
   "context": "qualification-result",
-  "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135",
-  "payload": {"schema": "qualification-record/v1", "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135", "document_id": "fixture-qualification-record", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
-  "signatures": [{"key_id": "key-fixture", "signer_role": "qualification-lab", "algorithm": "ed25519", "signature_format": "raw-ed25519/v1", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}]
+  "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+  "payload": {
+    "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+    "issuer": "fixture-issuer",
+    "issued_at": "2026-01-01T00:00:00Z",
+    "expires_at": "2030-01-01T00:00:00Z",
+    "schema": "qualification-record/v1",
+    "document_id": "fixture-qualification-record",
+    "board_id": "apple:j274",
+    "manifest_id": "fixture-platform-manifest",
+    "manifest_digest": "sha256:e9c842924fd30b702ed72c645537534f24767ba1b9b620dc1a7adf79c8488eb4",
+    "qualification_profile_id": "profile:fixture",
+    "checks": [
+      {
+        "check_id": "check:boot",
+        "required": true,
+        "status": "pass",
+        "evidence_ids": [
+          "evidence:lab"
+        ]
+      },
+      {
+        "check_id": "check:display",
+        "required": true,
+        "status": "pass",
+        "evidence_ids": [
+          "evidence:display"
+        ]
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "evidence:display",
+        "content_digest": "sha256:f934d783c772d02bf45988f479081c477cbe75e6c392357c6f1281b719ccd346",
+        "physical": true,
+        "locator": "display-evidence"
+      },
+      {
+        "evidence_id": "evidence:lab",
+        "content_digest": "sha256:2258dea87697716cc43804f0f8adb8f33b19b46716ae3848202d55090e4bbd7f",
+        "physical": true,
+        "locator": "lab-evidence"
+      }
+    ],
+    "evidence_set_digest": "sha256:aef2fc0d1d752c736b8bbd982c64519154c9ab2293651cb8e3d93a9fad49172f",
+    "outcome": "pass"
+  },
+  "signatures": [
+    {
+      "key_id": "key:fixture",
+      "signer_role": "qualification-lab",
+      "algorithm": "ed25519",
+      "signature_format": "raw-ed25519/v1",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ]
 }

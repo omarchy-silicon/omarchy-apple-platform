@@ -4,7 +4,39 @@
   "payload_version": "v1",
   "domain": "omarchy-owner-authorization",
   "context": "installer-plan-execution",
-  "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135",
-  "payload": {"schema": "owner-approval/v1", "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135", "document_id": "fixture-owner-approval", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
-  "signatures": [{"key_id": "key-fixture", "signer_role": "owner-authorization", "algorithm": "ed25519", "signature_format": "raw-ed25519/v1", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}]
+  "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+  "payload": {
+    "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
+    "issuer": "fixture-issuer",
+    "issued_at": "2026-01-01T00:00:00Z",
+    "expires_at": "2030-01-01T00:00:00Z",
+    "schema": "owner-approval/v1",
+    "document_id": "fixture-owner-approval",
+    "plan_id": "fixture-installer-plan",
+    "plan_digest": "sha256:4366f7d9dba1dddd8f15b5db77389710334fdbb6d2e86d4b994a809fc85bd5fc",
+    "scope": "installer-plan-execution",
+    "operation": "write/v1",
+    "operations": [
+      {
+        "sequence": 0,
+        "operation": "write/v1",
+        "target_id": "volume:fixture"
+      },
+      {
+        "sequence": 1,
+        "operation": "replace/v1",
+        "target_id": "volume:fixture2"
+      }
+    ],
+    "approved": true
+  },
+  "signatures": [
+    {
+      "key_id": "key:fixture",
+      "signer_role": "owner-authorization",
+      "algorithm": "ed25519",
+      "signature_format": "raw-ed25519/v1",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ]
 }
