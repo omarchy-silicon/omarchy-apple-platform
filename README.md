@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/omarchy-silicon-logo.png" alt="Omarchy Silicon Apple platform initiative logo" width="760">
+</p>
+
 # Omarchy platform schema foundation
 
 This checkout is the executable F-02 implementation increment. It provides a bounded Python 3.12 JSON transport parser, eight closed Draft 2020-12 type schemas, immutable typed payload views, RFC 8785 canonical bytes, domain-separated SHA-256 helpers, pure cross-document structural conformance, a read-only diagnostic CLI, accepted fixtures, hostile boundary tests, and schema-lock drift checking. Conformance is deliberately unsigned, byte-unverified, and never release-eligible.
