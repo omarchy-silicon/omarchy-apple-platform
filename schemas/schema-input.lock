@@ -6,11 +6,11 @@
       "schema_id": "common/v1",
       "schema_version": "v1",
       "source_path": "schemas/common/v1/common.schema.json",
-      "source_digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623",
+      "source_digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         }
       ]
     },
@@ -25,15 +25,15 @@
       "schema_id": "signed-document/v1",
       "schema_version": "v1",
       "source_path": "schemas/signed-document/v1/signed-document.schema.json",
-      "source_digest": "sha256:767f4d27a99ab38558ceabf3517190afab1586abb49f0cb8b13635588fcafea6",
+      "source_digest": "sha256:6687bdae0300c15a81dae212a790c370f22c368156c5603c1109e04a627fbf7a",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         },
         {
           "reference_path": "schemas/signed-document/v1/signed-document.schema.json",
-          "digest": "sha256:767f4d27a99ab38558ceabf3517190afab1586abb49f0cb8b13635588fcafea6"
+          "digest": "sha256:6687bdae0300c15a81dae212a790c370f22c368156c5603c1109e04a627fbf7a"
         }
       ]
     },
@@ -41,15 +41,15 @@
       "schema_id": "board-registry/v1",
       "schema_version": "v1",
       "source_path": "schemas/board-registry/v1/board-registry.schema.json",
-      "source_digest": "sha256:1120dce7e16dc3b31c224fb36250a631647d4a1e9ec67fe7af1d2d409c475b9b",
+      "source_digest": "sha256:be40b2f103a2563157ebf54c0aea9e48659b48a79ea2ea9d7bad17eb6daf6f35",
       "reference_digests": [
         {
           "reference_path": "schemas/board-registry/v1/board-registry.schema.json",
-          "digest": "sha256:1120dce7e16dc3b31c224fb36250a631647d4a1e9ec67fe7af1d2d409c475b9b"
+          "digest": "sha256:be40b2f103a2563157ebf54c0aea9e48659b48a79ea2ea9d7bad17eb6daf6f35"
         },
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         }
       ]
     },
@@ -57,15 +57,15 @@
       "schema_id": "platform-manifest/v1",
       "schema_version": "v1",
       "source_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
-      "source_digest": "sha256:8434faff72b187ce0f18f63cc4c63c01acee0669024643fd4532e1f3885f8a42",
+      "source_digest": "sha256:2bf732321c34adabc5ffcbe0a5dcd59ab0ede096854f97f8c0dcab919880d485",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         },
         {
           "reference_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
-          "digest": "sha256:8434faff72b187ce0f18f63cc4c63c01acee0669024643fd4532e1f3885f8a42"
+          "digest": "sha256:2bf732321c34adabc5ffcbe0a5dcd59ab0ede096854f97f8c0dcab919880d485"
         }
       ]
     },
@@ -73,15 +73,15 @@
       "schema_id": "installer-plan/v1",
       "schema_version": "v1",
       "source_path": "schemas/installer-plan/v1/installer-plan.schema.json",
-      "source_digest": "sha256:3554d447c8e20b0e51bd46aeff8d264defd10804e04b867f9d48d7fa7c3036de",
+      "source_digest": "sha256:dc02d97059d1bba02404f7205a2d048022b3c9b188960767ebf1fec1532ef005",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         },
         {
           "reference_path": "schemas/installer-plan/v1/installer-plan.schema.json",
-          "digest": "sha256:3554d447c8e20b0e51bd46aeff8d264defd10804e04b867f9d48d7fa7c3036de"
+          "digest": "sha256:dc02d97059d1bba02404f7205a2d048022b3c9b188960767ebf1fec1532ef005"
         }
       ]
     },
@@ -89,15 +89,15 @@
       "schema_id": "qualification-record/v1",
       "schema_version": "v1",
       "source_path": "schemas/qualification-record/v1/qualification-record.schema.json",
-      "source_digest": "sha256:867c16ce9d288d64ae198b43e0bc69cc8c7b1962f8e04f8717eede7615632652",
+      "source_digest": "sha256:e11c365eef78007d889ced304cdd95c34ede55e1b1ab48b887cf7d487e22608d",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         },
         {
           "reference_path": "schemas/qualification-record/v1/qualification-record.schema.json",
-          "digest": "sha256:867c16ce9d288d64ae198b43e0bc69cc8c7b1962f8e04f8717eede7615632652"
+          "digest": "sha256:e11c365eef78007d889ced304cdd95c34ede55e1b1ab48b887cf7d487e22608d"
         }
       ]
     },
@@ -105,15 +105,15 @@
       "schema_id": "boot-health/v1",
       "schema_version": "v1",
       "source_path": "schemas/boot-health/v1/boot-health.schema.json",
-      "source_digest": "sha256:2b13e58bbc1b0a827ffcedfb447687deb4f62d675cb8279d834e08df6e7e5915",
+      "source_digest": "sha256:731798d0bbb6872f5582f44fae3f5fff354f4b7c7ff8ac1cd87bd6af1c78dbce",
       "reference_digests": [
         {
           "reference_path": "schemas/boot-health/v1/boot-health.schema.json",
-          "digest": "sha256:2b13e58bbc1b0a827ffcedfb447687deb4f62d675cb8279d834e08df6e7e5915"
+          "digest": "sha256:731798d0bbb6872f5582f44fae3f5fff354f4b7c7ff8ac1cd87bd6af1c78dbce"
         },
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         }
       ]
     },
@@ -121,11 +121,11 @@
       "schema_id": "owner-approval/v1",
       "schema_version": "v1",
       "source_path": "schemas/owner-approval/v1/owner-approval.schema.json",
-      "source_digest": "sha256:9bf4b95f2b131c17cb5df710099ccfb8682715000769885f003f6f8e04a05364",
+      "source_digest": "sha256:d904407f5418f86aa6da154f916b65858db1cffe874d4d133e907cca2ea17821",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         }
       ]
     },
@@ -133,11 +133,11 @@
       "schema_id": "boot-success-mark/v1",
       "schema_version": "v1",
       "source_path": "schemas/boot-success-mark/v1/boot-success-mark.schema.json",
-      "source_digest": "sha256:fd8df247cefd2477505a54813470c080eaef78a4c13582f1a89040a52356f42f",
+      "source_digest": "sha256:8738cbe3efec7f0e05e7db2045d00cca9e14da7de9dbcfa117e3ddc632c68e28",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         }
       ]
     },
@@ -145,11 +145,11 @@
       "schema_id": "dtb-mutation-envelope/v1",
       "schema_version": "v1",
       "source_path": "schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json",
-      "source_digest": "sha256:819507c78322c4bbbcdabb4fbb2eb4a2b1560fcaf255e77ffd3bda231b4b534e",
+      "source_digest": "sha256:11db27a4622f14ca13c12a760ec213c0acf2e08b041b983084ccf1d613264290",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
-          "digest": "sha256:138bff53c12ac00e749dc6cae65f148c5903f83943c882fd4bff24c0aa7ee623"
+          "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         }
       ]
     }

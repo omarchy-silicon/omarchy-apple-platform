@@ -20,19 +20,15 @@ class ImmutablePayload:
         raise TypeError("use from_payload() to construct an immutable payload")
 
     @classmethod
-    def _validated_instance(cls, payload: Mapping[str, Any]):
-        instance = object.__new__(cls)
-        object.__setattr__(instance, "payload", _freeze(dict(payload)))
-        object.__setattr__(instance, "document_id", payload["document_id"])
-        object.__setattr__(instance, "board_id", payload.get("board_id") or payload.get("selection", {}).get("board_id"))
-        return instance
-
-    @classmethod
     def from_payload(cls, value: Mapping[str, Any]):
         if not isinstance(value, Mapping):
             raise TypeError("payload must be a mapping")
         checked = validate_payload(dict(value), cls.payload_type)
-        return cls._validated_instance(checked)
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "payload", _freeze(dict(checked)))
+        object.__setattr__(instance, "document_id", checked["document_id"])
+        object.__setattr__(instance, "board_id", checked.get("board_id") or checked.get("selection", {}).get("board_id"))
+        return instance
 
     @classmethod
     def from_document(cls, value: Mapping[str, Any]):

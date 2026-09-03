@@ -21,6 +21,7 @@ _PREDICATE = re.compile(r"^[a-z0-9][a-z0-9._,:-]{0,127}$")
 _CAPABILITY = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _OPERATION = {"inspect/v1", "write/v1", "replace/v1", "remove/v1", "rollback/v1"}
 _COMPONENTS = {"linux-kernel", "dtb-set", "firmware-bundle", "mesa-stack", "boot-stack"}
+_CAPABILITIES = {"audio", "gpu", "internal-display", "backlight", "external-display", "media", "camera", "keyboard", "trackpad", "wifi", "bluetooth", "usb", "thunderbolt", "nvme", "sd", "ethernet", "charging-battery", "thermal-fan", "suspend-resume", "virtualization", "recovery", "memory", "touch-id-sep"}
 
 ENVELOPE_FIELDS = ("format", "payload_type", "payload_version", "domain", "context", "schema_set_digest", "payload", "signatures")
 PAYLOAD_FIELDS = ("schema", "schema_set_digest", "document_id", "issuer", "issued_at", "expires_at")
@@ -134,12 +135,16 @@ def _type_shape(payload: dict[str, Any], payload_type: str) -> None:
             _exact(board["identity_match"], ("macos_compatible", "linux_compatible"), f"{q}.identity_match")
             for k in ("macos_compatible", "linux_compatible"): _string(board["identity_match"][k], f"{q}.identity_match.{k}", _PREDICATE)
             _string(board["soc_id"], f"{q}.soc_id", re.compile(r"^apple-soc:[a-z0-9][a-z0-9-]{0,63}$"))
-            caps = _array(board["physical_capabilities"], f"{q}.physical_capabilities")
-            for j, cap in enumerate(caps): _string(cap, f"{q}.physical_capabilities[{j}]", _CAPABILITY)
+            caps = _array(board["physical_capabilities"], f"{q}.physical_capabilities", True)
+            for j, cap in enumerate(caps):
+                _string(cap, f"{q}.physical_capabilities[{j}]", _CAPABILITY)
+                _enum(cap, f"{q}.physical_capabilities[{j}]", _CAPABILITIES)
             _sorted_unique(caps, f"{q}.physical_capabilities", lambda x: x)
             if board["lifecycle"] not in {"active", "deprecated", "withdrawn"}: raise _error("PARSE_SCHEMA_FAILURE", f"{q}.lifecycle", "invalid enum")
         vocab = _array(payload["capability_vocabulary"], f"{p}.capability_vocabulary", True)
-        for i, item in enumerate(vocab): _string(item, f"{p}.capability_vocabulary[{i}]", _CAPABILITY)
+        for i, item in enumerate(vocab):
+            _string(item, f"{p}.capability_vocabulary[{i}]", _CAPABILITY)
+            _enum(item, f"{p}.capability_vocabulary[{i}]", _CAPABILITIES)
         _sorted_unique(vocab, f"{p}.capability_vocabulary", lambda x: x)
     elif payload_type == "platform-manifest/v1":
         fields = PAYLOAD_FIELDS + ("channel", "release_version", "board_registry_digest", "board_targets", "board_identities", "qualification_bindings", "components", "artifacts", "artifact_set_digest", "allowed_mutations")
@@ -176,7 +181,7 @@ def _type_shape(payload: dict[str, Any], payload_type: str) -> None:
             _sorted_unique(aids, q+".artifact_ids", lambda x:x)
         arts=_array(payload["artifacts"], p+".artifacts", True); _sorted_unique(arts,p+".artifacts",lambda x:x.get("artifact_id") if isinstance(x,dict) else str(x))
         for i,a in enumerate(arts):
-            q=f"{p}.artifacts[{i}]"; _exact(a, ("artifact_id","component_id","content_digest","version"), q); _string(a["artifact_id"],q+".artifact_id",re.compile(r"^artifact:[a-z0-9][a-z0-9._:-]{0,127}$")); _digest(a["content_digest"],q+".content_digest"); _string(a["version"],q+".version",re.compile(r"^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$"))
+            q=f"{p}.artifacts[{i}]"; _exact(a, ("artifact_id","component_id","content_digest","version"), q); _string(a["artifact_id"],q+".artifact_id",re.compile(r"^artifact:[a-z0-9][a-z0-9._:-]{0,127}$")); _enum(a["component_id"], q+".component_id", _COMPONENTS); _digest(a["content_digest"],q+".content_digest"); _string(a["version"],q+".version",re.compile(r"^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$"))
         _digest(payload["artifact_set_digest"], p+".artifact_set_digest")
         mutations = _array(payload["allowed_mutations"], p + ".allowed_mutations", True)
         _sorted_unique(mutations, p + ".allowed_mutations", lambda x: x.get("sequence") if isinstance(x, dict) else -1)
@@ -280,7 +285,7 @@ def _guard(function, *args):
         return function(*args)
     except SchemaError:
         raise
-    except (TypeError, KeyError, IndexError, ValueError, UnicodeError, AttributeError) as error:
+    except Exception as error:
         raise _error("PARSE_SCHEMA_FAILURE", "$", "malformed value") from error
 
 
@@ -300,9 +305,11 @@ def payload_from_document(value: Mapping[str, Any], payload_type: str) -> dict[s
 class ConformanceResult:
     conformant: bool
     trusted: bool = False
-    code: str = "ACCEPT"
+    code: str = "STRUCTURAL_ONLY"
     path: str = "$"
     message: str = "all unsigned documents conform"
+    release_eligible: bool = False
+    structural_only: bool = True
 
 
 def _mismatch(path: str, message: str) -> ConformanceResult:
@@ -327,11 +334,14 @@ def _admit_bundle(documents: Mapping[str, Any]) -> ConformanceResult:
     if man["board_registry_digest"] != reg_digest: return _mismatch("$.payload.board_registry_digest","manifest registry digest mismatch")
     for target in man["board_targets"]:
         if target not in registry_boards: return _mismatch("$.payload.board_targets","manifest target is absent from registry")
+        if registry_boards[target]["lifecycle"] != "active": return _mismatch("$.payload.board_targets","manifest target is not active")
     identity_map={item["board_id"]: item for item in man["board_identities"]}
     if set(identity_map) != set(man["board_targets"]): return _mismatch("$.payload.board_identities","manifest identity set differs from targets")
     for target, identity in identity_map.items():
         rb=registry_boards[target]
         if (identity["macos_compatible"],identity["linux_compatible"],identity["soc_id"]) != (rb["identity_match"]["macos_compatible"],rb["identity_match"]["linux_compatible"],rb["soc_id"]): return _mismatch("$.payload.board_identities","manifest board identity mismatch")
+    bindings = [item for item in man["qualification_bindings"] if item["board_id"] in man["board_targets"]]
+    if len(bindings) != len(man["board_targets"]) or {item["board_id"] for item in bindings} != set(man["board_targets"]): return _mismatch("$.payload.qualification_bindings","each manifest target requires exactly one qualification binding")
     binding=next((x for x in man["qualification_bindings"] if x["board_id"]==board),None)
     if binding is None or binding["qualification_record_id"] != qual["document_id"]: return _mismatch("$.payload.qualification_bindings","qualification binding mismatch")
     if qual["board_id"] != board or qual["manifest_id"] != man["document_id"] or qual["manifest_digest"] != man_digest or qual["outcome"] != "pass": return _mismatch("$.payload.manifest_digest","qualification binding mismatch")
@@ -340,6 +350,7 @@ def _admit_bundle(documents: Mapping[str, Any]) -> ConformanceResult:
     for check in qual["checks"]:
         if check["required"] and (check["status"] != "pass" or any(e not in evidence or not evidence[e]["physical"] for e in check["evidence_ids"])): return ConformanceResult(False,False,"CROSS_DOCUMENT_MISMATCH","$.payload.checks","required qualification check is incomplete")
     selection=plan["selection"]
+    if selection["board_id"] not in man["board_targets"]: return _mismatch("$.payload.selection.board_id","selected board is not a manifest target")
     for key,val in (("board_id",board),("board_registry_digest",reg_digest),("manifest_id",man["document_id"]),("manifest_digest",man_digest),("schema_set_digest",SCHEMA_SET_DIGEST)):
         if selection[key] != val: return _mismatch(f"$.payload.selection.{key}","installer selection mismatch")
     manifest_artifacts={x["artifact_id"]:x for x in man["artifacts"]}
@@ -370,7 +381,7 @@ def _admit_bundle(documents: Mapping[str, Any]) -> ConformanceResult:
     if dtb_artifact is None or dtb["source_digest"] != dtb_component["source_digest"] or dtb["artifact_digest"] != dtb_artifact["content_digest"]: return _mismatch("$.payload.source_digest","DTB source is not the manifest DTB artifact")
     if not any(m["sequence"] == dtb["mutation_sequence"] and m["target_id"] == dtb["target_id"] and m["operation"] == dtb["operation"] for m in expected_operations): return _mismatch("$.payload.mutation_sequence","DTB mutation is not authorized by plan")
     if dtb["pre_mutation_digest"] == dtb["post_mutation_digest"]: return _mismatch("$.payload.post_mutation_digest","DTB pre/post digests must differ")
-    return ConformanceResult(True,False)
+    return ConformanceResult(True,False,"STRUCTURAL_ONLY","$","structure conforms; external bytes remain unverified",False,True)
 
 
 def admit_bundle(documents: Mapping[str, Any]) -> ConformanceResult:
@@ -378,7 +389,7 @@ def admit_bundle(documents: Mapping[str, Any]) -> ConformanceResult:
         return _admit_bundle(documents)
     except SchemaError as error:
         return ConformanceResult(False,False,error.code,error.path,error.message)
-    except (TypeError, KeyError, IndexError, ValueError, UnicodeError, AttributeError):
+    except Exception:
         return ConformanceResult(False,False,"PARSE_SCHEMA_FAILURE","$","malformed bundle")
 
 

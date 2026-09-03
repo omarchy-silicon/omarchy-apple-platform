@@ -4,9 +4,6 @@
   "title": "F-02 owner-approval/v1 payload",
   "allOf": [
     {
-      "$ref": "../../common/v1/common.schema.json#/$defs/payload"
-    },
-    {
       "type": "object",
       "required": [
         "schema",

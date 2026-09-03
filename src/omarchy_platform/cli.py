@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             result = admit_bundle({kind: parse(_read(path)) for kind, path in names.items()})
             if not result.conformant:
                 raise ValidationError(result.code, result.path, "P6", result.message)
-            print(json.dumps({"conformant": True, "trusted": False, "residual": "F-03 signatures and trust"}, sort_keys=True))
+            print(json.dumps({"conformant": True, "trusted": False, "structural_only": True, "release_eligible": False, "decision": "STRUCTURAL_ONLY", "residual": "F-03 signatures, trust, and byte verification"}, sort_keys=True))
             return 0
         value = _document(args.input, args.type)
         if args.command == "validate":

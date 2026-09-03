@@ -5,6 +5,7 @@ from pathlib import Path
 
 from omarchy_platform.models import BoardRegistry, PlatformManifest
 import omarchy_platform.models as models
+from jsonschema import Draft202012Validator
 from omarchy_platform.validate import admit_bundle, validate_foundation_document
 from omarchy_platform.errors import SchemaError
 
@@ -19,7 +20,7 @@ def bundle():
 class ConformanceTests(unittest.TestCase):
     def test_accepted_bundle_is_conformant_but_untrusted(self):
         result = admit_bundle(bundle())
-        self.assertEqual((result.conformant, result.trusted, result.code), (True, False, "ACCEPT"))
+        self.assertEqual((result.conformant, result.trusted, result.code, result.structural_only, result.release_eligible), (True, False, "STRUCTURAL_ONLY", True, False))
 
     def test_missing_and_extra_inputs_fail_closed(self):
         docs = bundle()
@@ -84,3 +85,30 @@ class ConformanceTests(unittest.TestCase):
         model = BoardRegistry.from_document(bundle()["board-registry/v1"])
         with self.assertRaises(TypeError):
             type(model)(model.payload)
+
+    def test_schema_python_parity_for_missing_unknown_zero_and_empty_fields(self):
+        signed = json.loads((ROOT / "schemas/signed-document/v1/signed-document.schema.json").read_text())
+        common = json.loads((ROOT / "schemas/common/v1/common.schema.json").read_text())
+        from referencing import Registry, Resource
+        registry = Registry().with_resource(signed["$id"], Resource.from_contents(signed)).with_resource(common["$id"], Resource.from_contents(common))
+        validator = Draft202012Validator(signed, registry=registry)
+        fixture = bundle()["board-registry/v1"]
+        missing = json.loads(json.dumps(fixture)); del missing["payload"]["boards"]
+        self.assertTrue(list(validator.iter_errors(missing)))
+        self.assertTrue(list(validator.iter_errors({**fixture, "payload": {**fixture["payload"], "unexpected": True}})))
+        zero = json.loads(json.dumps(fixture)); zero["payload"]["schema_set_digest"] = "sha256:" + "0" * 64
+        self.assertTrue(list(validator.iter_errors(zero)))
+        empty = json.loads(json.dumps(fixture)); empty["payload"]["boards"][0]["physical_capabilities"] = []
+        board_schema = json.loads((ROOT / "schemas/board-registry/v1/board-registry.schema.json").read_text())
+        board_validator = Draft202012Validator(board_schema, registry=registry)
+        self.assertTrue(list(board_validator.iter_errors(empty["payload"])))
+        for value, kind in ((missing["payload"], "board-registry/v1"), (zero["payload"], "board-registry/v1"), (empty["payload"], "board-registry/v1")):
+            with self.assertRaises(Exception):
+                validate_foundation_document(value, kind)
+        manifest = json.loads(json.dumps(bundle()["platform-manifest/v1"]))
+        manifest["payload"]["artifacts"][0]["component_id"] = "unknown-component"
+        manifest_schema = json.loads((ROOT / "schemas/platform-manifest/v1/platform-manifest.schema.json").read_text())
+        manifest_validator = Draft202012Validator(manifest_schema, registry=registry)
+        self.assertTrue(list(manifest_validator.iter_errors(manifest["payload"])))
+        with self.assertRaises(Exception):
+            validate_foundation_document(manifest, "platform-manifest/v1")

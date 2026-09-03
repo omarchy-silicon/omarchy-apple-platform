@@ -2,7 +2,7 @@
 
 Status: implementation increment only. This note records the coordinator ruling before production edits; it is not a support, qualification, release, trust, or DONE claim.
 
-The implementation materializes the eight authenticated payloads as closed Draft 2020-12 schemas, immutable untrusted Python value objects, and a pure unsigned bundle admission seam. The common envelope remains the transport boundary and F-03 retains signatures, key authority, expiry policy, replay protection, and trust decisions. `conformance validate` therefore reports `conformant: true, trusted: false` only after all named inputs are present exactly once and all cross-document bindings pass.
+The implementation materializes the eight authenticated payloads as closed Draft 2020-12 schemas, immutable untrusted Python value objects, and a pure unsigned structural-conformance seam. The common envelope remains the transport boundary and F-03 retains signatures, key authority, expiry policy, replay protection, trust decisions, and external byte verification. `conformance validate` therefore reports `structural_only: true, release_eligible: false, trusted: false` after all named inputs are present exactly once and all cross-document bindings pass.
 
 The boundary is deliberately composite: Draft 2020-12 schemas are the raw shape authority (including recursive closure, bounds, enums, and array uniqueness), while Python adds semantic-key uniqueness/order, canonical digest recomputation, and cross-document admission. Neither layer verifies artifact or evidence bytes; those remain untrusted until a later byte-verification input is supplied.
 

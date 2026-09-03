@@ -4,9 +4,9 @@
   "payload_version": "v1",
   "domain": "omarchy-qualification-record",
   "context": "qualification-result",
-  "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111",
+  "schema_set_digest": "sha256:5fe4007a2d3ac7d669bb8032853cf5fd6f6cae078e7c97e2c6e0d46e1cebd462",
   "payload": {
-    "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111",
+    "schema_set_digest": "sha256:5fe4007a2d3ac7d669bb8032853cf5fd6f6cae078e7c97e2c6e0d46e1cebd462",
     "issuer": "fixture-issuer",
     "issued_at": "2026-01-01T00:00:00Z",
     "expires_at": "2030-01-01T00:00:00Z",
@@ -14,7 +14,7 @@
     "document_id": "fixture-qualification-record",
     "board_id": "apple:j274",
     "manifest_id": "fixture-platform-manifest",
-    "manifest_digest": "sha256:6e3a45574facdfdb2d0eaab365c0106fd5b519e6689346847e1a24eeb643c2ca",
+    "manifest_digest": "sha256:e5f4e36ae3187ae4e3c2c6af32ed97a36272655396a7c8a909986ea301942d82",
     "qualification_profile_id": "profile:fixture",
     "checks": [
       {

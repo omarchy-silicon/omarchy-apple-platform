@@ -4,33 +4,750 @@
   "title": "F-02 signed envelope",
   "type": "object",
   "additionalProperties": false,
-  "required": ["format", "payload_type", "payload_version", "domain", "context", "schema_set_digest", "payload", "signatures"],
+  "required": [
+    "format",
+    "payload_type",
+    "payload_version",
+    "domain",
+    "context",
+    "schema_set_digest",
+    "payload",
+    "signatures"
+  ],
   "properties": {
-    "format": {"const": "omarchy-signed/v1"},
-    "payload_type": {"enum": ["board-registry/v1", "platform-manifest/v1", "installer-plan/v1", "qualification-record/v1", "boot-health/v1", "owner-approval/v1", "boot-success-mark/v1", "dtb-mutation-envelope/v1"]}, "payload_version": {"const": "v1"},
-    "domain": {"type": "string"}, "context": {"type": "string"},
-    "schema_set_digest": {"$ref": "../../common/v1/common.schema.json#/$defs/digest"},
-    "payload": {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    "signatures": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/signature"}}
+    "format": {
+      "const": "omarchy-signed/v1"
+    },
+    "payload_type": {
+      "enum": [
+        "board-registry/v1",
+        "platform-manifest/v1",
+        "installer-plan/v1",
+        "qualification-record/v1",
+        "boot-health/v1",
+        "owner-approval/v1",
+        "boot-success-mark/v1",
+        "dtb-mutation-envelope/v1"
+      ]
+    },
+    "payload_version": {
+      "const": "v1"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "context": {
+      "type": "string"
+    },
+    "schema_set_digest": {
+      "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+    },
+    "payload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "registry_revision",
+            "boards",
+            "capability_vocabulary"
+          ],
+          "properties": {
+            "schema": {
+              "const": "board-registry/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "registry_revision": {},
+            "boards": {},
+            "capability_vocabulary": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "channel",
+            "release_version",
+            "board_registry_digest",
+            "board_targets",
+            "board_identities",
+            "qualification_bindings",
+            "components",
+            "artifacts",
+            "artifact_set_digest",
+            "allowed_mutations"
+          ],
+          "properties": {
+            "schema": {
+              "const": "platform-manifest/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "channel": {},
+            "release_version": {},
+            "board_registry_digest": {},
+            "board_targets": {},
+            "board_identities": {},
+            "qualification_bindings": {},
+            "components": {},
+            "artifacts": {},
+            "artifact_set_digest": {},
+            "allowed_mutations": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "selection",
+            "artifacts",
+            "mutations"
+          ],
+          "properties": {
+            "schema": {
+              "const": "installer-plan/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "selection": {},
+            "artifacts": {},
+            "mutations": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "board_id",
+            "manifest_id",
+            "manifest_digest",
+            "qualification_profile_id",
+            "checks",
+            "evidence",
+            "evidence_set_digest",
+            "outcome"
+          ],
+          "properties": {
+            "schema": {
+              "const": "qualification-record/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "board_id": {},
+            "manifest_id": {},
+            "manifest_digest": {},
+            "qualification_profile_id": {},
+            "checks": {},
+            "evidence": {},
+            "evidence_set_digest": {},
+            "outcome": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "board_id",
+            "manifest_id",
+            "manifest_digest",
+            "profile_id",
+            "profile_digest",
+            "lineage_id",
+            "source_generation",
+            "attempt_counter",
+            "slot",
+            "checks",
+            "checks_digest",
+            "success"
+          ],
+          "properties": {
+            "schema": {
+              "const": "boot-health/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "board_id": {},
+            "manifest_id": {},
+            "manifest_digest": {},
+            "profile_id": {},
+            "profile_digest": {},
+            "lineage_id": {},
+            "source_generation": {},
+            "attempt_counter": {},
+            "slot": {},
+            "checks": {},
+            "checks_digest": {},
+            "success": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "plan_id",
+            "plan_digest",
+            "scope",
+            "operation",
+            "operations",
+            "approved"
+          ],
+          "properties": {
+            "schema": {
+              "const": "owner-approval/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "plan_id": {},
+            "plan_digest": {},
+            "scope": {},
+            "operation": {},
+            "operations": {},
+            "approved": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "board_id",
+            "manifest_id",
+            "manifest_digest",
+            "slot_id",
+            "slot_generation",
+            "lineage_id",
+            "source_generation",
+            "attempt_counter",
+            "core_digest",
+            "marker_id"
+          ],
+          "properties": {
+            "schema": {
+              "const": "boot-success-mark/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "board_id": {},
+            "manifest_id": {},
+            "manifest_digest": {},
+            "slot_id": {},
+            "slot_generation": {},
+            "lineage_id": {},
+            "source_generation": {},
+            "attempt_counter": {},
+            "core_digest": {},
+            "marker_id": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "schema_set_digest",
+            "document_id",
+            "issuer",
+            "issued_at",
+            "expires_at",
+            "board_id",
+            "manifest_id",
+            "manifest_digest",
+            "source_digest",
+            "artifact_digest",
+            "pre_mutation_digest",
+            "post_mutation_digest",
+            "mutation_sequence",
+            "target_id",
+            "operation"
+          ],
+          "properties": {
+            "schema": {
+              "const": "dtb-mutation-envelope/v1"
+            },
+            "schema_set_digest": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+            },
+            "document_id": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+            },
+            "issuer": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+            },
+            "issued_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "expires_at": {
+              "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+            },
+            "board_id": {},
+            "manifest_id": {},
+            "manifest_digest": {},
+            "source_digest": {},
+            "artifact_digest": {},
+            "pre_mutation_digest": {},
+            "post_mutation_digest": {},
+            "mutation_sequence": {},
+            "target_id": {},
+            "operation": {}
+          }
+        }
+      ]
+    },
+    "signatures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/signature"
+      }
+    }
   },
   "allOf": [
-    {"if": {"properties": {"payload_type": {"const": "board-registry/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-board-registry"}, "context": {"const": "board-registry-publication"}, "payload": {"properties": {"schema": {"const": "board-registry/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "board-admission"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "platform-manifest/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-platform-manifest"}, "context": {"const": "manifest-publication"}, "payload": {"properties": {"schema": {"const": "platform-manifest/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "manifest-release"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "installer-plan/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-installer-plan"}, "context": {"const": "installer-plan-proposal"}, "payload": {"properties": {"schema": {"const": "installer-plan/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "installer-planner"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "qualification-record/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-qualification-record"}, "context": {"const": "qualification-result"}, "payload": {"properties": {"schema": {"const": "qualification-record/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "qualification-lab"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "boot-health/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-boot-runtime"}, "context": {"const": "boot-health-core"}, "payload": {"properties": {"schema": {"const": "boot-health/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "boot-runtime"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "owner-approval/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-owner-authorization"}, "context": {"const": "installer-plan-execution"}, "payload": {"properties": {"schema": {"const": "owner-approval/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "owner-authorization"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "boot-success-mark/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-boot-runtime"}, "context": {"const": "boot-success-marker"}, "payload": {"properties": {"schema": {"const": "boot-success-mark/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "boot-runtime"}}}}}}},
-    {"if": {"properties": {"payload_type": {"const": "dtb-mutation-envelope/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-dtb-authority"}, "context": {"const": "dtb-mutation-authorization"}, "payload": {"properties": {"schema": {"const": "dtb-mutation-envelope/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "dtb-authority"}}}}}}}
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "board-registry/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-board-registry"
+          },
+          "context": {
+            "const": "board-registry-publication"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "board-registry/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "board-admission"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "platform-manifest/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-platform-manifest"
+          },
+          "context": {
+            "const": "manifest-publication"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "platform-manifest/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "manifest-release"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "installer-plan/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-installer-plan"
+          },
+          "context": {
+            "const": "installer-plan-proposal"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "installer-plan/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "installer-planner"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "qualification-record/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-qualification-record"
+          },
+          "context": {
+            "const": "qualification-result"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "qualification-record/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "qualification-lab"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "boot-health/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-boot-runtime"
+          },
+          "context": {
+            "const": "boot-health-core"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "boot-health/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "boot-runtime"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "owner-approval/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-owner-authorization"
+          },
+          "context": {
+            "const": "installer-plan-execution"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "owner-approval/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "owner-authorization"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "boot-success-mark/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-boot-runtime"
+          },
+          "context": {
+            "const": "boot-success-marker"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "boot-success-mark/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "boot-runtime"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "payload_type": {
+            "const": "dtb-mutation-envelope/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain": {
+            "const": "omarchy-dtb-authority"
+          },
+          "context": {
+            "const": "dtb-mutation-authorization"
+          },
+          "payload": {
+            "properties": {
+              "schema": {
+                "const": "dtb-mutation-envelope/v1"
+              }
+            }
+          },
+          "signatures": {
+            "items": {
+              "properties": {
+                "signer_role": {
+                  "const": "dtb-authority"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   ],
   "$defs": {
     "signature": {
-      "type": "object", "additionalProperties": false,
-      "required": ["key_id", "signer_role", "algorithm", "signature_format", "signature"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_id",
+        "signer_role",
+        "algorithm",
+        "signature_format",
+        "signature"
+      ],
       "properties": {
-        "key_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"}, "signer_role": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
-        "algorithm": {"const": "ed25519"}, "signature_format": {"const": "raw-ed25519/v1"},
-        "signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{85}[AQgw]$"}
+        "key_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "signer_role": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "algorithm": {
+          "const": "ed25519"
+        },
+        "signature_format": {
+          "const": "raw-ed25519/v1"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{85}[AQgw]$"
+        }
       }
     }
   }
