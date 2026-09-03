@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
-import tempfile
 import sys
-from pathlib import Path
 
 from omarchy_platform.canonical import canonical_bytes
 from omarchy_platform.strictjson import parse
@@ -17,80 +15,182 @@ from .errors import CandidateAssemblyError
 from .models import CandidateManifest
 
 
+MAX_INPUT_BYTES = 4 * 1024 * 1024
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise CandidateAssemblyError("CLI_INVALID", "$.arguments", "candidate command arguments are invalid")
+
+
+def _open_regular(path: str, limit: int) -> tuple[int, int]:
+    """Open a regular file through a no-symlink descriptor walk."""
+    if not isinstance(path, str) or not path or "\0" in path:
+        raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input path is invalid")
+    try:
+        lexical = os.path.abspath(path)
+        if not os.path.isabs(lexical):
+            raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input path is invalid")
+        # macOS exposes /tmp as the fixed system alias /private/tmp. Walk the
+        # physical spelling so the trusted system alias is not mistaken for a
+        # caller-created parent symlink.
+        if (lexical == "/tmp" or lexical.startswith("/tmp/")) and os.path.realpath("/tmp") == "/private/tmp":
+            lexical = "/private" + lexical
+        components = [part for part in lexical.split(os.sep) if part]
+        if not components or any(part in {".", ".."} for part in components):
+            raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input path is invalid")
+        flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+        directory_flags = flags | os.O_DIRECTORY
+        parent_fd = os.open(os.sep, directory_flags)
+        try:
+            for component in components[:-1]:
+                next_fd = os.open(component, directory_flags, dir_fd=parent_fd)
+                os.close(parent_fd)
+                parent_fd = next_fd
+            file_fd = os.open(components[-1], flags | os.O_NONBLOCK, dir_fd=parent_fd)
+        finally:
+            os.close(parent_fd)
+        stat_result = os.fstat(file_fd)
+        if not __import__("stat").S_ISREG(stat_result.st_mode) or stat_result.st_size > limit:
+            os.close(file_fd)
+            raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input must be a bounded regular file")
+        return file_fd, stat_result.st_size
+    except CandidateAssemblyError:
+        raise
+    except (OSError, UnicodeError, ValueError) as error:
+        raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input could not be opened safely") from error
+
+
+def _read_bounded(path: str, limit: int) -> bytes:
+    file_fd, expected_size = _open_regular(path, limit)
+    try:
+        chunks: list[bytes] = []
+        total = 0
+        while total <= limit:
+            chunk = os.read(file_fd, min(131072, limit + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > limit:
+                raise CandidateAssemblyError("RESOURCE_LIMIT", "$", "input byte limit exceeded")
+        if total != expected_size:
+            raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input changed while being read")
+        return b"".join(chunks)
+    except CandidateAssemblyError:
+        raise
+    except (OSError, ValueError) as error:
+        raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input could not be read safely") from error
+    finally:
+        os.close(file_fd)
+
+
 def _exclusive_output(path: str, data: bytes, *, permitted_root: str) -> None:
     if len(data) > 4 * 1024 * 1024:
         raise CandidateAssemblyError("RESOURCE_LIMIT", "$.output", "output byte limit exceeded")
-    root = Path(permitted_root)
-    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
-        raise CandidateAssemblyError("OUTPUT_ROOT_INVALID", "$.output_root", "permitted root must be an existing real directory")
-    target = Path(path)
-    if not target.is_absolute():
-        target = Path.cwd() / target
-    parent = target.parent
     try:
-        root_lexical, root_real = os.path.abspath(str(root)), os.path.realpath(str(root))
-        target_lexical = os.path.abspath(str(target))
-        root_tmp_alias = (root_lexical == "/tmp" or root_lexical.startswith("/tmp/")) and root_real == "/private" + root_lexical
-        if root_lexical != root_real and not root_tmp_alias:
+        if not isinstance(permitted_root, str) or not permitted_root or not os.path.isabs(permitted_root):
             raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output_root", "permitted root realpath differs from lexical path")
-        if os.path.commonpath((target_lexical, root_lexical)) != root_lexical:
+        root_lexical = os.path.abspath(permitted_root)
+        root_real = os.path.realpath(root_lexical)
+        alias = root_lexical == "/tmp" or root_lexical.startswith("/tmp/")
+        if not os.path.isdir(root_real) or os.path.islink(root_lexical) or (root_lexical != root_real and not (alias and root_real == "/private" + root_lexical)):
+            raise CandidateAssemblyError("OUTPUT_ROOT_INVALID", "$.output_root", "permitted root must be an existing real directory")
+        target_lexical = os.path.abspath(path if os.path.isabs(path) else os.path.join(os.getcwd(), path))
+        relative = os.path.relpath(target_lexical, root_lexical)
+        parts = relative.split(os.sep)
+        if not parts or parts[-1] in {"", ".", ".."} or any(part in {".", ".."} for part in parts):
             raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output", "output must remain under permitted root")
-        if not parent.exists() or not parent.is_dir() or parent.is_symlink():
-            raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output", "output parent must be a real directory")
-        lexical_parent = os.path.abspath(str(parent))
-        real_parent = os.path.realpath(str(parent))
-        temporary_alias = lexical_parent == "/tmp" or lexical_parent.startswith("/tmp/")
-        temporary_alias = temporary_alias and real_parent == "/private" + lexical_parent
-        if lexical_parent != real_parent and not temporary_alias:
-            raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output", "output parent realpath differs from lexical path")
-        if target.exists() or target.is_symlink():
-            raise CandidateAssemblyError("OUTPUT_CONFLICT", "$.output", "output already exists")
-        fd, temporary_name = tempfile.mkstemp(prefix=".candidate-", dir=str(parent))
-        temporary = Path(temporary_name)
+        root_fd = os.open(root_real, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        parent_fd = root_fd
+        temporary_name = None
+        committed = False
         try:
+            for component in parts[:-1]:
+                next_fd = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW, dir_fd=parent_fd)
+                if parent_fd != root_fd:
+                    os.close(parent_fd)
+                parent_fd = next_fd
+            target_name = parts[-1]
+            for sequence in range(100):
+                candidate = f".candidate-{os.getpid()}-{sequence}"
+                try:
+                    fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600, dir_fd=parent_fd)
+                    temporary_name = candidate
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise CandidateAssemblyError("OUTPUT_WRITE_FAILURE", "$.output", "temporary output name could not be allocated")
             with os.fdopen(fd, "wb") as stream:
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.link(temporary, target)
+            os.link(os.path.basename(temporary_name), target_name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd, follow_symlinks=False)
+            committed = True
+            try:
+                os.fsync(parent_fd)
+            except OSError as error:
+                try:
+                    os.unlink(target_name, dir_fd=parent_fd)
+                    committed = False
+                except OSError:
+                    pass
+                raise CandidateAssemblyError("OUTPUT_WRITE_FAILURE", "$.output", "output directory could not be committed") from error
         except FileExistsError as error:
             raise CandidateAssemblyError("OUTPUT_CONFLICT", "$.output", "output already exists") from error
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary_name is not None:
+                removed = False
+                for _attempt in range(3):
+                    try:
+                        os.unlink(temporary_name, dir_fd=parent_fd)
+                        removed = True
+                        break
+                    except OSError:
+                        continue
+                if not removed:
+                    if committed:
+                        try:
+                            os.unlink(target_name, dir_fd=parent_fd)
+                        except OSError:
+                            pass
+                    raise CandidateAssemblyError("OUTPUT_WRITE_FAILURE", "$.output", "temporary output could not be cleaned safely")
+            if parent_fd != root_fd:
+                os.close(parent_fd)
+            os.close(root_fd)
     except CandidateAssemblyError:
         raise
-    except OSError as error:
+    except (OSError, UnicodeError, ValueError) as error:
         raise CandidateAssemblyError("OUTPUT_WRITE_FAILURE", "$.output", "output could not be written") from error
 
 
 def _read(path: str) -> object:
     try:
-        data = Path(path).read_bytes()
-        if len(data) > 4 * 1024 * 1024:
-            raise CandidateAssemblyError("RESOURCE_LIMIT", "$", "input byte limit exceeded")
+        data = _read_bounded(path, MAX_INPUT_BYTES)
         return parse(data)
     except CandidateAssemblyError:
         raise
     except ParseError as error:
         raise CandidateAssemblyError(error.code, error.path, error.message) from error
-    except (OSError, ValueError, TypeError, UnicodeDecodeError) as error:
+    except (OSError, ValueError, TypeError, UnicodeError) as error:
         raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input is invalid") from error
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="omarchy-candidate")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = _ArgumentParser(prog="omarchy-candidate")
+    sub = parser.add_subparsers(dest="command", required=True, parser_class=_ArgumentParser)
     assemble = sub.add_parser("assemble")
     assemble.add_argument("--input", required=True)
     assemble.add_argument("--output")
     assemble.add_argument("--output-root")
     verify = sub.add_parser("verify")
     verify.add_argument("--input", required=True)
-    args = parser.parse_args(argv)
     try:
+        args = parser.parse_args(argv)
         if args.command == "verify":
             manifest = CandidateManifest.from_dict(_read(args.input))
-            sys.stdout.buffer.write(canonical_bytes({"decision": "ACCEPT", "candidate_digest": manifest.candidate_digest}) + b"\n")
+            sys.stdout.buffer.write(canonical_bytes({"decision": "STRUCTURAL_ONLY", "candidate_digest": manifest.candidate_digest}) + b"\n")
             return 0
         manifest = assemble_candidate(_read(args.input))
         output = manifest.bytes() + b"\n"
@@ -104,6 +204,6 @@ def main(argv: list[str] | None = None) -> int:
     except CandidateAssemblyError as error:
         sys.stderr.buffer.write(canonical_bytes(error.as_dict()) + b"\n")
         return 2
-    except OSError:
+    except (OSError, UnicodeError):
         sys.stderr.buffer.write(canonical_bytes({"code": "OUTPUT_WRITE_FAILURE", "path": "$.output", "detail": "output could not be written"}) + b"\n")
         return 2

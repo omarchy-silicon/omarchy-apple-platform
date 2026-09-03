@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from copy import deepcopy
 from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol
@@ -57,8 +58,14 @@ def _closed(value: Any, fields: tuple[str, ...], path: str) -> dict[str, Any]:
 
 
 def _string(value: Any, path: str) -> str:
-    if not isinstance(value, str) or not value or len(value.encode()) > 512:
+    if not isinstance(value, str) or not value:
         _fail("INVALID_STRING", path, "bounded non-empty string required")
+    try:
+        bounded = len(value.encode("utf-8")) <= 512
+    except UnicodeError:
+        bounded = False
+    if not bounded:
+        _fail("INVALID_STRING", path, "bounded UTF-8 string required")
     return value
 
 
@@ -146,6 +153,10 @@ class CandidateAssemblyInput:
 
     @classmethod
     def from_dict(cls, value: Any) -> "CandidateAssemblyInput":
+        try:
+            value = deepcopy(value)
+        except (TypeError, ValueError, UnicodeError):
+            _fail("TYPE_MISMATCH", "$", "candidate value is not copyable")
         value = _closed(value, cls.FIELDS, "$")
         if value["version"] != INPUT_VERSION:
             _fail("UNSUPPORTED_VERSION", "$.version", f"{INPUT_VERSION} required")
@@ -228,7 +239,7 @@ class CandidateAssemblyInput:
             _fail("GATE_CENSUS_INVALID", "$.required_gates", "gate IDs must be ordered exactly")
         source = _closed(value["source"], ("commit", "tool_versions"), "$.source")
         _string(source["commit"], "$.source.commit")
-        if len(source["commit"]) < 7 or any(char not in "0123456789abcdef" for char in source["commit"]):
+        if len(source["commit"]) != 40 or any(char not in "0123456789abcdef" for char in source["commit"]):
             _fail("MUTABLE_SOURCE", "$.source.commit", "exact lowercase source commit required")
         versions = source["tool_versions"]
         if not isinstance(versions, dict) or not versions:

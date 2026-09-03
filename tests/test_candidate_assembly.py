@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -197,3 +198,36 @@ def test_cli_transport_errors_and_output_are_fail_closed() -> None:
         with pytest.raises(CandidateAssemblyError) as caught:
             _exclusive_output(str(symlink), b"changed", permitted_root=directory)
         assert caught.value.code == "OUTPUT_CONFLICT"
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO support is unavailable")
+def test_cli_rejects_fifo_and_symlinked_input_paths_without_blocking() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        fifo = root / "candidate.fifo"
+        os.mkfifo(fifo)
+        run = subprocess.run([sys.executable, "-m", "omarchy_candidate", "verify", "--input", str(fifo)], cwd=ROOT, text=True, capture_output=True, timeout=2)
+        assert run.returncode == 2
+        assert json.loads(run.stderr)["code"] == "INPUT_INVALID"
+        real = root / "real"
+        real.mkdir()
+        valid = real / "manifest.json"
+        valid.write_text("{}")
+        leaf = root / "leaf"
+        leaf.symlink_to(valid)
+        result = subprocess.run([sys.executable, "-m", "omarchy_candidate", "verify", "--input", str(leaf)], cwd=ROOT, text=True, capture_output=True, timeout=2)
+        assert result.returncode == 2
+        assert json.loads(result.stderr)["code"] == "INPUT_INVALID"
+        parent = root / "parent"
+        parent.symlink_to(real, target_is_directory=True)
+        result = subprocess.run([sys.executable, "-m", "omarchy_candidate", "verify", "--input", str(parent / "manifest.json")], cwd=ROOT, text=True, capture_output=True, timeout=2)
+        assert result.returncode == 2
+        assert json.loads(result.stderr)["code"] == "INPUT_INVALID"
+
+
+def test_cli_malformed_invocation_and_unencodable_path_are_typed() -> None:
+    malformed = subprocess.run([sys.executable, "-m", "omarchy_candidate", "verify"], cwd=ROOT, text=True, capture_output=True)
+    assert malformed.returncode == 2
+    assert json.loads(malformed.stderr)["code"] == "CLI_INVALID"
+    from omarchy_candidate.cli import main
+    assert main(["verify", "--input", "\ud800"]) == 2
