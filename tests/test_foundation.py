@@ -55,6 +55,13 @@ class FoundationTests(unittest.TestCase):
                 self.assertTrue(list(validator.iter_errors({**fixture, field: value})))
         wrong_role = {**fixture, "signatures": [{**fixture["signatures"][0], "signer_role": "manifest-release"}]}
         self.assertTrue(list(validator.iter_errors(wrong_role)))
+        self.assertTrue(list(validator.iter_errors({**fixture, "signatures": []})))
+        self.assertTrue(list(validator.iter_errors({**fixture, "signatures": [fixture["signatures"][0], fixture["signatures"][0]]})))
+        for field in ("key_id", "signer_role"):
+            bad = {**fixture, "signatures": [{**fixture["signatures"][0], field: "bad/value"}]}
+            self.assertTrue(list(validator.iter_errors(bad)))
+        bad_padding = {**fixture, "signatures": [{**fixture["signatures"][0], "signature": "A" * 85 + "B"}]}
+        self.assertTrue(list(validator.iter_errors(bad_padding)))
 
     def test_signature_role_order_uniqueness_and_base64url_are_closed(self):
         fixture = json.loads((ROOT / "fixtures/accepted/board-registry-v1.json").read_text())
@@ -67,9 +74,6 @@ class FoundationTests(unittest.TestCase):
         with self.assertRaises(SchemaError) as caught:
             validate_foundation_document({**fixture, "signatures": [first, second]}, "board-registry/v1")
         self.assertEqual(caught.exception.code, "PARSE_SCHEMA_FAILURE")
-        with self.assertRaises(SchemaError) as caught:
-            validate_foundation_document({**fixture, "signatures": [first, first]}, "board-registry/v1")
-        self.assertEqual(caught.exception.code, "DUPLICATE_SEMANTIC_KEY")
         noncanonical = {**fixture["signatures"][0], "signature": "A" * 85 + "B"}
         with self.assertRaises(SchemaError):
             validate_foundation_document({**fixture, "signatures": [noncanonical]}, "board-registry/v1")

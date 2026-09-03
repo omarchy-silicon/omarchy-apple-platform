@@ -112,8 +112,8 @@ def validate_foundation_document(value: Any, payload_type: str) -> dict[str, Any
     validate_payload(value["payload"], payload_type)
     if value["payload"]["schema_set_digest"] != value["schema_set_digest"]:
         raise _error("SIGNATURE_CONTEXT_MISMATCH", "$.payload.schema_set_digest", "envelope and payload differ")
-    if not isinstance(value["signatures"], list) or not value["signatures"]:
-        raise _error("PARSE_SCHEMA_FAILURE", "$.signatures", "at least one signature is required")
+    if not isinstance(value["signatures"], list) or len(value["signatures"]) != 1:
+        raise _error("PARSE_SCHEMA_FAILURE", "$.signatures", "exactly one signature is required by the provisional foundation bound")
     expected_role = TYPE_CONTEXT[payload_type][2]
     previous = None
     seen = set()

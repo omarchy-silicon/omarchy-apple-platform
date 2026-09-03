@@ -11,7 +11,7 @@
     "domain": {"type": "string"}, "context": {"type": "string"},
     "schema_set_digest": {"$ref": "../../common/v1/common.schema.json#/$defs/digest"},
     "payload": {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    "signatures": {"type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/signature"}}
+    "signatures": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/signature"}}
   },
   "allOf": [
     {"if": {"properties": {"payload_type": {"const": "board-registry/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-board-registry"}, "context": {"const": "board-registry-publication"}, "payload": {"properties": {"schema": {"const": "board-registry/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "board-admission"}}}}}}},
@@ -28,9 +28,9 @@
       "type": "object", "additionalProperties": false,
       "required": ["key_id", "signer_role", "algorithm", "signature_format", "signature"],
       "properties": {
-        "key_id": {"type": "string"}, "signer_role": {"type": "string"},
+        "key_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"}, "signer_role": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
         "algorithm": {"const": "ed25519"}, "signature_format": {"const": "raw-ed25519/v1"},
-        "signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"}
+        "signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{85}[AQgw]$"}
       }
     }
   }
