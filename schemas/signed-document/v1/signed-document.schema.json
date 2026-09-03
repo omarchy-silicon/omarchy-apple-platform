@@ -11,8 +11,18 @@
     "domain": {"type": "string"}, "context": {"type": "string"},
     "schema_set_digest": {"$ref": "../../common/v1/common.schema.json#/$defs/digest"},
     "payload": {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    "signatures": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"$ref": "#/$defs/signature"}}
+    "signatures": {"type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/signature"}}
   },
+  "allOf": [
+    {"if": {"properties": {"payload_type": {"const": "board-registry/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-board-registry"}, "context": {"const": "board-registry-publication"}, "payload": {"properties": {"schema": {"const": "board-registry/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "board-admission"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "platform-manifest/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-platform-manifest"}, "context": {"const": "manifest-publication"}, "payload": {"properties": {"schema": {"const": "platform-manifest/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "manifest-release"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "installer-plan/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-installer-plan"}, "context": {"const": "installer-plan-proposal"}, "payload": {"properties": {"schema": {"const": "installer-plan/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "installer-planner"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "qualification-record/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-qualification-record"}, "context": {"const": "qualification-result"}, "payload": {"properties": {"schema": {"const": "qualification-record/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "qualification-lab"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "boot-health/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-boot-runtime"}, "context": {"const": "boot-health-core"}, "payload": {"properties": {"schema": {"const": "boot-health/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "boot-runtime"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "owner-approval/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-owner-authorization"}, "context": {"const": "installer-plan-execution"}, "payload": {"properties": {"schema": {"const": "owner-approval/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "owner-authorization"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "boot-success-mark/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-boot-runtime"}, "context": {"const": "boot-success-marker"}, "payload": {"properties": {"schema": {"const": "boot-success-mark/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "boot-runtime"}}}}}}},
+    {"if": {"properties": {"payload_type": {"const": "dtb-mutation-envelope/v1"}}}, "then": {"properties": {"domain": {"const": "omarchy-dtb-authority"}, "context": {"const": "dtb-mutation-authorization"}, "payload": {"properties": {"schema": {"const": "dtb-mutation-envelope/v1"}}}, "signatures": {"items": {"properties": {"signer_role": {"const": "dtb-authority"}}}}}}}
+  ],
   "$defs": {
     "signature": {
       "type": "object", "additionalProperties": false,

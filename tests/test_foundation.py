@@ -1,6 +1,8 @@
 import json
 import subprocess
 import sys
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -48,6 +50,29 @@ class FoundationTests(unittest.TestCase):
         fixture = json.loads((ROOT / "fixtures/accepted/board-registry-v1.json").read_text())
         self.assertTrue(list(validator.iter_errors({**fixture, "unknown": True})))
         self.assertTrue(list(validator.iter_errors({**fixture, "payload_type": "not-a-payload/v9"})))
+        for field, value in (("domain", "wrong-domain"), ("context", "wrong-context")):
+            with self.subTest(field=field):
+                self.assertTrue(list(validator.iter_errors({**fixture, field: value})))
+        wrong_role = {**fixture, "signatures": [{**fixture["signatures"][0], "signer_role": "manifest-release"}]}
+        self.assertTrue(list(validator.iter_errors(wrong_role)))
+
+    def test_signature_role_order_uniqueness_and_base64url_are_closed(self):
+        fixture = json.loads((ROOT / "fixtures/accepted/board-registry-v1.json").read_text())
+        wrong_role = {**fixture, "signatures": [{**fixture["signatures"][0], "signer_role": "manifest-release"}]}
+        with self.assertRaises(SchemaError) as caught:
+            validate_foundation_document(wrong_role, "board-registry/v1")
+        self.assertEqual(caught.exception.code, "SIGNATURE_CONTEXT_MISMATCH")
+        first = {**fixture["signatures"][0], "key_id": "key-z"}
+        second = {**fixture["signatures"][0], "key_id": "key-a"}
+        with self.assertRaises(SchemaError) as caught:
+            validate_foundation_document({**fixture, "signatures": [first, second]}, "board-registry/v1")
+        self.assertEqual(caught.exception.code, "PARSE_SCHEMA_FAILURE")
+        with self.assertRaises(SchemaError) as caught:
+            validate_foundation_document({**fixture, "signatures": [first, first]}, "board-registry/v1")
+        self.assertEqual(caught.exception.code, "DUPLICATE_SEMANTIC_KEY")
+        noncanonical = {**fixture["signatures"][0], "signature": "A" * 85 + "B"}
+        with self.assertRaises(SchemaError):
+            validate_foundation_document({**fixture, "signatures": [noncanonical]}, "board-registry/v1")
 
     def test_all_eight_accepted_envelopes_validate(self):
         for payload_type in AUTHENTICATED_PAYLOAD_TYPES:
@@ -71,6 +96,13 @@ class FoundationTests(unittest.TestCase):
                 self.assertEqual(caught.exception.code, code)
                 self.assertTrue(caught.exception.path.startswith("$"))
                 self.assertEqual(caught.exception.phase, "P0")
+        self.assertEqual(parse(b" \t\n\r1\r\n \t"), 1)
+        for whitespace in (b"\xc2\xa0", b"\xe2\x80\x83", b"\x0b", b"\x0c"):
+            with self.subTest(whitespace=whitespace):
+                with self.assertRaises(ParseError):
+                    parse(b"1" + whitespace)
+                with self.assertRaises(ParseError):
+                    parse(b"[" + whitespace + b"1]")
 
     def test_resource_limits_are_inclusive_at_boundary(self):
         self.assertEqual(parse(str(LIMITS["max_integer_magnitude"]).encode()), LIMITS["max_integer_magnitude"])
@@ -123,6 +155,33 @@ class FoundationTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-m", "omarchy_platform", "validate", "--type", "board-registry/v1", "--input", "fixtures/accepted/board-registry-v1.json"], cwd=ROOT, text=True, capture_output=True, check=True)
         self.assertIn('"foundation_valid": true', result.stdout)
         self.assertIn('"trusted": false', result.stdout)
+
+    def test_drift_rejects_tampered_lock_reference_and_source(self):
+        def run_tampered(mutator):
+            with tempfile.TemporaryDirectory() as directory:
+                copied = Path(directory) / "repo"
+                shutil.copytree(ROOT, copied)
+                mutator(copied)
+                return subprocess.run([sys.executable, "tools/schema/drift.py"], cwd=copied, text=True, capture_output=True)
+
+        def tamper_output_lock(copied):
+            path = copied / "bindings/generated-output.lock"
+            lock = json.loads(path.read_text())
+            lock["extra"] = True
+            path.write_text(json.dumps(lock))
+        self.assertNotEqual(run_tampered(tamper_output_lock).returncode, 0)
+
+        def tamper_reference(copied):
+            path = copied / "schemas/schema-input.lock"
+            lock = json.loads(path.read_text())
+            lock["schema_entries"][0]["reference_digests"] = [{"reference_path": "schemas/common/v1/common.schema.json", "digest": "sha256:" + "0" * 64}]
+            path.write_text(json.dumps(lock))
+        self.assertNotEqual(run_tampered(tamper_reference).returncode, 0)
+
+        def tamper_source(copied):
+            path = copied / "schemas/common/v1/common.schema.json"
+            path.write_bytes(path.read_bytes() + b" ")
+        self.assertNotEqual(run_tampered(tamper_source).returncode, 0)
 
 
 if __name__ == "__main__":

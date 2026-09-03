@@ -45,12 +45,14 @@ def _match(value: Any, pattern: re.Pattern[str], path: str, label: str) -> None:
         raise _error("PARSE_SCHEMA_FAILURE", path, f"invalid {label}")
 
 
-def _signature(value: Any, path: str) -> None:
+def _signature(value: Any, path: str, expected_role: str) -> tuple[str, str, str, str]:
     if not isinstance(value, dict):
         raise _error("PARSE_SCHEMA_FAILURE", path, "expected object")
     _exact(value, SIGNATURE_FIELDS, path)
     _match(value["key_id"], _ISSUER, f"{path}.key_id", "key id")
     _match(value["signer_role"], _ISSUER, f"{path}.signer_role", "signer role")
+    if value["signer_role"] != expected_role:
+        raise _error("SIGNATURE_CONTEXT_MISMATCH", f"{path}.signer_role", "signer role is not valid for payload type")
     if value["algorithm"] != "ed25519":
         raise _error("PARSE_SCHEMA_FAILURE", f"{path}.algorithm", "unsupported algorithm")
     if value["signature_format"] != "raw-ed25519/v1":
@@ -62,8 +64,10 @@ def _signature(value: Any, path: str) -> None:
         decoded = base64.urlsafe_b64decode(value["signature"] + "=" * (-len(value["signature"]) % 4))
     except ValueError:
         raise _error("PARSE_SCHEMA_FAILURE", f"{path}.signature", "invalid base64url") from None
-    if len(decoded) != 64 or "=" in value["signature"]:
+    encoded = base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii")
+    if len(decoded) != 64 or encoded != value["signature"]:
         raise _error("PARSE_SCHEMA_FAILURE", f"{path}.signature", "signature must be 64 unpadded bytes")
+    return (value["key_id"], value["signer_role"], value["algorithm"], value["signature_format"])
 
 
 def validate_payload(payload: Any, payload_type: str) -> dict[str, Any]:
@@ -110,6 +114,15 @@ def validate_foundation_document(value: Any, payload_type: str) -> dict[str, Any
         raise _error("SIGNATURE_CONTEXT_MISMATCH", "$.payload.schema_set_digest", "envelope and payload differ")
     if not isinstance(value["signatures"], list) or not value["signatures"]:
         raise _error("PARSE_SCHEMA_FAILURE", "$.signatures", "at least one signature is required")
+    expected_role = TYPE_CONTEXT[payload_type][2]
+    previous = None
+    seen = set()
     for index, signature in enumerate(value["signatures"]):
-        _signature(signature, f"$.signatures[{index}]")
+        key = _signature(signature, f"$.signatures[{index}]", expected_role)
+        if key in seen:
+            raise _error("DUPLICATE_SEMANTIC_KEY", f"$.signatures[{index}]", "duplicate signature tuple")
+        if previous is not None and key < previous:
+            raise _error("PARSE_SCHEMA_FAILURE", f"$.signatures[{index}]", "signatures are not sorted")
+        seen.add(key)
+        previous = key
     return value

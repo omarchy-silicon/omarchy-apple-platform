@@ -36,7 +36,7 @@ LIMITS = {
     "max_array_length": 1_024,
     "max_string_bytes": 4_096,
     "max_total_string_bytes": 262_144,
-    "max_integer_magnitude": 9_223_372_036_854_775_807,
+    "max_integer_magnitude": 9_007_199_254_740_991,
 }
 
 TYPE_CONTEXT = {
@@ -50,4 +50,4 @@ TYPE_CONTEXT = {
     "dtb-mutation-envelope/v1": ("omarchy-dtb-authority", "dtb-mutation-authorization", "dtb-authority"),
 }
 
-SCHEMA_SET_DIGEST = "sha256:0138cbe2c66857a2afba6ce4b0e96cb64c4ae3165b2bd11796c0d78ca266ba24"
+SCHEMA_SET_DIGEST = "sha256:fcd92604db888fe5fff1e0f95c16e0f9ebd42a35c2ac160afca4aa5e0614088c"

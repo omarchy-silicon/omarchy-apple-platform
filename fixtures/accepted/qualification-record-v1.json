@@ -4,7 +4,7 @@
   "payload_version": "v1",
   "domain": "omarchy-qualification-record",
   "context": "qualification-result",
-  "schema_set_digest": "sha256:0138cbe2c66857a2afba6ce4b0e96cb64c4ae3165b2bd11796c0d78ca266ba24",
-  "payload": {"schema": "qualification-record/v1", "schema_set_digest": "sha256:0138cbe2c66857a2afba6ce4b0e96cb64c4ae3165b2bd11796c0d78ca266ba24", "document_id": "fixture-qualification-record", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
+  "schema_set_digest": "sha256:fcd92604db888fe5fff1e0f95c16e0f9ebd42a35c2ac160afca4aa5e0614088c",
+  "payload": {"schema": "qualification-record/v1", "schema_set_digest": "sha256:fcd92604db888fe5fff1e0f95c16e0f9ebd42a35c2ac160afca4aa5e0614088c", "document_id": "fixture-qualification-record", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
   "signatures": [{"key_id": "key-fixture", "signer_role": "qualification-lab", "algorithm": "ed25519", "signature_format": "raw-ed25519/v1", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}]
 }

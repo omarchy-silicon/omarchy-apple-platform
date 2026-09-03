@@ -9,8 +9,7 @@ from .errors import ParseError
 
 
 class _DuplicateKey(ValueError):
-    def __init__(self, key: str):
-        self.key = key
+    pass
 
 
 class _BoundError(ValueError):
@@ -21,9 +20,20 @@ class _BoundError(ValueError):
 
 def _pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
+    key_bytes = 0
     for key, value in pairs:
+        if not isinstance(key, str):
+            raise _BoundError("$", "object key must be a string")
+        if any(0xD800 <= char <= 0xDFFF for char in map(ord, key)):
+            raise _BoundError("$", "unpaired surrogate is not permitted")
+        size = len(key.encode("utf-8"))
+        if size > LIMITS["max_string_bytes"]:
+            raise _BoundError("$", "string length limit exceeded")
+        key_bytes += size
+        if key_bytes > LIMITS["max_total_string_bytes"]:
+            raise _BoundError("$", "total string limit exceeded")
         if key in result:
-            raise _DuplicateKey(key)
+            raise _DuplicateKey()
         result[key] = value
     if len(result) > LIMITS["max_object_properties"]:
         raise _BoundError("$", "object property limit exceeded")
@@ -106,17 +116,19 @@ def parse(data: bytes | bytearray | memoryview) -> Any:
         ),
     )
     try:
-        start = len(text) - len(text.lstrip())
+        start = 0
+        while start < len(text) and text[start] in " \t\n\r":
+            start += 1
         value, end = decoder.raw_decode(text, start)
-        if text[end:].strip():
+        trailing = text[end:]
+        if any(char not in " \t\n\r" for char in trailing):
             raise ParseError("PARSE_SCHEMA_FAILURE", "$", "P0", "trailing data is not permitted")
         _walk(value, "$", 0, [0])
         return value
     except ParseError:
         raise
     except _DuplicateKey as error:
-        path = f"$.{error.key}"
-        raise ParseError("DUPLICATE_SEMANTIC_KEY", path, "P0", "duplicate object key") from None
+        raise ParseError("DUPLICATE_SEMANTIC_KEY", "$", "P0", "duplicate object key") from None
     except _BoundError as error:
         code = "RESOURCE_LIMIT"
         if "negative zero" in error.detail or "non-finite" in error.detail or "surrogate" in error.detail or "non-canonical number" in error.detail:
