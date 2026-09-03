@@ -11,4 +11,3 @@ class ProgramValidationError(Exception):
         self.code = code
         self.path = path
         self.message = message
-

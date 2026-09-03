@@ -18,9 +18,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="omarchy-program")
     parser.add_argument("--program", default="PROGRAM.md")
     parser.add_argument("--lock", default="data/program/program-integrity.lock.json")
+    parser.add_argument("--baseline-program")
+    parser.add_argument("--baseline-lock")
     args = parser.parse_args(argv)
     try:
-        _emit(validate_program(args.program, args.lock), sys.stdout)
+        _emit(validate_program(args.program, args.lock, args.baseline_program, args.baseline_lock), sys.stdout)
         return 0
     except Exception as error:
         if hasattr(error, "code"):
@@ -28,4 +30,3 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         _emit({"code": "INTERNAL_FAILURE", "path": "$", "message": "validator failed closed"}, sys.stderr)
         return 2
-

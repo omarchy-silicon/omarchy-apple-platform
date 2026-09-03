@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,8 +23,12 @@ SLICE_ID = re.compile(r"^[A-Z]-[0-9]{2}$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 ROW = re.compile(r"^\| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$")
 PROGRESS_ROW = re.compile(r"^\| ([^|]+) \| ([^|]+) \| (.*) \|$")
+SLICE_ROW_SHAPE = re.compile(r"^\|\s*[A-Z]-[0-9]{2}\s*\|[^|]*\|[^|]*\|[^|]*\|\s*(?:DONE|IN PROGRESS|TODO|HUMAN-ONLY BLOCKED)\s*\|$")
 ALLOWED_EXTERNAL_DEPS = {"human m1n1 owner", "shipping hardware"}
 HUMAN_REPOSITORY = "m1n1-omarchy"
+STATUS_TRANSITION = re.compile(
+    r"\bstatus transition:\s*(?P<id>[A-Z]-[0-9]{2})\s+from\s+(?P<from>DONE|IN PROGRESS|TODO|HUMAN-ONLY BLOCKED)\s+to\s+(?P<to>DONE|IN PROGRESS|TODO|HUMAN-ONLY BLOCKED)\b"
+)
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,7 @@ def _parse_slices(lines: list[str]) -> list[Slice]:
     if header_index + 1 >= end or lines[header_index + 1] != separator:
         _fail("LEDGER_HEADER_INVALID", f"PROGRAM.md:{header_index + 2}", "slice ledger separator is invalid")
     rows: list[Slice] = []
+    row_indices: set[int] = set()
     saw_blank = False
     for index in range(header_index + 2, end):
         line = lines[index]
@@ -100,10 +105,14 @@ def _parse_slices(lines: list[str]) -> list[Slice]:
             _fail("STATUS_INVALID", f"PROGRAM.md:{index + 1}", "status is outside the closed vocabulary")
         dependencies = _parse_dependencies(dependency_text, index + 1)
         rows.append(Slice(identifier, repository, deliverable, dependencies, status, index + 1, line))
+        row_indices.add(index)
     if not rows:
         _fail("SLICE_COUNT_INVALID", "PROGRAM.md:12", "slice ledger is empty")
     if len(rows) > MAX_SLICE_ROWS:
         _fail("RESOURCE_LIMIT", "PROGRAM.md:12", "slice row limit exceeded")
+    for index, line in enumerate(lines):
+        if SLICE_ROW_SHAPE.match(line) and index not in row_indices:
+            _fail("SLICE_ROW_OUTSIDE_LEDGER", f"PROGRAM.md:{index + 1}", "slice-shaped rows are only allowed in the bounded Section 12 ledger table")
     return rows
 
 
@@ -225,38 +234,60 @@ def _validate_ownership(slices: list[Slice], text: str) -> None:
             _fail("HUMAN_ONLY_CONSTRAINT", f"PROGRAM.md:{item.line}", "human m1n1 owner dependency is reserved for m1n1 rows")
 
 
-def _validate_statuses(slices: list[Slice], lock: dict) -> None:
+def _validate_statuses(slices: list[Slice], lock: dict, baseline_slices: list[Slice] | None = None) -> None:
     counts = Counter(item.status for item in slices)
-    if dict(counts) != EXPECTED_STATUS_COUNTS:
+    for status in STATUS_VOCABULARY:
+        counts.setdefault(status, 0)
+    if not baseline_slices and dict(counts) != EXPECTED_STATUS_COUNTS:
         _fail("STATUS_CENSUS_INVALID", "PROGRAM.md:12", f"current status census must be {EXPECTED_STATUS_COUNTS}")
     expected = lock.get("status_by_id")
-    if not isinstance(expected, dict) or {item.identifier: item.status for item in slices} != expected:
+    actual = {item.identifier: item.status for item in slices}
+    if not isinstance(expected, dict) or actual != expected:
         _fail("STATUS_LAUNDERING", "PROGRAM.md:12", "slice statuses differ from the immutable current census baseline")
-    if any(item.status == "DONE" and item.identifier not in {"F-00", "F-01"} for item in slices):
-        _fail("DONE_INFERENCE_FORBIDDEN", "PROGRAM.md:12", "DONE cannot be inferred for a slice without coordinator history")
 
 
-def _validate_progress(slices: list[Slice], progress: list[Progress], lock: dict) -> None:
+def _validate_progress(slices: list[Slice], progress: list[Progress], lock: dict, baseline_slices: list[Slice] | None = None, baseline_progress: list[Progress] | None = None) -> None:
     historical = lock.get("progress_rows")
     if not isinstance(historical, list) or len(progress) < len(historical):
         _fail("HISTORY_DELETED", "PROGRAM.md:19", "historical progress rows may not be deleted")
+    if baseline_progress is not None and len(historical) != len(progress):
+        _fail("LOCK_HISTORY_MISMATCH", "data/program/program-integrity.lock.json", "submitted lock must cover every current progress row")
     for index, expected in enumerate(historical):
         if not isinstance(expected, dict) or not isinstance(expected.get("sha256"), str):
             _fail("BASELINE_INVALID", "data/program/program-integrity.lock.json", "baseline progress row is invalid")
         if _sha256(progress[index].raw) != expected["sha256"]:
             _fail("HISTORY_EDITED_OR_REORDERED", f"PROGRAM.md:{progress[index].line}", "historical progress rows must remain byte-identical and ordered")
-    baseline_count = len(historical)
+    baseline_count = len(baseline_progress) if baseline_progress is not None else len(historical)
+    if baseline_progress is not None and len(progress) < baseline_count:
+        _fail("HISTORY_DELETED", "PROGRAM.md:19", "trusted baseline progress rows may not be deleted")
     by_id = {item.identifier: item for item in slices}
-    for item in progress[baseline_count:]:
+    baseline_statuses = {item.identifier: item.status for item in baseline_slices or slices}
+    current_statuses = {item.identifier: item.status for item in slices}
+    changed = {identifier for identifier, status in current_statuses.items() if baseline_statuses.get(identifier) != status}
+    transitions: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
+    for index, item in enumerate(progress[baseline_count:], start=baseline_count):
         if "release-ready" in item.event.lower() or "release-ready" in item.evidence.lower():
             _fail("RELEASE_READY_INFERENCE", f"PROGRAM.md:{item.line}", "progress records may not claim release-ready state")
         mentioned = set(re.findall(r"\b[A-Z]-[0-9]{2}\b", item.raw))
+        row_transitions = list(STATUS_TRANSITION.finditer(item.raw))
         for identifier in mentioned:
             if identifier not in by_id:
                 _fail("UNKNOWN_PROGRESS_SLICE", f"PROGRAM.md:{item.line}", f"progress record mentions unknown slice {identifier}")
             for status in STATUS_VOCABULARY:
-                if re.search(rf"\b{re.escape(status)}\b", item.raw) and by_id[identifier].status != status:
+                is_transition_field = any(match.group("id") == identifier and status in {match.group("from"), match.group("to")} for match in row_transitions)
+                if re.search(rf"\b{re.escape(status)}\b", item.raw) and by_id[identifier].status != status and not is_transition_field:
                     _fail("FALSE_STATUS_EVIDENCE", f"PROGRAM.md:{item.line}", f"progress record claims {identifier} is {status}, but the ledger disagrees")
+        for transition in STATUS_TRANSITION.finditer(item.raw):
+            transitions[transition.group("id")].append((transition.group("from"), transition.group("to"), index))
+    if baseline_slices is None:
+        changed = {identifier for identifier, status in current_statuses.items() if baseline_statuses.get(identifier) != status}
+    for identifier in changed:
+        matches = transitions.get(identifier, [])
+        if len(matches) != 1 or matches[0][0] != baseline_statuses.get(identifier) or matches[0][1] != current_statuses[identifier]:
+            _fail("STATUS_TRANSITION_EVIDENCE_MISSING", "PROGRAM.md:19", f"{identifier} requires one exact status transition in appended progress")
+    for identifier, matches in transitions.items():
+        if identifier not in changed:
+            _fail("FALSE_STATUS_EVIDENCE", f"PROGRAM.md:{progress[matches[0][2]].line}", f"progress record changes status for unchanged slice {identifier}")
     evidence = lock.get("status_evidence")
     if not isinstance(evidence, dict):
         _fail("BASELINE_INVALID", "data/program/program-integrity.lock.json", "status evidence baseline is missing")
@@ -266,9 +297,9 @@ def _validate_progress(slices: list[Slice], progress: list[Progress], lock: dict
         if not isinstance(refs, list) or not refs or any(not isinstance(ref, int) or ref < 0 or ref >= len(progress) for ref in refs):
             _fail("STATUS_EVIDENCE_INVALID", "PROGRAM.md:19", f"{identifier} lacks append-only progress evidence")
         for ref in refs:
-            if ref >= baseline_count:
+            if ref >= baseline_count and identifier not in changed:
                 _fail("STATUS_EVIDENCE_INVALID", f"PROGRAM.md:{progress[ref].line}", f"{identifier} evidence is outside the immutable baseline")
-            if _sha256(progress[ref].raw) != historical[ref]["sha256"]:
+            if ref < baseline_count and _sha256(progress[ref].raw) != historical[ref]["sha256"]:
                 _fail("HISTORY_EDITED_OR_REORDERED", f"PROGRAM.md:{progress[ref].line}", "status evidence row is not immutable")
 
 
@@ -308,7 +339,17 @@ def _validate_lock_structure(slices: list[Slice], lock: dict) -> None:
         _fail("BASELINE_INVALID", "data/program/program-integrity.lock.json", "baseline census constants are invalid")
 
 
-def validate_program(program_path: str | Path, lock_path: str | Path) -> dict:
+def _read_lock(lock_file: Path) -> dict:
+    try:
+        lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        _fail("BASELINE_INVALID", str(lock_file), "integrity baseline could not be read")
+    if not isinstance(lock, dict):
+        _fail("BASELINE_INVALID", str(lock_file), "integrity baseline must be an object")
+    return lock
+
+
+def validate_program(program_path: str | Path, lock_path: str | Path, baseline_program_path: str | Path | None = None, baseline_lock_path: str | Path | None = None) -> dict:
     path = Path(program_path)
     lock_file = Path(lock_path)
     try:
@@ -324,19 +365,38 @@ def validate_program(program_path: str | Path, lock_path: str | Path) -> dict:
     lines = text.splitlines()
     if len(lines) > MAX_PROGRESS_ROWS + 1000:
         _fail("RESOURCE_LIMIT", str(path), "PROGRAM.md line limit exceeded")
-    try:
-        lock = json.loads(lock_file.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        _fail("BASELINE_INVALID", str(lock_file), "integrity baseline could not be read")
-    if not isinstance(lock, dict):
-        _fail("BASELINE_INVALID", str(lock_file), "integrity baseline must be an object")
+    lock = _read_lock(lock_file)
     slices = _parse_slices(lines)
     progress = _parse_progress(lines)
+    baseline_slices = baseline_progress = None
+    if (baseline_program_path is None) != (baseline_lock_path is None):
+        _fail("BASELINE_INVALID", "$", "trusted baseline program and lock must be supplied together")
+    if baseline_program_path is not None:
+        baseline_lock = _read_lock(Path(baseline_lock_path))
+        baseline_slices, baseline_progress = parse_for_lock(baseline_program_path)
+        # Validate the extracted merge-base pair independently before comparing submitted state.
+        validate_program(baseline_program_path, baseline_lock_path)
+        baseline_structure = [{"id": item.identifier, "repository": item.repository, "deliverable": item.deliverable, "depends_on": list(item.dependencies)} for item in baseline_slices]
+        if lock.get("slice_structure") != baseline_structure:
+            _fail("BASELINE_REBOUND", "data/program/program-integrity.lock.json", "submitted lock does not preserve trusted baseline ledger structure")
+        baseline_rows = baseline_lock.get("progress_rows")
+        submitted_rows = lock.get("progress_rows")
+        if not isinstance(baseline_rows, list) or not isinstance(submitted_rows, list) or submitted_rows[: len(baseline_rows)] != baseline_rows:
+            _fail("BASELINE_REBOUND", "data/program/program-integrity.lock.json", "submitted lock does not preserve trusted baseline history prefix")
+        baseline_evidence = baseline_lock.get("status_evidence", {})
+        submitted_evidence = lock.get("status_evidence", {})
+        baseline_statuses = {item.identifier: item.status for item in baseline_slices}
+        current_statuses = {item.identifier: item.status for item in slices}
+        if not isinstance(baseline_evidence, dict) or not isinstance(submitted_evidence, dict) or any(
+            current_statuses.get(key) == baseline_statuses.get(key) and submitted_evidence.get(key) != value
+            for key, value in baseline_evidence.items()
+        ):
+            _fail("BASELINE_REBOUND", "data/program/program-integrity.lock.json", "submitted lock changed trusted status evidence")
     closure, authority = _validate_graph(slices)
     _validate_ownership(slices, text)
-    _validate_statuses(slices, lock)
+    _validate_statuses(slices, lock, baseline_slices)
     _validate_lock_structure(slices, lock)
-    _validate_progress(slices, progress, lock)
+    _validate_progress(slices, progress, lock, baseline_slices, baseline_progress)
     return {
         "decision": "ACCEPT",
         "authority": authority,

@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from omarchy_program import ProgramValidationError, validate_program
+from omarchy_program.validate import build_lock, parse_for_lock
 
 ROOT = Path(__file__).parents[1]
 PROGRAM = ROOT / "PROGRAM.md"
@@ -35,6 +36,25 @@ class ProgramIntegrityTests(unittest.TestCase):
             path.write_text(text.replace(needle, replacement))
 
         return mutation
+
+    def run_trusted_mutation(self, mutation, relock=True):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            program = root / "PROGRAM.md"
+            lock = root / "lock.json"
+            baseline_program = root / "baseline-PROGRAM.md"
+            baseline_lock = root / "baseline-lock.json"
+            shutil.copy2(PROGRAM, program)
+            shutil.copy2(LOCK, lock)
+            shutil.copy2(PROGRAM, baseline_program)
+            shutil.copy2(LOCK, baseline_lock)
+            mutation(program)
+            if relock:
+                slices, progress = parse_for_lock(program)
+                lock.write_text(json.dumps(build_lock(slices, progress), sort_keys=True, indent=2) + "\n")
+            with self.assertRaises(ProgramValidationError) as caught:
+                validate_program(program, lock, baseline_program, baseline_lock)
+            return caught.exception
 
     def test_current_program_has_closed_census_and_complete_f07_closure(self):
         result = validate_program(PROGRAM, LOCK)
@@ -121,6 +141,72 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertIn(error.code, {"HUMAN_ONLY_CONSTRAINT", "SLICE_HISTORY_EDITED_OR_REORDERED"})
         error = self.run_mutation(self.mutate_text("F-05, P-03, P-05, I-09, B-04, Q-04, Q-05, Q-06, Q-07, Q-08", "P-03, P-05, I-09, B-04, Q-04, Q-05, Q-06, Q-07, Q-08"))
         self.assertIn(error.code, {"EXTRA_TERMINAL", "F07_CLOSURE_INCOMPLETE", "SLICE_HISTORY_EDITED_OR_REORDERED"})
+
+    def test_trusted_merge_base_rejects_rebound_lock_and_history(self):
+        def edit_and_relock(path):
+            text = path.read_text()
+            path.write_text(text.replace("Organization and repositories created", "Organization and repositories REBOUND", 1))
+
+        self.assertEqual(self.run_trusted_mutation(edit_and_relock).code, "BASELINE_REBOUND")
+
+    def test_slice_shaped_rows_outside_section_12_are_rejected(self):
+        error = self.run_mutation(self.mutate_text("# Omarchy Silicon Platform Program\n", "# Omarchy Silicon Platform Program\n| Z-99 | hostile | hidden | none | TODO |\n"))
+        self.assertEqual(error.code, "SLICE_ROW_OUTSIDE_LEDGER")
+
+    def test_generic_status_mentions_cannot_launder_a_transition(self):
+        def generic_transition(path):
+            text = path.read_text().replace(
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | IN PROGRESS |",
+            )
+            text += "| 2026-09-03 | P-01 implementation started | generic evidence only |\n"
+            path.write_text(text)
+
+        self.assertEqual(self.run_trusted_mutation(generic_transition).code, "STATUS_TRANSITION_EVIDENCE_MISSING")
+
+    def test_each_changed_slice_requires_its_own_exact_transition(self):
+        def multi_change(path):
+            text = path.read_text()
+            text = text.replace("| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | IN PROGRESS |", "| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | TODO |")
+            text = text.replace("| F-04 | omarchy-apple-platform | Establish reproducible builder definitions, SBOM/provenance, channel promotion, and immutable artifact storage | F-02 | IN PROGRESS |", "| F-04 | omarchy-apple-platform | Establish reproducible builder definitions, SBOM/provenance, channel promotion, and immutable artifact storage | F-02 | TODO |")
+            text += "| 2026-09-03 | status transition: F-03 from IN PROGRESS to TODO | coordinator evidence |\n"
+            path.write_text(text)
+
+        self.assertEqual(self.run_trusted_mutation(multi_change).code, "STATUS_TRANSITION_EVIDENCE_MISSING")
+
+    def test_exact_status_transition_is_machine_checkable(self):
+        def exact_transition(path):
+            text = path.read_text().replace(
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | IN PROGRESS |",
+            )
+            text += "| 2026-09-03 | status transition: P-01 from TODO to IN PROGRESS | coordinator evidence |\n"
+            path.write_text(text)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            program = root / "PROGRAM.md"
+            lock = root / "lock.json"
+            baseline_program = root / "baseline-PROGRAM.md"
+            baseline_lock = root / "baseline-lock.json"
+            shutil.copy2(PROGRAM, program)
+            shutil.copy2(LOCK, lock)
+            shutil.copy2(PROGRAM, baseline_program)
+            shutil.copy2(LOCK, baseline_lock)
+            exact_transition(program)
+            slices, progress = parse_for_lock(program)
+            lock.write_text(json.dumps(build_lock(slices, progress), sort_keys=True, indent=2) + "\n")
+            result = validate_program(program, lock, baseline_program, baseline_lock)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 7)
+
+    def test_workflow_selects_event_base_and_fetches_full_history(self):
+        workflow = (ROOT / ".github/workflows/program-integrity.yml").read_text()
+        self.assertIn("fetch-depth: 0", workflow)
+        self.assertIn("github.event.pull_request.base.sha", workflow)
+        self.assertIn("github.event.before", workflow)
+        self.assertIn("0000000000000000000000000000000000000000", workflow)
+        self.assertIn('git show "$BASE_SHA:PROGRAM.md"', workflow)
+        self.assertIn('git show "$BASE_SHA:data/program/program-integrity.lock.json"', workflow)
 
 
 if __name__ == "__main__":

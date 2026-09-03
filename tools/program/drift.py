@@ -13,9 +13,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--program", default="PROGRAM.md")
     parser.add_argument("--lock", default="data/program/program-integrity.lock.json")
+    parser.add_argument("--baseline-program")
+    parser.add_argument("--baseline-lock")
     args = parser.parse_args(argv)
     try:
-        result = validate_program(args.program, args.lock)
+        result = validate_program(args.program, args.lock, args.baseline_program, args.baseline_lock)
     except ProgramValidationError as error:
         print(json.dumps({"code": error.code, "path": error.path, "message": error.message}, sort_keys=True, separators=(",", ":")), file=sys.stderr)
         return 2
