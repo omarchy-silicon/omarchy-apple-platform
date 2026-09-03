@@ -63,7 +63,7 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertEqual(result["closure_count"], 52)
         self.assertTrue(result["closure_includes_p03"])
         self.assertFalse(result["release_ready"])
-        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 14, "TODO": 30, "HUMAN-ONLY BLOCKED": 6})
+        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 15, "TODO": 29, "HUMAN-ONLY BLOCKED": 6})
 
     def test_regenerated_lock_accepts_standalone_todo_to_in_progress_transition(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -84,9 +84,9 @@ class ProgramIntegrityTests(unittest.TestCase):
 
             result = validate_program(program, lock)
 
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 15)
-            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 15)
-            self.assertEqual(generated["expected_status_counts"]["TODO"], 29)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 16)
+            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 16)
+            self.assertEqual(generated["expected_status_counts"]["TODO"], 28)
 
     def test_forged_status_count_map_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -120,7 +120,7 @@ class ProgramIntegrityTests(unittest.TestCase):
 
     def test_hostile_graph_and_ledger_cases_fail_closed(self):
         cases = [
-            ("| F-05 | omarchy-apple-platform | Build candidate assembly, hostile fixtures, generated consumer bindings, and cross-repository compatibility validator | F-03, F-04, F-06, Q-00, Q-01 | TODO |", "| F-05 | omarchy-apple-platform | Build candidate assembly, hostile fixtures, generated consumer bindings, and cross-repository compatibility validator | F-03, UNKNOWN-99, F-06, Q-00, Q-01 | TODO |"),
+            ("| F-05 | omarchy-apple-platform | Build candidate assembly, hostile fixtures, generated consumer bindings, and cross-repository compatibility validator | F-03, F-04, F-06, Q-00, Q-01 | IN PROGRESS |", "| F-05 | omarchy-apple-platform | Build candidate assembly, hostile fixtures, generated consumer bindings, and cross-repository compatibility validator | F-03, UNKNOWN-99, F-06, Q-00, Q-01 | IN PROGRESS |"),
             ("| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | IN PROGRESS |", "| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02, F-02 | IN PROGRESS |"),
             ("| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | IN PROGRESS |", "| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-03 | IN PROGRESS |"),
             ("| F-03 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | IN PROGRESS |", "| F-02 | omarchy-apple-platform | Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery | F-02 | IN PROGRESS |"),
@@ -242,7 +242,7 @@ class ProgramIntegrityTests(unittest.TestCase):
             slices, progress = parse_for_lock(program)
             lock.write_text(json.dumps(build_lock(slices, progress), sort_keys=True, indent=2) + "\n")
             result = validate_program(program, lock, baseline_program, baseline_lock)
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 15)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 16)
 
     def test_done_transition_is_unauthorized_even_with_exact_evidence(self):
         def done_transition(path):
