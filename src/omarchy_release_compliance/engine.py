@@ -337,6 +337,8 @@ def validate(bundle: Any) -> dict[str, Any]:
         _fail("DUPLICATE_ID", "$.artifacts", "duplicate component_id")
     if components != sorted(components):
         _fail("UNSORTED_IDS", "$.artifacts", "component IDs must be sorted")
+    if set(authority) != {item["artifact_id"] for item in artifacts}:
+        _fail("PROVENANCE_AUTHORITY_INVALID", "$.policy.provenance", "authority and inventory artifact sets must match exactly")
     return bundle
 
 
