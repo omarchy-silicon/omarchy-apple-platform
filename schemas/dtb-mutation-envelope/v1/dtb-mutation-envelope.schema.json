@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json",
+  "title": "F-02 dtb-mutation-envelope/v1 payload foundation",
+  "allOf": [
+    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
+    {"properties": {"schema": {"const": "dtb-mutation-envelope/v1"}}}
+  ],
+  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+}

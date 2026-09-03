@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/schemas/boot-success-mark/v1/boot-success-mark.schema.json",
+  "title": "F-02 boot-success-mark/v1 payload foundation",
+  "allOf": [
+    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
+    {"properties": {"schema": {"const": "boot-success-mark/v1"}}}
+  ],
+  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+}

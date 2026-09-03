@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/schemas/qualification-record/v1/qualification-record.schema.json",
+  "title": "F-02 qualification-record/v1 payload foundation",
+  "allOf": [
+    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
+    {"properties": {"schema": {"const": "qualification-record/v1"}}}
+  ],
+  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+}
