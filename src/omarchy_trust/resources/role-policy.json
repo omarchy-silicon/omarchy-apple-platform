@@ -1,0 +1,15 @@
+{
+  "format": "omarchy-trust-policy/v1",
+  "roles": [
+    {"role": "root", "threshold": 3, "custody": "offline", "max_lifetime_seconds": 31536000},
+    {"role": "targets", "threshold": 2, "custody": "offline-plus-constrained-online", "max_lifetime_seconds": 7776000},
+    {"role": "snapshot", "threshold": 2, "custody": "constrained-online", "max_lifetime_seconds": 86400},
+    {"role": "timestamp", "threshold": 2, "custody": "constrained-online", "max_lifetime_seconds": 21600},
+    {"role": "artifact", "threshold": 2, "custody": "offline-plus-constrained-online", "max_lifetime_seconds": 2592000},
+    {"role": "package-index", "threshold": 2, "custody": "offline-plus-constrained-online", "max_lifetime_seconds": 2592000},
+    {"role": "emergency/recovery", "threshold": 3, "custody": "offline", "max_lifetime_seconds": 604800}
+  ],
+  "future_clock_skew_seconds": 300,
+  "max_metadata_bytes": 1048576,
+  "max_artifact_bytes": 8589934592
+}
