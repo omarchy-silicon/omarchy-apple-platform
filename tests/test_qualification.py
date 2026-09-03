@@ -165,3 +165,27 @@ def test_manifest_expiry_and_stale_firmware_rejected(tmp_path):
     record_path.write_text(json.dumps(record)); manifest_path.write_text(json.dumps(manifest)); inventory_path.write_text(json.dumps(inventory))
     with pytest.raises(QualificationValidationError, match="FIRMWARE_BASELINE_WINDOW"):
         validate_record_file(record_path, inventory_path, manifest=manifest_path, intake_manifest=ROOT / "data/intake/manifest.json", verification_time="2026-01-04T00:00:00Z")
+
+
+def test_full_requires_current_intake_even_outside_repository(tmp_path):
+    inventory, record, manifest = _full_fixture()
+    record_path, inventory_path, manifest_path = tmp_path / "record.json", tmp_path / "inventory.json", tmp_path / "manifest.json"
+    inventory_path.write_text(json.dumps(inventory))
+    record_path.write_text(json.dumps(record))
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(QualificationValidationError, match="INTAKE_REQUIRED"):
+        validate_record_file(record_path, inventory_path, manifest=manifest_path, verification_time="2026-01-04T00:00:00Z")
+
+
+def test_full_rejects_stale_or_future_evidence():
+    inventory, record, _ = _full_fixture()
+    for item in record["evidence"]:
+        item["observed_at"] = "2025-01-01T00:00:00Z"
+    with pytest.raises(QualificationValidationError, match="EVIDENCE_STALE"):
+        validate_record(record, inventory, verification_time="2026-01-04T00:00:00Z")
+
+    inventory, record, _ = _full_fixture()
+    record["evidence"][0]["observed_at"] = "2026-01-05T00:00:00Z"
+    with pytest.raises(QualificationValidationError, match="EVIDENCE_FUTURE"):
+        validate_record(record, inventory, verification_time="2026-01-04T00:00:00Z")

@@ -43,6 +43,7 @@ _MODALITIES = frozenset({"automated", "human-observed", "automated-and-human"})
 _STATUSES = frozenset({"pass", "fail", "unknown"})
 _MAX_INPUT_BYTES = 1_048_576
 _MAX_FIRMWARE_AGE_DAYS = 180
+_MAX_EVIDENCE_AGE_DAYS = 180
 
 
 def _fail(code: str, path: str, message: str) -> None:
@@ -250,6 +251,10 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
         _fail("SCHEMA_INVALID", "$.schema", "unexpected Q-01 record schema")
     if (record["outcome"] == "FULL" or record["admission"] == "QUALIFIED") and verification_time is None:
         _fail("VERIFICATION_TIME_REQUIRED", "$.verification_time", "FULL or QUALIFIED validation requires an explicit verification time")
+    checked_at = None
+    if verification_time is not None:
+        _timestamp(verification_time, "$.verification_time")
+        checked_at = datetime.fromisoformat(verification_time.removesuffix("Z") + "+00:00")
     _digest(record["schema_set_digest"], "$.schema_set_digest")
     if record["schema_set_digest"] != q01_schema_set_digest():
         _fail("SCHEMA_DIGEST_MISMATCH", "$.schema_set_digest", "record schema digest is stale")
@@ -289,6 +294,13 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
     if len({u["identity_digest"] for u in units}) != len(units) or len({u["inventory_tag"] for u in units}) != len(units) or len({u["serial_pseudonym"] for u in units}) != len(units):
         _fail("DUPLICATE_PHYSICAL_IDENTITY", "$.physical_units", "physical units must have distinct underlying identities")
     evidence = _evidence(record, unit_map)
+    if checked_at is not None:
+        for item in evidence.values():
+            observed_at = datetime.fromisoformat(item["observed_at"].removesuffix("Z") + "+00:00")
+            if observed_at > checked_at:
+                _fail("EVIDENCE_FUTURE", "$.evidence", "qualification evidence cannot be observed after verification time")
+            if (record["outcome"] == "FULL" or record["admission"] == "QUALIFIED") and checked_at - observed_at > timedelta(days=_MAX_EVIDENCE_AGE_DAYS):
+                _fail("EVIDENCE_STALE", "$.evidence", "qualified evidence exceeds the closed freshness window")
     physical_evidence = [item for item in evidence.values() if item["physical"]]
     if physical_evidence and len(units) < 2:
         _fail("PHYSICAL_UNIT_COUNT", "$.physical_units", "any physical evidence requires at least two independent units")
@@ -364,22 +376,23 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
             _fail("SCHEMA_INVALID", f"$.residuals[{index}].state", "invalid residual state")
     _timestamp(record["issued_at"], "$.issued_at")
     _timestamp(record["validated_at"], "$.validated_at")
-    if verification_time is not None:
-        _timestamp(verification_time, "$.verification_time")
-    if verification_time is not None and record["validated_at"] > verification_time:
+    if checked_at is not None and datetime.fromisoformat(record["validated_at"].removesuffix("Z") + "+00:00") > checked_at:
         _fail("VERIFICATION_TIME_ORDER", "$.validated_at", "record validation cannot occur after verification time")
 
 
 def validate_record_file(record_path: str | Path, inventory_path: str | Path, *, intake_manifest: str | Path | None = None, manifest: str | Path | None = None, verification_time: str | None = None) -> dict[str, Any]:
     inventory = load_inventory(inventory_path)
     record = _read_json(record_path)
-    if manifest is None and (record.get("outcome") == "FULL" or record.get("admission") == "QUALIFIED"):
+    qualified = record.get("outcome") == "FULL" or record.get("admission") == "QUALIFIED"
+    if manifest is None and qualified:
         _fail("MANIFEST_REQUIRED", "$.manifest", "FULL or QUALIFIED records require an authoritative F-02 platform manifest")
     validate_record(record, inventory, verification_time=verification_time)
     if intake_manifest is None:
         candidate = Path(inventory_path).resolve().parents[2] / "data/intake/manifest.json"
         if candidate.is_file():
             intake_manifest = candidate
+    if intake_manifest is None and qualified:
+        _fail("INTAKE_REQUIRED", "$.intake_manifest", "FULL or QUALIFIED records require the current Q-00 intake manifest")
     if intake_manifest is not None:
         intake_path = Path(intake_manifest)
         root = intake_path.resolve().parents[2]
