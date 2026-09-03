@@ -63,7 +63,7 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertEqual(result["closure_count"], 52)
         self.assertTrue(result["closure_includes_p03"])
         self.assertFalse(result["release_ready"])
-        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 13, "TODO": 31, "HUMAN-ONLY BLOCKED": 6})
+        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 14, "TODO": 30, "HUMAN-ONLY BLOCKED": 6})
 
     def test_regenerated_lock_accepts_standalone_todo_to_in_progress_transition(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -73,10 +73,10 @@ class ProgramIntegrityTests(unittest.TestCase):
             shutil.copy2(PROGRAM, program)
             text = program.read_text()
             text = text.replace(
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | TODO |",
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | IN PROGRESS |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | TODO |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | IN PROGRESS |",
             )
-            text += "| 2026-09-03 | status transition: P-04 from TODO to IN PROGRESS | coordinator evidence |\n"
+            text += "| 2026-09-03 | status transition: P-05 from TODO to IN PROGRESS | coordinator evidence |\n"
             program.write_text(text)
             slices, progress = parse_for_lock(program)
             generated = build_lock(slices, progress)
@@ -84,9 +84,9 @@ class ProgramIntegrityTests(unittest.TestCase):
 
             result = validate_program(program, lock)
 
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 14)
-            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 14)
-            self.assertEqual(generated["expected_status_counts"]["TODO"], 30)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 15)
+            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 15)
+            self.assertEqual(generated["expected_status_counts"]["TODO"], 29)
 
     def test_forged_status_count_map_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -105,8 +105,8 @@ class ProgramIntegrityTests(unittest.TestCase):
 
     def test_unknown_program_status_is_rejected(self):
         error = self.run_mutation(self.mutate_text(
-            "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | TODO |",
-            "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | PLANNED |",
+            "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | TODO |",
+            "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | PLANNED |",
         ))
         self.assertEqual(error.code, "STATUS_INVALID")
 
@@ -201,10 +201,10 @@ class ProgramIntegrityTests(unittest.TestCase):
     def test_generic_status_mentions_cannot_launder_a_transition(self):
         def generic_transition(path):
             text = path.read_text().replace(
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | TODO |",
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | IN PROGRESS |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | TODO |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | IN PROGRESS |",
             )
-            text += "| 2026-09-03 | P-04 implementation started | generic evidence only |\n"
+            text += "| 2026-09-03 | P-05 implementation started | generic evidence only |\n"
             path.write_text(text)
 
         self.assertEqual(self.run_trusted_mutation(generic_transition).code, "STATUS_TRANSITION_EVIDENCE_MISSING")
@@ -222,10 +222,10 @@ class ProgramIntegrityTests(unittest.TestCase):
     def test_exact_status_transition_is_machine_checkable(self):
         def exact_transition(path):
             text = path.read_text().replace(
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | TODO |",
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | IN PROGRESS |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | TODO |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | IN PROGRESS |",
             )
-            text += "| 2026-09-03 | status transition: P-04 from TODO to IN PROGRESS | coordinator evidence |\n"
+            text += "| 2026-09-03 | status transition: P-05 from TODO to IN PROGRESS | coordinator evidence |\n"
             path.write_text(text)
 
         with tempfile.TemporaryDirectory() as directory:
@@ -242,15 +242,15 @@ class ProgramIntegrityTests(unittest.TestCase):
             slices, progress = parse_for_lock(program)
             lock.write_text(json.dumps(build_lock(slices, progress), sort_keys=True, indent=2) + "\n")
             result = validate_program(program, lock, baseline_program, baseline_lock)
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 14)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 15)
 
     def test_done_transition_is_unauthorized_even_with_exact_evidence(self):
         def done_transition(path):
             text = path.read_text().replace(
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | TODO |",
-                "| P-04 | omarchy-mac | Implement platform diagnostics and support-bundle export with privacy redaction | F-02 | DONE |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | TODO |",
+                "| P-05 | omarchy-mac | Integrate atomic platform update/rollback UX and remove independent version selection | F-05 | DONE |",
             )
-            text += "| 2026-09-03 | status transition: P-04 from TODO to DONE | coordinator evidence |\n"
+            text += "| 2026-09-03 | status transition: P-05 from TODO to DONE | coordinator evidence |\n"
             path.write_text(text)
 
         self.assertEqual(self.run_trusted_mutation(done_transition).code, "DONE_TRANSITION_UNAUTHORIZED")
