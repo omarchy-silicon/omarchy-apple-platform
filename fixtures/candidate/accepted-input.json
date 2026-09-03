@@ -1,0 +1,26 @@
+{
+  "version": "candidate-assembly-input/v1",
+  "candidate_id": "candidate:synthetic-j313",
+  "channel": "edge",
+  "board_id": "apple:j313",
+  "profile_id": "profile:j313-synthetic",
+  "firmware": {"firmware_id": "firmware-bundle", "version": "1.0.0", "build_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+  "platform": {"manifest_id": "manifest:synthetic", "manifest_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "schema_set_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "tuple_id": "tuple:synthetic-aarch64", "abi_version": "abi:1", "artifact_ids": ["artifact:kernel"]},
+  "intake": {"dataset_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "record_id": "apple:j313", "record_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"},
+  "qualification": {"inventory_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666", "record_id": "qualification:synthetic", "record_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "outcome": "FULL", "admission": "QUALIFIED"},
+  "package": {"release_id": "release:synthetic", "index_digest": "sha256:0826f6b990cb94bd06e10165f511cee754a6e21cb2c02e491d67cc117f7b554b", "artifact_set_digest": "sha256:3196b7308915b898d159088a2f3b48aef06180097113dc3a4d1f66aa580fb03f", "schema_set_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "tuple_id": "tuple:synthetic-aarch64", "abi_version": "abi:1", "index": {"version": "package-index/v1", "release_id": "release:synthetic", "channel": "edge", "platform_manifest_id": "manifest:synthetic", "platform_manifest_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "schema_set_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "artifacts": [{"artifact_id": "artifact:kernel", "artifact_class": "kernel", "content_digest": "sha256:9c8cd01d5a2856afee3538dd326a17381f61991e94620232cbf1fdc5d85fa8c2", "build_result_digests": ["sha256:1111111111111111111111111111111111111111111111111111111111111111", "sha256:2222222222222222222222222222222222222222222222222222222222222222"], "provenance_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "sbom_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}], "artifact_set_digest": "sha256:3196b7308915b898d159088a2f3b48aef06180097113dc3a4d1f66aa580fb03f", "rollback_artifact_digests": ["sha256:9c8cd01d5a2856afee3538dd326a17381f61991e94620232cbf1fdc5d85fa8c2"], "index_digest": "sha256:0826f6b990cb94bd06e10165f511cee754a6e21cb2c02e491d67cc117f7b554b"}, "artifacts": {"artifact:kernel": {"component_id": "linux-kernel", "content_digest": "sha256:9c8cd01d5a2856afee3538dd326a17381f61991e94620232cbf1fdc5d85fa8c2", "sbom_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "provenance_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}}, "rollback_artifact_digests": ["sha256:9c8cd01d5a2856afee3538dd326a17381f61991e94620232cbf1fdc5d85fa8c2"]},
+  "compliance": {"attestation_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "decision": "allow"},
+  "required_gates": [
+    {"gate_id": "artifact-cas", "status": "pass", "evidence_digest": "sha256:0101010101010101010101010101010101010101010101010101010101010101"},
+    {"gate_id": "f02-platform-manifest", "status": "pass", "evidence_digest": "sha256:0202020202020202020202020202020202020202020202020202020202020202"},
+    {"gate_id": "f03-trust", "status": "pass", "evidence_digest": "sha256:0303030303030303030303030303030303030303030303030303030303030303"},
+    {"gate_id": "f04-package-index", "status": "pass", "evidence_digest": "sha256:0404040404040404040404040404040404040404040404040404040404040404"},
+    {"gate_id": "f06-compliance", "status": "pass", "evidence_digest": "sha256:0505050505050505050505050505050505050505050505050505050505050505"},
+    {"gate_id": "q00-intake", "status": "pass", "evidence_digest": "sha256:0606060606060606060606060606060606060606060606060606060606060606"},
+    {"gate_id": "q01-qualification", "status": "pass", "evidence_digest": "sha256:0707070707070707070707070707070707070707070707070707070707070707"},
+    {"gate_id": "rollback-set", "status": "pass", "evidence_digest": "sha256:0808080808080808080808080808080808080808080808080808080808080808"},
+    {"gate_id": "tuple-abi", "status": "pass", "evidence_digest": "sha256:0909090909090909090909090909090909090909090909090909090909090909"}
+  ],
+  "rollback": ["sha256:9c8cd01d5a2856afee3538dd326a17381f61991e94620232cbf1fdc5d85fa8c2"],
+  "source": {"commit": "1107f32269cf8475ddf6f9fb0a25475c7e9751d0", "tool_versions": {"assembler": "omarchy-candidate-1.0", "schema": "candidate-assembly-v1"}}
+}

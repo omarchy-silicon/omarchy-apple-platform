@@ -20,6 +20,7 @@ omarchy-intake = "omarchy_intake.cli:main"
 omarchy-build = "omarchy_build.cli:main"
 omarchy-program = "omarchy_program.cli:main"
 omarchy-qualification = "omarchy_qualification.cli:main"
+omarchy-candidate = "omarchy_candidate.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

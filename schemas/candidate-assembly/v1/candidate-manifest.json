@@ -1,0 +1,595 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.invalid/schemas/candidate-manifest/v1",
+  "title": "F-05 immutable candidate manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "candidate_id",
+    "channel",
+    "board_id",
+    "profile_id",
+    "firmware",
+    "platform",
+    "intake",
+    "qualification",
+    "package",
+    "compliance",
+    "required_gates",
+    "rollback",
+    "source",
+    "candidate_digest"
+  ],
+  "properties": {
+    "version": {
+      "const": "candidate-manifest/v1"
+    },
+    "candidate_id": {
+      "$ref": "#/$defs/id"
+    },
+    "channel": {
+      "enum": [
+        "edge",
+        "rc",
+        "stable"
+      ]
+    },
+    "board_id": {
+      "$ref": "#/$defs/id"
+    },
+    "profile_id": {
+      "$ref": "#/$defs/id"
+    },
+    "firmware": {
+      "$ref": "#/$defs/firmware"
+    },
+    "platform": {
+      "$ref": "#/$defs/platform"
+    },
+    "intake": {
+      "$ref": "#/$defs/intake"
+    },
+    "qualification": {
+      "$ref": "#/$defs/qualification"
+    },
+    "package": {
+      "$ref": "#/$defs/package"
+    },
+    "compliance": {
+      "$ref": "#/$defs/compliance"
+    },
+    "required_gates": {
+      "$ref": "#/$defs/required_gates"
+    },
+    "rollback": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "candidate_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71,
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "not": {
+        "const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+\\-]{0,127}$"
+    },
+    "firmware": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firmware_id",
+        "version",
+        "build_digest"
+      ],
+      "properties": {
+        "firmware_id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 17,
+          "pattern": "^(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$"
+        },
+        "build_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_id",
+        "manifest_digest",
+        "schema_set_digest",
+        "tuple_id",
+        "abi_version",
+        "artifact_ids"
+      ],
+      "properties": {
+        "manifest_id": {
+          "$ref": "#/$defs/id"
+        },
+        "manifest_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "schema_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "tuple_id": {
+          "$ref": "#/$defs/id"
+        },
+        "abi_version": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "intake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_digest",
+        "record_id",
+        "record_digest"
+      ],
+      "properties": {
+        "dataset_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "record_id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inventory_digest",
+        "record_id",
+        "record_digest",
+        "outcome",
+        "admission"
+      ],
+      "properties": {
+        "inventory_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "record_id": {
+          "$ref": "#/$defs/id"
+        },
+        "record_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "outcome": {
+          "const": "FULL"
+        },
+        "admission": {
+          "const": "QUALIFIED"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "content_digest",
+        "sbom_digest",
+        "provenance_digest"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/id"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "sbom_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "provenance_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_id",
+        "index_digest",
+        "artifact_set_digest",
+        "schema_set_digest",
+        "tuple_id",
+        "abi_version",
+        "index",
+        "artifacts",
+        "rollback_artifact_digests"
+      ],
+      "properties": {
+        "release_id": {
+          "$ref": "#/$defs/id"
+        },
+        "index_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "artifact_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "schema_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "tuple_id": {
+          "$ref": "#/$defs/id"
+        },
+        "abi_version": {
+          "$ref": "#/$defs/id"
+        },
+        "index": {
+          "$ref": "#/$defs/package_index"
+        },
+        "artifacts": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "rollback_artifact_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        }
+      }
+    },
+    "package_index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "release_id",
+        "channel",
+        "platform_manifest_id",
+        "platform_manifest_digest",
+        "schema_set_digest",
+        "artifacts",
+        "artifact_set_digest",
+        "rollback_artifact_digests",
+        "index_digest"
+      ],
+      "properties": {
+        "version": {
+          "const": "package-index/v1"
+        },
+        "release_id": {
+          "$ref": "#/$defs/id"
+        },
+        "channel": {
+          "enum": [
+            "edge",
+            "rc",
+            "stable"
+          ]
+        },
+        "platform_manifest_id": {
+          "$ref": "#/$defs/id"
+        },
+        "platform_manifest_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "schema_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/index_artifact"
+          }
+        },
+        "artifact_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "rollback_artifact_digests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        },
+        "index_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "index_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "artifact_class",
+        "content_digest",
+        "build_result_digests",
+        "provenance_digest",
+        "sbom_digest"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "artifact_class": {
+          "enum": [
+            "bootloader",
+            "kernel",
+            "firmware",
+            "device-tree",
+            "mesa",
+            "userspace-package",
+            "release-index"
+          ]
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "build_result_digests": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        },
+        "provenance_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "sbom_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "compliance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attestation_digest",
+        "decision"
+      ],
+      "properties": {
+        "attestation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "decision": {
+          "const": "allow"
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate_id",
+        "status",
+        "evidence_digest"
+      ],
+      "properties": {
+        "gate_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "const": "pass"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "prefixItems": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "artifact-cas"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "f02-platform-manifest"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "f03-trust"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "f04-package-index"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "f06-compliance"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "q00-intake"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "q01-qualification"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "rollback-set"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/gate"
+            },
+            {
+              "properties": {
+                "gate_id": {
+                  "const": "tuple-abi"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tool_versions"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 40,
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tool_versions": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 128,
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/tool_version"
+          }
+        }
+      }
+    }
+  }
+}
