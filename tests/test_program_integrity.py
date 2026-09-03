@@ -63,7 +63,7 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertEqual(result["closure_count"], 52)
         self.assertTrue(result["closure_includes_p03"])
         self.assertFalse(result["release_ready"])
-        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 12, "TODO": 32, "HUMAN-ONLY BLOCKED": 6})
+        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 13, "TODO": 31, "HUMAN-ONLY BLOCKED": 6})
 
     def test_regenerated_lock_accepts_standalone_todo_to_in_progress_transition(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -84,9 +84,9 @@ class ProgramIntegrityTests(unittest.TestCase):
 
             result = validate_program(program, lock)
 
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 13)
-            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 13)
-            self.assertEqual(generated["expected_status_counts"]["TODO"], 31)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 14)
+            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 14)
+            self.assertEqual(generated["expected_status_counts"]["TODO"], 30)
 
     def test_forged_status_count_map_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -242,7 +242,7 @@ class ProgramIntegrityTests(unittest.TestCase):
             slices, progress = parse_for_lock(program)
             lock.write_text(json.dumps(build_lock(slices, progress), sort_keys=True, indent=2) + "\n")
             result = validate_program(program, lock, baseline_program, baseline_lock)
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 13)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 14)
 
     def test_done_transition_is_unauthorized_even_with_exact_evidence(self):
         def done_transition(path):
