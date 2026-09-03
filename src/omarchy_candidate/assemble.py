@@ -68,10 +68,10 @@ def assemble_candidate(
             raise
         except Exception as error:  # adapters must not leak provider detail
             raise CandidateAssemblyError("AUTHORITY_REJECTED", f"$.{kind}", "authority rejected the exact input") from error
-        if not isinstance(receipt, _AuthorityCapability):
+        if type(receipt) is not _AuthorityCapability:
             raise CandidateAssemblyError("AUTHORITY_UNTRUSTED", f"$.{kind}", "authority did not return a typed trusted receipt")
         try:
-            receipt.__post_init__()
+            _AuthorityCapability.__post_init__(receipt)
         except CandidateAssemblyError:
             raise
         except Exception as error:

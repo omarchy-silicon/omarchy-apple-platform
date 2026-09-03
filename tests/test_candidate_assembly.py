@@ -12,7 +12,7 @@ import tempfile
 
 import pytest
 
-from omarchy_candidate import CandidateAssemblyError, CandidateManifest, assemble_candidate, digest_value, guard_manifest
+from omarchy_candidate import CandidateAssemblyError, CandidateAssemblyInput, CandidateManifest, assemble_candidate, digest_value, guard_manifest
 from omarchy_candidate.models import _AuthorityCapability, _CAPABILITY_TOKEN, digest_bytes
 from omarchy_platform.canonical import canonical_bytes
 from jsonschema import Draft202012Validator
@@ -175,6 +175,17 @@ def test_artifact_map_rejects_redundant_or_mismatched_identity() -> None:
     assert caught.value.code == "UNKNOWN_FIELD"
 
 
+def test_distinct_artifact_keys_may_share_component_id_in_schema_and_model() -> None:
+    value = accepted()
+    value["platform"]["artifact_ids"] = ["artifact:kernel", "artifact:mesa"]
+    value["package"]["artifacts"]["artifact:mesa"] = deepcopy(value["package"]["artifacts"]["artifact:kernel"])
+    value["package"]["artifacts"]["artifact:mesa"]["component_id"] = "linux-kernel"
+    schema = json.loads((ROOT / "schemas/candidate-assembly/v1/candidate-assembly.json").read_text())
+    Draft202012Validator(schema).validate(value)
+    parsed = CandidateAssemblyInput.from_dict(value)
+    assert parsed.package["artifacts"]["artifact:mesa"]["component_id"] == "linux-kernel"
+
+
 @pytest.mark.parametrize("path", ["firmware.version", "source.tool_versions.schema", "required_gates[0].evidence_digest"])
 def test_authority_only_accepts_exact_firmware_source_and_gate_projections(path: str) -> None:
     value = accepted()
@@ -197,6 +208,47 @@ def test_timestamp_contract_rejects_date_only_and_forged_expiry() -> None:
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble_candidate(accepted(), authority=ForgedAuthority(), artifacts=FixtureArtifacts(), verification_time="2026-09-03T00:00:00Z")
     assert caught.value.code in {"INVALID_TIMESTAMP", "AUTHORITY_UNTRUSTED"}
+
+
+def test_timestamp_parser_rejects_string_subclass_without_virtual_calls() -> None:
+    class HostileString(str):
+        def removesuffix(self, suffix):
+            raise RuntimeError("virtual timestamp operation must not run")
+
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble_candidate(accepted(), authority=FixtureAuthority(), artifacts=FixtureArtifacts(), verification_time=HostileString("2026-09-03T00:00:00Z"))
+    assert caught.value.code == "INVALID_VERIFICATION_TIME"
+
+
+@pytest.mark.parametrize("mask", ["raise", "expiry"])
+def test_evil_receipt_subclass_cannot_mask_invalid_or_expired_state(mask: str) -> None:
+    base = FixtureAuthority().verify_canonical("firmware", canonical_bytes(accepted()["firmware"]), digest=digest_value("omarchy-candidate-firmware/v1", accepted()["firmware"]), board_id="apple:j313", profile_id="profile:j313-synthetic", channel="edge", schema_set_digest=accepted()["platform"]["schema_set_digest"], verification_time="2026-09-03T00:00:00Z", subject="firmware-bundle")
+
+    class Evil(_AuthorityCapability):
+        def __post_init__(self):
+            raise RuntimeError("virtual validation must not run")
+
+        def __getattribute__(self, name):
+            if name == "expires_at":
+                if mask == "raise":
+                    raise RuntimeError("virtual receipt access must not run")
+                return "2099-01-01T00:00:00Z"
+            return super().__getattribute__(name)
+
+    evil = object.__new__(Evil)
+    for name in ("authority", "subject", "digest", "board_id", "profile_id", "channel", "replay_id", "metadata_digest", "schema_set_digest"):
+        object.__setattr__(evil, name, getattr(base, name))
+    object.__setattr__(evil, "expires_at", "2000-01-01T00:00:00Z")
+
+    class EvilAuthority(FixtureAuthority):
+        def verify_canonical(self, *args, **kwargs):
+            if kwargs["subject"] == "firmware-bundle":
+                return evil
+            return super().verify_canonical(*args, **kwargs)
+
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble_candidate(accepted(), authority=EvilAuthority(), artifacts=FixtureArtifacts(), verification_time="2026-09-03T00:00:00Z")
+    assert caught.value.code == "AUTHORITY_UNTRUSTED"
 
 
 def test_authority_and_cas_bypass_reject() -> None:

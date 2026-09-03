@@ -98,7 +98,7 @@ def _id(value: Any, path: str) -> str:
 
 
 def _utc_time(value: Any, path: str) -> datetime:
-    if not isinstance(value, str) or not _UTC_RE.fullmatch(value):
+    if type(value) is not str or not _UTC_RE.fullmatch(value):
         _fail("INVALID_TIMESTAMP", path, "UTC timestamp with explicit Z offset required")
     try:
         checked = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
@@ -244,7 +244,6 @@ class CandidateAssemblyInput:
                 _digest(item[field], f"{path}.{field}")
             checked_artifacts.append({"artifact_id": artifact_key, **item})
         ids = _sorted([item["artifact_id"] for item in checked_artifacts], "$.package.artifacts")
-        _sorted([item["component_id"] for item in checked_artifacts], "$.package.component_ids")
         if tuple(platform["artifact_ids"]) != ids:
             _fail("ARTIFACT_SET_MISMATCH", "$.package.artifacts", "platform artifact set differs from package artifact set")
         package_rollback = package["rollback_artifact_digests"]
