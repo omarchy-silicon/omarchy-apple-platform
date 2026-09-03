@@ -1,2 +1,0 @@
-[console_scripts]
-omarchy-platform = omarchy_platform.cli:main
