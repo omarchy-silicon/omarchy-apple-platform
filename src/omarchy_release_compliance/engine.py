@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
-from pathlib import Path
 import re
 from typing import Any
 from urllib.parse import urlsplit
 
 from omarchy_platform.canonical import canonical_bytes, domain_digest
-from omarchy_release_compliance.policy import vocabulary
+from omarchy_release_compliance.policy import packaged_provenance_lock, vocabulary
 
 VERSION = "release-compliance/v1"
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -144,10 +142,9 @@ def _check_ref(ref: Any, expected: dict[str, Any], path: str) -> None:
 
 
 def _provenance_lock() -> list[dict[str, Any]]:
-    path = Path(__file__).resolve().parents[2] / "policy/release/provenance-lock.json"
     try:
-        value = json.loads(path.read_text())
-    except (OSError, ValueError, TypeError):
+        value = packaged_provenance_lock()
+    except (OSError, ValueError, TypeError, ModuleNotFoundError):
         _fail("PROVENANCE_AUTHORITY_MISSING", "$.policy.provenance", "repository provenance authority is unavailable")
     if not isinstance(value, dict) or set(value) != {"version", "artifacts"} or value.get("version") != "f06-provenance-lock/v1" or not isinstance(value.get("artifacts"), list):
         _fail("PROVENANCE_AUTHORITY_INVALID", "$.policy.provenance", "provenance authority is not the closed version")

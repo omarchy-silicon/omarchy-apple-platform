@@ -1,12 +1,15 @@
 """The closed policy vocabulary for F-06.
 
 This is intentionally duplicated as a small immutable Python value so an
-installed source tree does not need filesystem access to evaluate a bundle.
+the evaluator uses the separately packaged immutable provenance resource rather
+than any caller-supplied policy field.
 ``tools/compliance/drift.py`` keeps it byte-for-byte aligned with the checked
 in policy document.
 """
 
 from copy import deepcopy
+import ast
+from importlib.resources import files
 
 VOCABULARY = {
     "version": "f06-policy/v1",
@@ -27,3 +30,16 @@ VOCABULARY = {
 
 def vocabulary() -> dict:
     return deepcopy(VOCABULARY)
+
+
+def packaged_provenance_lock() -> dict:
+    """Read the sole lock from the installed package resource."""
+    source = files("omarchy_release_compliance").joinpath("provenance_lock.py").read_text()
+    module = ast.parse(source, filename="provenance_lock.py")
+    assignment = next((node for node in module.body if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "LOCK" for t in node.targets)), None)
+    if assignment is None:
+        raise ValueError("packaged provenance lock assignment missing")
+    value = ast.literal_eval(assignment.value)
+    if not isinstance(value, dict):
+        raise ValueError("packaged provenance lock must be an object")
+    return value

@@ -1,0 +1,25 @@
+"""Packaged immutable provenance authority resource; do not edit in bundles."""
+
+LOCK = {
+    "version": "f06-provenance-lock/v1",
+    "artifacts": [
+        {
+            "artifact_id": "omarchy-base",
+            "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+            "recipe_digest": "sha256:abababababababababababababababababababababababababababababababab",
+            "environment_digest": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "builder": "omarchy-ci",
+            "toolchain": "omarchy-toolchain-v1",
+            "toolchain_digest": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+        },
+        {
+            "artifact_id": "omarchy-launcher",
+            "source_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+            "recipe_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "environment_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "builder": "omarchy-ci",
+            "toolchain": "omarchy-toolchain-v1",
+            "toolchain_digest": "sha256:fefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe",
+        },
+    ],
+}

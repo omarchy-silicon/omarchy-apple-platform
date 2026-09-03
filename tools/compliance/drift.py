@@ -13,7 +13,7 @@ ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from omarchy_platform.canonical import canonical_bytes
-from omarchy_release_compliance.policy import vocabulary
+from omarchy_release_compliance.policy import packaged_provenance_lock, vocabulary
 
 ORACLE = {
     "candidate-transplant": "TARGET_BINDING_MISMATCH", "digest-mismatch": "DIGEST_MISMATCH",
@@ -46,8 +46,8 @@ def main() -> int:
     accepted_path = ROOT / "fixtures/compliance" / manifest.get("accepted", "")
     if manifest.get("policy_sha256") != policy_hash:
         failures.append("policy hash drift")
-    lock_path = ROOT / "policy/release/provenance-lock.json"
-    lock_hash = "sha256:" + hashlib.sha256(canonical_bytes(json.loads(lock_path.read_text()))).hexdigest() if lock_path.exists() else None
+    lock_path = ROOT / "src/omarchy_release_compliance/provenance_lock.py"
+    lock_hash = "sha256:" + hashlib.sha256(canonical_bytes(packaged_provenance_lock())).hexdigest() if lock_path.exists() else None
     if manifest.get("provenance_lock_sha256") != lock_hash:
         failures.append("provenance lock hash drift")
     if not accepted_path.exists() or manifest.get("accepted_sha256") != "sha256:" + hashlib.sha256(canonical_bytes(json.loads(accepted_path.read_text()))).hexdigest():

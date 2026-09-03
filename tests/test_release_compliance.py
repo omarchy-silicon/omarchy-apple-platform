@@ -212,10 +212,8 @@ def test_provenance_lock_tamper_rejects_even_valid_syntax() -> None:
     with tempfile.TemporaryDirectory() as directory:
         copied = Path(directory) / "repo"
         shutil.copytree(ROOT, copied)
-        lock_path = copied / "policy/release/provenance-lock.json"
-        lock = json.loads(lock_path.read_text())
-        lock["artifacts"][0]["recipe_digest"] = "sha256:" + "0" * 64
-        lock_path.write_text(json.dumps(lock))
+        lock_path = copied / "src/omarchy_release_compliance/provenance_lock.py"
+        lock_path.write_text(lock_path.read_text().replace("abababab", "00000000", 1))
         run = subprocess.run(
             [sys.executable, "-c", "import json; from omarchy_release_compliance import evaluate; print(evaluate(json.load(open('fixtures/compliance/accepted.json'))))"],
             cwd=copied, env={**dict(__import__("os").environ), "PYTHONPATH": "src"}, text=True, capture_output=True,
@@ -246,7 +244,16 @@ def test_consumer_guard_rejects_unsigned_generated_attestation() -> None:
     expected = {key: result[key] for key in ("inventory_digest", "policy_digest", "candidate_digest", "manifest_digest", "schema_set_digest", "bundle_digest")}
     with pytest.raises(ComplianceError) as caught:
         guard_attestation(attest(bundle), expected)
-    assert caught.value.code == "ATTESTATION_TYPE_REQUIRED"
+    assert caught.value.code == "ATTESTATION_TRUST_UNAVAILABLE"
+
+
+def test_consumer_exposes_no_premature_attestation_constructor_or_seal() -> None:
+    import omarchy_release_compliance.consumer as consumer
+    assert not hasattr(consumer, "VerifiedComplianceAttestation")
+    assert not hasattr(consumer, "_F03_SEAL")
+    with pytest.raises(ComplianceError) as caught:
+        guard_attestation(None, None)
+    assert caught.value.code == "ATTESTATION_TRUST_UNAVAILABLE"
 
 
 @pytest.mark.parametrize("field", ["signed", "trusted", "promotable", "decision", "valid_until", "inventory_digest"])
@@ -259,7 +266,7 @@ def test_consumer_guard_rejects_forged_all_true_and_future_valid(field: str) -> 
     projection[field] = True if field in {"signed", "trusted", "promotable"} else ("allow" if field == "decision" else ("2099-01-01T00:00:00Z" if field == "valid_until" else "sha256:" + "0" * 64))
     with pytest.raises(ComplianceError) as caught:
         guard_attestation(projection, expected)
-    assert caught.value.code == "ATTESTATION_TYPE_REQUIRED"
+    assert caught.value.code == "ATTESTATION_TRUST_UNAVAILABLE"
 
 
 def test_consumer_guard_rejects_missing_and_open_attestation() -> None:
@@ -270,7 +277,7 @@ def test_consumer_guard_rejects_missing_and_open_attestation() -> None:
     projection.pop("bundle_digest")
     with pytest.raises(ComplianceError) as caught:
         guard_attestation(projection, expected)
-    assert caught.value.code == "ATTESTATION_TYPE_REQUIRED"
+    assert caught.value.code == "ATTESTATION_TRUST_UNAVAILABLE"
 
 
 def test_drift_tamper_payload_and_manifest_cannot_rewrite_oracle() -> None:
@@ -295,9 +302,7 @@ def test_drift_pins_provenance_authority_hash() -> None:
     with tempfile.TemporaryDirectory() as directory:
         copied = Path(directory) / "repo"
         shutil.copytree(ROOT, copied)
-        lock_path = copied / "policy/release/provenance-lock.json"
-        lock = json.loads(lock_path.read_text())
-        lock["artifacts"][0]["builder"] = "attacker"
-        lock_path.write_text(json.dumps(lock))
+        lock_path = copied / "src/omarchy_release_compliance/provenance_lock.py"
+        lock_path.write_text(lock_path.read_text().replace("omarchy-ci", "attacker", 1))
         run = subprocess.run([sys.executable, "tools/compliance/drift.py"], cwd=copied, text=True, capture_output=True)
         assert run.returncode != 0
