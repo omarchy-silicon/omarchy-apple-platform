@@ -4,9 +4,9 @@
   "payload_version": "v1",
   "domain": "omarchy-platform-manifest",
   "context": "manifest-publication",
-  "schema_set_digest": "sha256:5fe4007a2d3ac7d669bb8032853cf5fd6f6cae078e7c97e2c6e0d46e1cebd462",
+  "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
   "payload": {
-    "schema_set_digest": "sha256:5fe4007a2d3ac7d669bb8032853cf5fd6f6cae078e7c97e2c6e0d46e1cebd462",
+    "schema_set_digest": "sha256:c5edcb0c08158a5ac6c985432a386ad07b3c478c48df44f5040918eb8947d6bb",
     "issuer": "fixture-issuer",
     "issued_at": "2026-01-01T00:00:00Z",
     "expires_at": "2030-01-01T00:00:00Z",
@@ -14,10 +14,9 @@
     "document_id": "fixture-platform-manifest",
     "channel": "stable",
     "release_version": "1.0.0",
-    "board_registry_digest": "sha256:6920546174a405894f798d3204602899e2f65ed610d7878c95338e67c95b6332",
+    "board_registry_digest": "sha256:4bc40e437921ca88e57cf716db097befa6a43909ad1bd6773541f851d73d1309",
     "board_targets": [
-      "apple:j274",
-      "apple:j293"
+      "apple:j274"
     ],
     "board_identities": [
       {
@@ -25,22 +24,11 @@
         "macos_compatible": "macbookpro18,3",
         "linux_compatible": "apple,j274",
         "soc_id": "apple-soc:m1"
-      },
-      {
-        "board_id": "apple:j293",
-        "macos_compatible": "macbookpro18,4",
-        "linux_compatible": "apple,j293",
-        "soc_id": "apple-soc:m1"
       }
     ],
     "qualification_bindings": [
       {
         "board_id": "apple:j274",
-        "qualification_record_id": "fixture-qualification-record",
-        "required_outcome": "pass"
-      },
-      {
-        "board_id": "apple:j293",
         "qualification_record_id": "fixture-qualification-record",
         "required_outcome": "pass"
       }

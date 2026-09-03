@@ -55,6 +55,19 @@ class ConformanceTests(unittest.TestCase):
         for hostile in cases:
             self.assertFalse(admit_bundle(hostile).conformant)
 
+    def test_every_target_has_its_own_qualification_record(self):
+        docs = bundle()
+        manifest = docs["platform-manifest/v1"]["payload"]
+        second = copy.deepcopy(docs["board-registry/v1"]["payload"]["boards"][1])
+        manifest["board_targets"].append(second["board_id"])
+        manifest["board_identities"].append({"board_id": second["board_id"], **second["identity_match"], "soc_id": second["soc_id"]})
+        manifest["qualification_bindings"].append({"board_id": second["board_id"], "qualification_record_id": docs["qualification-record/v1"]["payload"]["document_id"], "required_outcome": "pass"})
+        self.assertFalse(admit_bundle(docs).conformant)
+
+        docs = bundle()
+        docs["platform-manifest/v1"]["payload"]["qualification_bindings"].append({"board_id": "apple:j293", "qualification_record_id": "extra-record", "required_outcome": "pass"})
+        self.assertFalse(admit_bundle(docs).conformant)
+
     def test_shape_hostiles_and_immutable_models(self):
         value = bundle()["board-registry/v1"]["payload"]
         with self.assertRaises(SchemaError) as caught:
@@ -88,9 +101,11 @@ class ConformanceTests(unittest.TestCase):
 
     def test_schema_python_parity_for_missing_unknown_zero_and_empty_fields(self):
         signed = json.loads((ROOT / "schemas/signed-document/v1/signed-document.schema.json").read_text())
-        common = json.loads((ROOT / "schemas/common/v1/common.schema.json").read_text())
         from referencing import Registry, Resource
-        registry = Registry().with_resource(signed["$id"], Resource.from_contents(signed)).with_resource(common["$id"], Resource.from_contents(common))
+        registry = Registry()
+        for path in sorted((ROOT / "schemas").glob("**/*.schema.json")):
+            document = json.loads(path.read_text())
+            registry = registry.with_resource(document["$id"], Resource.from_contents(document))
         validator = Draft202012Validator(signed, registry=registry)
         fixture = bundle()["board-registry/v1"]
         missing = json.loads(json.dumps(fixture)); del missing["payload"]["boards"]
@@ -102,6 +117,14 @@ class ConformanceTests(unittest.TestCase):
         board_schema = json.loads((ROOT / "schemas/board-registry/v1/board-registry.schema.json").read_text())
         board_validator = Draft202012Validator(board_schema, registry=registry)
         self.assertTrue(list(board_validator.iter_errors(empty["payload"])))
+        comma_revision = json.loads(json.dumps(fixture)); comma_revision["payload"]["registry_revision"] = "rev,comma"
+        unknown_capability = json.loads(json.dumps(fixture)); unknown_capability["payload"]["capability_vocabulary"] = ["zzz"]
+        self.assertTrue(list(board_validator.iter_errors(comma_revision["payload"])))
+        self.assertTrue(list(board_validator.iter_errors(unknown_capability["payload"])))
+        nested_missing = json.loads(json.dumps(fixture)); del nested_missing["payload"]["boards"][0]["soc_id"]
+        nested_unknown = json.loads(json.dumps(fixture)); nested_unknown["payload"]["boards"][0]["unexpected"] = True
+        self.assertTrue(list(validator.iter_errors(nested_missing)))
+        self.assertTrue(list(validator.iter_errors(nested_unknown)))
         for value, kind in ((missing["payload"], "board-registry/v1"), (zero["payload"], "board-registry/v1"), (empty["payload"], "board-registry/v1")):
             with self.assertRaises(Exception):
                 validate_foundation_document(value, kind)

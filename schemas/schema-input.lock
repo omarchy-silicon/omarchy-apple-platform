@@ -25,15 +25,47 @@
       "schema_id": "signed-document/v1",
       "schema_version": "v1",
       "source_path": "schemas/signed-document/v1/signed-document.schema.json",
-      "source_digest": "sha256:6687bdae0300c15a81dae212a790c370f22c368156c5603c1109e04a627fbf7a",
+      "source_digest": "sha256:af1d84016fad9247fac6e79d067ca0066787ba19c4e15d92566651cc7e9337c4",
       "reference_digests": [
+        {
+          "reference_path": "schemas/board-registry/v1/board-registry.schema.json",
+          "digest": "sha256:28d51b825d8fd62677502beb99269455d7ffae15b0817592cf578a9679a47c46"
+        },
+        {
+          "reference_path": "schemas/boot-health/v1/boot-health.schema.json",
+          "digest": "sha256:731798d0bbb6872f5582f44fae3f5fff354f4b7c7ff8ac1cd87bd6af1c78dbce"
+        },
+        {
+          "reference_path": "schemas/boot-success-mark/v1/boot-success-mark.schema.json",
+          "digest": "sha256:8738cbe3efec7f0e05e7db2045d00cca9e14da7de9dbcfa117e3ddc632c68e28"
+        },
         {
           "reference_path": "schemas/common/v1/common.schema.json",
           "digest": "sha256:36befdb11abded9c03a5a8dda9fbed6fae82f17552fc8057d11eff62a5076029"
         },
         {
+          "reference_path": "schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json",
+          "digest": "sha256:11db27a4622f14ca13c12a760ec213c0acf2e08b041b983084ccf1d613264290"
+        },
+        {
+          "reference_path": "schemas/installer-plan/v1/installer-plan.schema.json",
+          "digest": "sha256:dc02d97059d1bba02404f7205a2d048022b3c9b188960767ebf1fec1532ef005"
+        },
+        {
+          "reference_path": "schemas/owner-approval/v1/owner-approval.schema.json",
+          "digest": "sha256:d904407f5418f86aa6da154f916b65858db1cffe874d4d133e907cca2ea17821"
+        },
+        {
+          "reference_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
+          "digest": "sha256:749d840d8c6b9d6f48e534c03afdce061d07c1fb5e351c2fe0d3b08055e3e203"
+        },
+        {
+          "reference_path": "schemas/qualification-record/v1/qualification-record.schema.json",
+          "digest": "sha256:e11c365eef78007d889ced304cdd95c34ede55e1b1ab48b887cf7d487e22608d"
+        },
+        {
           "reference_path": "schemas/signed-document/v1/signed-document.schema.json",
-          "digest": "sha256:6687bdae0300c15a81dae212a790c370f22c368156c5603c1109e04a627fbf7a"
+          "digest": "sha256:af1d84016fad9247fac6e79d067ca0066787ba19c4e15d92566651cc7e9337c4"
         }
       ]
     },
@@ -41,11 +73,11 @@
       "schema_id": "board-registry/v1",
       "schema_version": "v1",
       "source_path": "schemas/board-registry/v1/board-registry.schema.json",
-      "source_digest": "sha256:be40b2f103a2563157ebf54c0aea9e48659b48a79ea2ea9d7bad17eb6daf6f35",
+      "source_digest": "sha256:28d51b825d8fd62677502beb99269455d7ffae15b0817592cf578a9679a47c46",
       "reference_digests": [
         {
           "reference_path": "schemas/board-registry/v1/board-registry.schema.json",
-          "digest": "sha256:be40b2f103a2563157ebf54c0aea9e48659b48a79ea2ea9d7bad17eb6daf6f35"
+          "digest": "sha256:28d51b825d8fd62677502beb99269455d7ffae15b0817592cf578a9679a47c46"
         },
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -57,7 +89,7 @@
       "schema_id": "platform-manifest/v1",
       "schema_version": "v1",
       "source_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
-      "source_digest": "sha256:2bf732321c34adabc5ffcbe0a5dcd59ab0ede096854f97f8c0dcab919880d485",
+      "source_digest": "sha256:749d840d8c6b9d6f48e534c03afdce061d07c1fb5e351c2fe0d3b08055e3e203",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -65,7 +97,7 @@
         },
         {
           "reference_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
-          "digest": "sha256:2bf732321c34adabc5ffcbe0a5dcd59ab0ede096854f97f8c0dcab919880d485"
+          "digest": "sha256:749d840d8c6b9d6f48e534c03afdce061d07c1fb5e351c2fe0d3b08055e3e203"
         }
       ]
     },

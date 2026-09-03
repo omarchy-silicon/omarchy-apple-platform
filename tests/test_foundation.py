@@ -43,9 +43,9 @@ class FoundationTests(unittest.TestCase):
             self.assertEqual(list(Draft202012Validator(payload_schema, registry=registry).iter_errors(fixture["payload"])), [])
 
     def test_schema_artifacts_reject_hostile_unknown_field_and_wrong_type(self):
-        schema = json.loads((ROOT / "schemas/signed-document/v1/signed-document.schema.json").read_text())
-        common = json.loads((ROOT / "schemas/common/v1/common.schema.json").read_text())
-        registry = schema_registry([(Path("signed"), schema), (Path("common"), common)])
+        documents = [(path, json.loads(path.read_text())) for path in sorted((ROOT / "schemas").glob("**/*.schema.json"))]
+        schema = next(document for path, document in documents if path.name == "signed-document.schema.json")
+        registry = schema_registry(documents)
         validator = Draft202012Validator(schema, registry=registry)
         fixture = json.loads((ROOT / "fixtures/accepted/board-registry-v1.json").read_text())
         self.assertTrue(list(validator.iter_errors({**fixture, "unknown": True})))

@@ -45,6 +45,7 @@
     "payload": {
       "oneOf": [
         {
+          "$ref": "../../board-registry/v1/board-registry.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -83,6 +84,7 @@
           }
         },
         {
+          "$ref": "../../platform-manifest/v1/platform-manifest.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -135,6 +137,7 @@
           }
         },
         {
+          "$ref": "../../installer-plan/v1/installer-plan.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -173,6 +176,7 @@
           }
         },
         {
+          "$ref": "../../qualification-record/v1/qualification-record.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -221,6 +225,7 @@
           }
         },
         {
+          "$ref": "../../boot-health/v1/boot-health.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -277,6 +282,7 @@
           }
         },
         {
+          "$ref": "../../owner-approval/v1/owner-approval.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -321,6 +327,7 @@
           }
         },
         {
+          "$ref": "../../boot-success-mark/v1/boot-success-mark.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -373,6 +380,7 @@
           }
         },
         {
+          "$ref": "../../dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json",
           "type": "object",
           "additionalProperties": false,
           "required": [

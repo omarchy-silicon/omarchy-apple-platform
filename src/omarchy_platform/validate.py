@@ -340,10 +340,13 @@ def _admit_bundle(documents: Mapping[str, Any]) -> ConformanceResult:
     for target, identity in identity_map.items():
         rb=registry_boards[target]
         if (identity["macos_compatible"],identity["linux_compatible"],identity["soc_id"]) != (rb["identity_match"]["macos_compatible"],rb["identity_match"]["linux_compatible"],rb["soc_id"]): return _mismatch("$.payload.board_identities","manifest board identity mismatch")
-    bindings = [item for item in man["qualification_bindings"] if item["board_id"] in man["board_targets"]]
-    if len(bindings) != len(man["board_targets"]) or {item["board_id"] for item in bindings} != set(man["board_targets"]): return _mismatch("$.payload.qualification_bindings","each manifest target requires exactly one qualification binding")
-    binding=next((x for x in man["qualification_bindings"] if x["board_id"]==board),None)
-    if binding is None or binding["qualification_record_id"] != qual["document_id"]: return _mismatch("$.payload.qualification_bindings","qualification binding mismatch")
+    bindings = man["qualification_bindings"]
+    targets = man["board_targets"]
+    if len(targets) != 1 or len(bindings) != 1 or bindings[0]["board_id"] != targets[0]:
+        return _mismatch("$.payload.qualification_bindings", "this bundle version requires exactly one target and its qualification binding")
+    binding = bindings[0]
+    if binding["board_id"] != board or binding["qualification_record_id"] != qual["document_id"]:
+        return _mismatch("$.payload.qualification_bindings", "qualification binding mismatch")
     if qual["board_id"] != board or qual["manifest_id"] != man["document_id"] or qual["manifest_digest"] != man_digest or qual["outcome"] != "pass": return _mismatch("$.payload.manifest_digest","qualification binding mismatch")
     evidence={x["evidence_id"]:x for x in qual["evidence"]}
     if qual["evidence_set_digest"] != domain_digest("omarchy-qualification-evidence-set/v1", qual["evidence"]): return _mismatch("$.payload.evidence_set_digest","qualification evidence digest mismatch")
