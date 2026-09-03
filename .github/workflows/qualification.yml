@@ -15,7 +15,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check -e .
-      - run: python tools/qualification/generate.py
       - run: python tools/qualification/drift.py
       - run: python -m pytest -q tests/test_qualification.py
       - run: python -m omarchy_qualification validate --record fixtures/qualification/j313-unknown.json --inventory data/qualification/inventory.json --intake data/intake/manifest.json

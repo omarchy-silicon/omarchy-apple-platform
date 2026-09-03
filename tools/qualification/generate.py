@@ -36,13 +36,20 @@ def record(inv: dict) -> dict:
     return {"schema": "qualification-record/q01-v1", "schema_set_digest": inv["schema_set_digest"], "record_id": "qualification:apple-j313:2026-09-03.r1", "board_id": "apple:j313", "board_selector": "j313", "profile_id": "profile:j313-macbookair10-1", "intake_dataset_digest": q00["dataset_digest"], "intake_record_id": "apple:j313", "intake_record_digest": record_digest, "f02_schema_set_digest": F02_SCHEMA_SET_DIGEST, "manifest_id": "manifest:not-qualified", "manifest_digest": "sha256:" + "1" * 64, "firmware_baseline": {"firmware_id": "unknown", "version": "unknown", "build": "unknown", "captured_at": NOW}, "physical_units": [], "capabilities": capabilities, "evidence": [], "tool_versions": {"schema": "q01-v1", "validator": "omarchy-qualification-1.0"}, "redaction": {"policy": "none", "applied": False, "residuals": ["physical-evidence-not-collected"]}, "residuals": [{"residual_id": "firmware-baseline", "reason": "Firmware baseline is unknown until lab capture.", "state": "unknown"}, {"residual_id": "physical-evidence", "reason": "No physical units or evidence have been collected.", "state": "blocked"}], "issued_at": NOW, "validated_at": NOW, "outcome": "UNKNOWN", "admission": "NOT_QUALIFIED"}
 
 
-def main() -> int:
+def build_outputs() -> dict[str, bytes]:
     inv = inventory()
-    (ROOT / "data/qualification").mkdir(exist_ok=True)
-    (ROOT / "data/qualification/inventory.json").write_bytes(canonical_bytes(inv) + b"\n")
-    (ROOT / "fixtures/qualification").mkdir(exist_ok=True)
     rec = record(inv)
-    (ROOT / "fixtures/qualification/j313-unknown.json").write_bytes(canonical_bytes(rec) + b"\n")
+    return {"data/qualification/inventory.json": canonical_bytes(inv) + b"\n", "fixtures/qualification/j313-unknown.json": canonical_bytes(rec) + b"\n"}
+
+
+def main() -> int:
+    outputs = build_outputs()
+    for relative, data in outputs.items():
+        path = ROOT / relative
+        path.parent.mkdir(exist_ok=True)
+        path.write_bytes(data)
+    inv = json.loads(outputs["data/qualification/inventory.json"])
+    rec = json.loads(outputs["fixtures/qualification/j313-unknown.json"])
     print(json.dumps({"inventory": "data/qualification/inventory.json", "fixture": "fixtures/qualification/j313-unknown.json", "schema_set_digest": inv["schema_set_digest"], "outcome": rec["outcome"], "admission": rec["admission"]}, sort_keys=True))
     return 0
 

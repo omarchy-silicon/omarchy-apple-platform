@@ -91,3 +91,21 @@ def test_current_intake_digest_is_bound(tmp_path):
     record_path.write_bytes(json.dumps(record).encode())
     with pytest.raises(QualificationValidationError, match="INTAKE_DIGEST_MISMATCH"):
         validate_record_file(record_path, INVENTORY, intake_manifest=ROOT / "data/intake/manifest.json")
+
+
+def test_full_and_qualified_are_fail_closed_without_manifest(tmp_path):
+    inventory, record = values()
+    record["outcome"] = "FULL"
+    record["admission"] = "QUALIFIED"
+    record_path = tmp_path / "record.json"
+    record_path.write_bytes(json.dumps(record).encode())
+    with pytest.raises(QualificationValidationError, match="MANIFEST_REQUIRED"):
+        validate_record_file(record_path, INVENTORY)
+
+
+def test_physical_identity_duplicates_rejected():
+    inventory, record = values()
+    unit = {"unit_id": "unit:a", "identity_digest": "sha256:" + "a" * 64, "board_id": "apple:j313", "profile_id": "profile:j313-macbookair10-1", "inventory_tag": "tag:a", "serial_pseudonym": "serial:a"}
+    second = {**unit, "unit_id": "unit:b"}
+    record["physical_units"] = [unit, second]
+    rejects(record, "DUPLICATE_PHYSICAL_IDENTITY", inventory)

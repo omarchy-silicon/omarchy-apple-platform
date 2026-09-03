@@ -20,6 +20,8 @@ from jsonschema import Draft202012Validator
 from omarchy_intake.errors import IntakeValidationError
 from omarchy_intake.validate import validate_dataset_file
 from omarchy_platform.constants import SCHEMA_SET_DIGEST as F02_SCHEMA_SET_DIGEST
+from omarchy_platform.errors import SchemaError
+from omarchy_platform.validate import validate_foundation_document
 
 from .canonical import canonical_bytes, digest_bytes
 from .errors import QualificationValidationError
@@ -189,6 +191,14 @@ def _inventory_board(inventory: dict[str, Any], board_id: str) -> dict[str, Any]
     _fail("UNKNOWN_BOARD", "$.board_id", "board is not in the closed inventory")
 
 
+def _modality_flags(modality: str) -> set[str]:
+    return {"automated", "human-observed"} if modality == "automated-and-human" else {modality}
+
+
+def _modality_satisfied(required: str, observed: set[str]) -> bool:
+    return _modality_flags(required) <= observed
+
+
 def _evidence(record: dict[str, Any], physical_units: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     evidence = record["evidence"]
     _sorted_unique(evidence, "$.evidence", lambda item: item["evidence_id"])
@@ -261,19 +271,22 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
     unit_map = {}
     for index, unit in enumerate(units):
         path = f"$.physical_units[{index}]"
-        unit = _closed(unit, {"unit_id", "identity_digest", "board_id", "profile_id", "inventory_tag"}, path)
+        unit = _closed(unit, {"unit_id", "identity_digest", "board_id", "profile_id", "inventory_tag", "serial_pseudonym"}, path)
         uid = _str(unit["unit_id"], f"{path}.unit_id", _ID)
         _digest(unit["identity_digest"], f"{path}.identity_digest")
         if unit["board_id"] != record["board_id"] or unit["profile_id"] != record["profile_id"]:
             _fail("PHYSICAL_UNIT_MISMATCH", path, "physical unit is bound to another board/profile")
         _str(unit["inventory_tag"], f"{path}.inventory_tag", _ID)
+        _str(unit["serial_pseudonym"], f"{path}.serial_pseudonym", _ID)
         unit_map[uid] = unit
-    if len(units) not in {0, 2}:
-        _fail("PHYSICAL_UNIT_COUNT", "$.physical_units", "physical claims require exactly two independent units")
+    if units and len(units) < 2:
+        _fail("PHYSICAL_UNIT_COUNT", "$.physical_units", "physical claims require at least two independent units")
+    if len({u["identity_digest"] for u in units}) != len(units) or len({u["inventory_tag"] for u in units}) != len(units) or len({u["serial_pseudonym"] for u in units}) != len(units):
+        _fail("DUPLICATE_PHYSICAL_IDENTITY", "$.physical_units", "physical units must have distinct underlying identities")
     evidence = _evidence(record, unit_map)
     physical_evidence = [item for item in evidence.values() if item["physical"]]
-    if physical_evidence and len(units) != 2:
-        _fail("PHYSICAL_UNIT_COUNT", "$.physical_units", "any physical evidence requires exactly two independent units")
+    if physical_evidence and len(units) < 2:
+        _fail("PHYSICAL_UNIT_COUNT", "$.physical_units", "any physical evidence requires at least two independent units")
     if physical_evidence and any(set(item["unit_ids"]) != set(unit_map) for item in physical_evidence):
         _fail("PHYSICAL_UNIT_BINDING", "$.evidence", "physical evidence must name both bound units")
     caps = record["capabilities"]
@@ -294,15 +307,21 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
         if type(item["threshold_met"]) is not bool:
             _fail("SCHEMA_INVALID", f"{path}.threshold_met", "threshold_met must be boolean")
         _sorted_unique(item["evidence_ids"], f"{path}.evidence_ids", lambda x: x)
+        observed_modalities: set[str] = set()
         for j, evidence_id in enumerate(item["evidence_ids"]):
             if evidence_id not in evidence:
                 _fail("EVIDENCE_REFERENCE_MISSING", f"{path}.evidence_ids[{j}]", "evidence id is not declared")
             if evidence[evidence_id]["physical"]:
                 physical_claim = True
+            observed_modalities |= _modality_flags(evidence[evidence_id]["modality"])
         if item["applicability"] == "not-applicable" and (item["status"] != "unknown" or item["evidence_ids"] or item["threshold_met"]):
             _fail("NA_CONTRADICTION", path, "not-applicable criteria cannot carry a pass, threshold, or evidence claim")
         if item["applicability"] == "applicable" and item["status"] == "pass" and not item["evidence_ids"]:
             _fail("EVIDENCE_REQUIRED", path, "applicable passing criteria require evidence")
+        if item["applicability"] == "applicable" and item["status"] == "pass" and not _modality_satisfied(criterion["evidence_modality"], observed_modalities):
+            _fail("MODALITY_MISMATCH", path, "evidence does not satisfy the criterion modality")
+        if item["applicability"] == "applicable" and item["status"] == "pass" and not any(evidence[eid]["physical"] for eid in item["evidence_ids"]):
+            _fail("PHYSICAL_EVIDENCE_REQUIRED", path, "applicable passing criteria require physical evidence")
         if item["status"] == "pass" and item["applicability"] == "unknown":
             _fail("UNKNOWN_FALLBACK", f"{path}.status", "unknown applicability cannot pass")
         if item["status"] == "pass" and not item["threshold_met"]:
@@ -312,14 +331,18 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
     if record["outcome"] not in {"UNKNOWN", "NOT_QUALIFIED", "PARTIAL", "FULL"}:
         _fail("SCHEMA_INVALID", "$.outcome", "invalid outcome")
     if record["outcome"] == "FULL":
-        if len(units) != 2 or any(item["status"] != "pass" for item in caps if item["applicability"] == "applicable"):
-            _fail("FULL_NOT_EARNED", "$.outcome", "FULL requires two-unit passing evidence for every applicable capability")
+        if len(units) < 2 or any(item["applicability"] == "unknown" or (item["applicability"] == "applicable" and (item["status"] != "pass" or not item["threshold_met"])) for item in caps):
+            _fail("FULL_NOT_EARNED", "$.outcome", "FULL requires every criterion to resolve, with every applicable row passing")
+        if record["residuals"] or record["redaction"]["residuals"]:
+            _fail("FULL_HAS_RESIDUALS", "$.residuals", "FULL cannot contain unknown or blocked residuals")
     if record["admission"] not in {"NOT_QUALIFIED", "QUALIFIED"}:
         _fail("SCHEMA_INVALID", "$.admission", "invalid admission state")
     if record["admission"] == "QUALIFIED" and record["outcome"] != "FULL":
         _fail("ADMISSION_MISMATCH", "$.admission", "only FULL can be admitted")
     if record["outcome"] in {"UNKNOWN", "NOT_QUALIFIED"} and record["admission"] != "NOT_QUALIFIED":
         _fail("ADMISSION_MISMATCH", "$.admission", "unknown or not-qualified records cannot be admitted")
+    if record["admission"] == "QUALIFIED" and any(item["applicability"] == "unknown" or (item["applicability"] == "applicable" and item["status"] != "pass") for item in caps):
+        _fail("ADMISSION_INCOMPLETE", "$.capabilities", "qualified admission requires complete resolved capability evidence")
     _closed(record["tool_versions"], {"validator", "schema"}, "$.tool_versions")
     for key, value in record["tool_versions"].items():
         _str(value, f"$.tool_versions.{key}", _ID)
@@ -341,6 +364,8 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
 def validate_record_file(record_path: str | Path, inventory_path: str | Path, *, intake_manifest: str | Path | None = None, manifest: str | Path | None = None) -> dict[str, Any]:
     inventory = load_inventory(inventory_path)
     record = _read_json(record_path)
+    if manifest is None and (record.get("outcome") == "FULL" or record.get("admission") == "QUALIFIED"):
+        _fail("MANIFEST_REQUIRED", "$.manifest", "FULL or QUALIFIED records require an authoritative F-02 platform manifest")
     validate_record(record, inventory)
     if intake_manifest is None:
         candidate = Path(inventory_path).resolve().parents[2] / "data/intake/manifest.json"
@@ -359,15 +384,50 @@ def validate_record_file(record_path: str | Path, inventory_path: str | Path, *,
         matches = [item for item in dataset["records"] if item.get("record_id") == record["intake_record_id"]]
         if len(matches) != 1:
             _fail("INTAKE_RECORD_MISSING", "$.intake_record_id", "record is not present in current Q-00 intake")
+        intake_record = matches[0]
+        selectors = intake_record.get("apple_board_selectors", [])
+        if len(selectors) != 1 or selectors[0] != record["board_selector"] or intake_record.get("record_id") != record["board_id"]:
+            _fail("INTAKE_SELECTOR_MISMATCH", "$.board_selector", "selector must be the exact selector from the Q-00 record")
+        projections = [item for item in dataset.get("projections", []) if item.get("projection_id") == record["board_id"]]
+        if len(projections) != 1 or projections[0].get("record_digest") != record["intake_record_digest"]:
+            _fail("INTAKE_PROJECTION_MISMATCH", "$.intake_record_digest", "Q-00 projection is not bound to this exact board record")
+        projection_payload = projections[0].get("payload", {})
+        if projection_payload.get("identity_match", {}).get("linux_compatible") != "apple," + record["board_selector"]:
+            _fail("INTAKE_SELECTOR_MISMATCH", "$.board_selector", "selector is not the exact Q-00 device-tree selector")
         from omarchy_intake.canonical import intake_digest
-        if record["intake_record_digest"] != intake_digest("record/v1", matches[0]):
+        if record["intake_record_digest"] != intake_digest("record/v1", intake_record):
             _fail("INTAKE_RECORD_DIGEST_MISMATCH", "$.intake_record_digest", "record does not name current Q-00 record bytes")
     if manifest is not None:
         manifest_value = _read_json(manifest)
-        payload = manifest_value.get("payload", manifest_value)
+        try:
+            checked_manifest = validate_foundation_document(manifest_value, "platform-manifest/v1")
+        except SchemaError as error:
+            _fail("MANIFEST_INVALID", "$.manifest", f"F-02 platform manifest did not validate: {error.code}")
+        payload = checked_manifest.get("payload", checked_manifest)
+        if payload.get("schema_set_digest") != F02_SCHEMA_SET_DIGEST:
+            _fail("F02_SCHEMA_MISMATCH", "$.manifest.schema_set_digest", "manifest is not bound to the current F-02 schema authority")
         if payload.get("document_id") != record["manifest_id"]:
             _fail("MANIFEST_BINDING_MISMATCH", "$.manifest_id", "record manifest id differs")
         from omarchy_platform.canonical import payload_digest
         if record["manifest_digest"] != payload_digest(payload):
             _fail("MANIFEST_DIGEST_MISMATCH", "$.manifest_digest", "record does not name current manifest bytes")
+        targets = payload.get("board_targets", [])
+        if targets != [record["board_id"]]:
+            _fail("MANIFEST_BOARD_MISMATCH", "$.manifest.board_targets", "manifest must target exactly this board")
+        identities = [item for item in payload.get("board_identities", []) if item.get("board_id") == record["board_id"]]
+        if len(identities) != 1 or identities[0].get("linux_compatible") != "apple," + record["board_selector"]:
+            _fail("MANIFEST_BOARD_MISMATCH", "$.manifest.board_identities", "manifest board selector does not match exactly")
+        bindings = [item for item in payload.get("qualification_bindings", []) if item.get("board_id") == record["board_id"]]
+        if len(bindings) != 1 or bindings[0].get("qualification_record_id") != record["record_id"] or bindings[0].get("required_outcome") != "pass":
+            _fail("MANIFEST_QUALIFICATION_MISMATCH", "$.manifest.qualification_bindings", "manifest qualification binding does not match this record")
+        if record["outcome"] == "FULL" or record["admission"] == "QUALIFIED":
+            baseline = record["firmware_baseline"]
+            if any(baseline[key] == "unknown" for key in ("firmware_id", "version", "build")):
+                _fail("FIRMWARE_BASELINE_UNKNOWN", "$.firmware_baseline", "qualified records require a known firmware baseline")
+            components = payload.get("components", {})
+            firmware_component = components.get("firmware_bundle", {})
+            artifact_id = (firmware_component.get("artifact_ids") or [None])[0]
+            artifact = next((item for item in payload.get("artifacts", []) if item.get("artifact_id") == artifact_id), None)
+            if firmware_component.get("source_digest") != baseline["build"] or baseline["firmware_id"] != "firmware-bundle" or not artifact or artifact.get("version") != baseline["version"]:
+                _fail("FIRMWARE_BASELINE_MISMATCH", "$.firmware_baseline", "firmware baseline does not match the manifest firmware artifact")
     return {"decision": "ACCEPT", "record_id": record["record_id"], "outcome": record["outcome"], "admission": record["admission"], "record_digest": digest_bytes(canonical_bytes(record))}
