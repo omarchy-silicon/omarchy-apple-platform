@@ -1,0 +1,7 @@
+{
+  "code": "DIGEST_MISMATCH",
+  "mutation": "set",
+  "path": "artifacts[0].source_offer.digest",
+  "sha256": "sha256:eae4e8a6bafda5447e03f323f67a5cce84c87a7daee504982e3278983e4399d2",
+  "value": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+}

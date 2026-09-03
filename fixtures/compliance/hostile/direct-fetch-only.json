@@ -1,0 +1,7 @@
+{
+  "code": "REDISTRIBUTION_DIRECT_FETCH_ONLY",
+  "mutation": "set",
+  "path": "artifacts[0].redistribution",
+  "sha256": "sha256:b853c7531e4ca6637f8806f8609803cca8a1f539d4ac5abe369a9c7ad5557670",
+  "value": "direct-fetch-only"
+}

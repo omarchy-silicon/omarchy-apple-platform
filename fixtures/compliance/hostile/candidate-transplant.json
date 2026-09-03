@@ -1,0 +1,7 @@
+{
+  "code": "TARGET_BINDING_MISMATCH",
+  "mutation": "set",
+  "path": "artifacts[0].candidate_ref.digest",
+  "sha256": "sha256:c0127447688b6c0ff96ec0693fa8d38ca96d258b0b0a5b4b9c09577b4d48fc86",
+  "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

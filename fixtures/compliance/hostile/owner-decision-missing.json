@@ -1,0 +1,7 @@
+{
+  "code": "OWNER_DECISION_MISSING",
+  "mutation": "set",
+  "path": "artifacts[0].owner_decision",
+  "sha256": "sha256:7f5214772bc8dcded0776434903744701ef6711f178c1a5bce553ad8b0fb23ea",
+  "value": null
+}

@@ -1,0 +1,7 @@
+{
+  "code": "INCOMPLETE_INVENTORY",
+  "mutation": "delete",
+  "path": "artifacts[0].source_digest",
+  "sha256": "sha256:6a5b3138f5057052486f2554fbeee9b818db6e5038120227253b65c4d64e87d2",
+  "value": null
+}

@@ -1,0 +1,7 @@
+{
+  "code": "SOURCE_OFFER_MISSING",
+  "mutation": "set",
+  "path": "artifacts[0].source_offer",
+  "sha256": "sha256:879c946f0b8ea079183665e00f445f47b2d8096b02d39b3e0673b4ea81f82691",
+  "value": null
+}

@@ -1,0 +1,7 @@
+{
+  "code": "NOTICE_MISSING",
+  "mutation": "set",
+  "path": "artifacts[0].copyright_notice",
+  "sha256": "sha256:eec512cbf49e466d7ac262a66a210ee741969c875afb0ea7a485bf2c6a0c89e9",
+  "value": []
+}

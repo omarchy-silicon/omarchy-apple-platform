@@ -1,0 +1,7 @@
+{
+  "code": "OWNER_DECISION_EXPIRED",
+  "mutation": "set",
+  "path": "artifacts[0].owner_decision.expires_at",
+  "sha256": "sha256:9846618b956b1fde1d8c3038da680bef5f0e35291ec5a61e0f71fd8005f3a84f",
+  "value": "2026-01-01T00:00:00Z"
+}
