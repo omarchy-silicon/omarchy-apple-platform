@@ -122,7 +122,7 @@ class LocalArtifactStore:
             raise StoreError("DIGEST_MISMATCH", "$.digest", "stored bytes failed rehash")
         return data
 
-    def _channel_path(self, channel: str, release_id: str) -> Path:
+    def _channel_path(self, channel: str, release_id: str, *, allow_existing_node: bool = False) -> Path:
         channel = _safe_component(channel, "$.channel")
         release_id = _safe_component(release_id, "$.release_id")
         if channel not in CHANNELS:
@@ -130,7 +130,7 @@ class LocalArtifactStore:
         directory = self.channels / channel
         self._ensure_directory(directory, "$.channel")
         path = directory / f"{release_id}.json"
-        if path.parent != directory or path.is_symlink():
+        if path.parent != directory or (path.is_symlink() and not allow_existing_node):
             raise StoreError("UNSAFE_PATH", "$.release_id", "channel record path is unsafe")
         return path
 
@@ -161,7 +161,7 @@ class LocalArtifactStore:
         return index.index_digest
 
     def _put_channel_record(self, channel: str, release_id: str, record: dict[str, Any]) -> None:
-        path = self._channel_path(channel, release_id)
+        path = self._channel_path(channel, release_id, allow_existing_node=True)
         data = canonical_bytes(record) + b"\n"
         if len(data) > MAX_DOCUMENT_BYTES:
             raise StoreError("RESOURCE_LIMIT", "$.channel", "channel record byte limit exceeded")

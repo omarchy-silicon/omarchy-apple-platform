@@ -337,6 +337,12 @@ def test_store_rejects_dangling_symlink_parent_and_channel_node_conflicts() -> N
             store._put_channel_record("edge", "release", {"version": "channel-record/v1"})
         assert caught.value.code == "IMMUTABLE_CHANNEL_CONFLICT"
 
+        symlink = Path(directory) / "store" / "channels" / "edge" / "symlink.json"
+        os.symlink(Path(directory) / "outside", symlink)
+        with pytest.raises(StoreError) as caught:
+            store._put_channel_record("edge", "symlink", {"version": "channel-record/v1"})
+        assert caught.value.code == "IMMUTABLE_CHANNEL_CONFLICT"
+
 
 def test_f03_protocol_accepts_only_closed_matching_context() -> None:
     _closure, _recipe, left, right = _results()
