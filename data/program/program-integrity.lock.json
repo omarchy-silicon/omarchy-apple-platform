@@ -3,8 +3,8 @@
   "expected_status_counts": {
     "DONE": 2,
     "HUMAN-ONLY BLOCKED": 6,
-    "IN PROGRESS": 10,
-    "TODO": 34
+    "IN PROGRESS": 11,
+    "TODO": 33
   },
   "progress_rows": [
     {
@@ -147,6 +147,9 @@
     },
     {
       "sha256": "8a65726635fd829d0ffaac45cc304b2021e6900b2c879bb967743ec36c09d838"
+    },
+    {
+      "sha256": "6a9a01d077b641e2065e14359ff151f1d3f82c0fffac0f492cf851f38230c336"
     }
   ],
   "slice_structure": [
@@ -693,7 +696,7 @@
     "K-04": "TODO",
     "K-05": "TODO",
     "K-06": "TODO",
-    "P-01": "TODO",
+    "P-01": "IN PROGRESS",
     "P-02": "TODO",
     "P-03": "IN PROGRESS",
     "P-04": "TODO",
@@ -759,6 +762,9 @@
     ],
     "I-07": [
       45
+    ],
+    "P-01": [
+      47
     ],
     "P-03": [
       21,

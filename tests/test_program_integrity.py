@@ -63,7 +63,7 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertEqual(result["closure_count"], 52)
         self.assertTrue(result["closure_includes_p03"])
         self.assertFalse(result["release_ready"])
-        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 10, "TODO": 34, "HUMAN-ONLY BLOCKED": 6})
+        self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 11, "TODO": 33, "HUMAN-ONLY BLOCKED": 6})
 
     def test_regenerated_lock_accepts_standalone_todo_to_in_progress_transition(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -73,10 +73,10 @@ class ProgramIntegrityTests(unittest.TestCase):
             shutil.copy2(PROGRAM, program)
             text = program.read_text()
             text = text.replace(
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | IN PROGRESS |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | TODO |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | IN PROGRESS |",
             )
-            text += "| 2026-09-03 | status transition: P-01 from TODO to IN PROGRESS | coordinator evidence |\n"
+            text += "| 2026-09-03 | status transition: P-02 from TODO to IN PROGRESS | coordinator evidence |\n"
             program.write_text(text)
             slices, progress = parse_for_lock(program)
             generated = build_lock(slices, progress)
@@ -84,9 +84,9 @@ class ProgramIntegrityTests(unittest.TestCase):
 
             result = validate_program(program, lock)
 
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 11)
-            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 11)
-            self.assertEqual(generated["expected_status_counts"]["TODO"], 33)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 12)
+            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 12)
+            self.assertEqual(generated["expected_status_counts"]["TODO"], 32)
 
     def test_forged_status_count_map_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -105,8 +105,8 @@ class ProgramIntegrityTests(unittest.TestCase):
 
     def test_unknown_program_status_is_rejected(self):
         error = self.run_mutation(self.mutate_text(
-            "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
-            "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | PLANNED |",
+            "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | TODO |",
+            "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | PLANNED |",
         ))
         self.assertEqual(error.code, "STATUS_INVALID")
 
@@ -201,10 +201,10 @@ class ProgramIntegrityTests(unittest.TestCase):
     def test_generic_status_mentions_cannot_launder_a_transition(self):
         def generic_transition(path):
             text = path.read_text().replace(
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | IN PROGRESS |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | TODO |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | IN PROGRESS |",
             )
-            text += "| 2026-09-03 | P-01 implementation started | generic evidence only |\n"
+            text += "| 2026-09-03 | P-02 implementation started | generic evidence only |\n"
             path.write_text(text)
 
         self.assertEqual(self.run_trusted_mutation(generic_transition).code, "STATUS_TRANSITION_EVIDENCE_MISSING")
@@ -222,10 +222,10 @@ class ProgramIntegrityTests(unittest.TestCase):
     def test_exact_status_transition_is_machine_checkable(self):
         def exact_transition(path):
             text = path.read_text().replace(
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | IN PROGRESS |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | TODO |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | IN PROGRESS |",
             )
-            text += "| 2026-09-03 | status transition: P-01 from TODO to IN PROGRESS | coordinator evidence |\n"
+            text += "| 2026-09-03 | status transition: P-02 from TODO to IN PROGRESS | coordinator evidence |\n"
             path.write_text(text)
 
         with tempfile.TemporaryDirectory() as directory:
@@ -242,15 +242,15 @@ class ProgramIntegrityTests(unittest.TestCase):
             slices, progress = parse_for_lock(program)
             lock.write_text(json.dumps(build_lock(slices, progress), sort_keys=True, indent=2) + "\n")
             result = validate_program(program, lock, baseline_program, baseline_lock)
-            self.assertEqual(result["status_counts"]["IN PROGRESS"], 11)
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 12)
 
     def test_done_transition_is_unauthorized_even_with_exact_evidence(self):
         def done_transition(path):
             text = path.read_text().replace(
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
-                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | DONE |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | TODO |",
+                "| P-02 | omarchy-mac | Replace warning-success behavior with typed required/optional capability outcomes | P-01 | DONE |",
             )
-            text += "| 2026-09-03 | status transition: P-01 from TODO to DONE | coordinator evidence |\n"
+            text += "| 2026-09-03 | status transition: P-02 from TODO to DONE | coordinator evidence |\n"
             path.write_text(text)
 
         self.assertEqual(self.run_trusted_mutation(done_transition).code, "DONE_TRANSITION_UNAUTHORIZED")
