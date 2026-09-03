@@ -266,6 +266,9 @@ class ProgramIntegrityTests(unittest.TestCase):
 
     def test_workflow_fails_closed_for_lockless_bootstrap(self):
         workflow = (ROOT / ".github/workflows/program-integrity.yml").read_text()
+        self.assertIn("push:\n    branches:\n      - main", workflow)
+        self.assertIn("  pull_request:\n", workflow)
+        self.assertIn("github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before", workflow)
         self.assertIn('if git cat-file -e "$BASE_SHA:data/program/program-integrity.lock.json"; then', workflow)
         self.assertIn('echo "lock_exists=true" >> "$GITHUB_OUTPUT"', workflow)
         self.assertIn('echo "lock_exists=false" >> "$GITHUB_OUTPUT"', workflow)

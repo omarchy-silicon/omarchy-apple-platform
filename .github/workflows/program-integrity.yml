@@ -2,6 +2,8 @@ name: PROGRAM integrity
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 permissions:
