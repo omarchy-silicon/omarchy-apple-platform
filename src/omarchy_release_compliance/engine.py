@@ -133,8 +133,9 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
         _fail("INCOMPLETE_INVENTORY", f"{path}.source_digest", "source digest is required")
     if a["content_digest"] is None:
         _fail("INCOMPLETE_INVENTORY", f"{path}.content_digest", "content digest is required")
-    _immutable_uri(a["source_uri"], f"{path}.source_uri")
-    if a["source_digest"] not in a["source_uri"]:
+    source_uri = _immutable_uri(a["source_uri"], f"{path}.source_uri")
+    pinned = re.search(r"sha256:[0-9a-f]{64}", urlsplit(source_uri).path)
+    if pinned and pinned.group(0) != a["source_digest"]:
         _fail("DIGEST_MISMATCH", f"{path}.source_uri", "pinned URI digest does not match source_digest")
     if a["artifact_class"] not in vocabulary()["artifact_classes"]:
         _fail("UNKNOWN_ARTIFACT_CLASS", f"{path}.artifact_class", "artifact class is outside policy vocabulary")

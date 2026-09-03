@@ -96,6 +96,14 @@ def test_no_warning_success_or_mutation() -> None:
     assert bundle == before
 
 
+def test_version_pinned_source_uri_is_immutable_without_embedded_digest() -> None:
+    bundle = accepted()
+    uri = "https://example.invalid/omarchy-base-v1.0.0.tar.gz"
+    bundle["artifacts"][0]["source_uri"] = uri
+    bundle["artifacts"][0]["source_offer"]["location"] = uri
+    assert evaluate(bundle, now=NOW)["decision"] == "allow"
+
+
 def test_cli_accepted_and_every_hostile_rejection() -> None:
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "bundle.json"
