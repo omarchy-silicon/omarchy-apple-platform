@@ -4,6 +4,8 @@ Status: implementation increment only. This note records the coordinator ruling 
 
 The implementation materializes the eight authenticated payloads as closed Draft 2020-12 schemas, immutable untrusted Python value objects, and a pure unsigned bundle admission seam. The common envelope remains the transport boundary and F-03 retains signatures, key authority, expiry policy, replay protection, and trust decisions. `conformance validate` therefore reports `conformant: true, trusted: false` only after all named inputs are present exactly once and all cross-document bindings pass.
 
+The boundary is deliberately composite: Draft 2020-12 schemas are the raw shape authority (including recursive closure, bounds, enums, and array uniqueness), while Python adds semantic-key uniqueness/order, canonical digest recomputation, and cross-document admission. Neither layer verifies artifact or evidence bytes; those remain untrusted until a later byte-verification input is supplied.
+
 The provisional design vocabulary is used as shape input, with these conservative rulings where implementation scope and the design note could conflict:
 
 - Exact eight payload types and the existing common envelope are retained. No supporting verification record becomes a ninth authenticated payload.

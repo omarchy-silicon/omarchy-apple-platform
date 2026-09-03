@@ -4,9 +4,9 @@
   "payload_version": "v1",
   "domain": "omarchy-installer-plan",
   "context": "installer-plan-proposal",
-  "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5",
+  "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111",
   "payload": {
-    "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5",
+    "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111",
     "issuer": "fixture-issuer",
     "issued_at": "2026-01-01T00:00:00Z",
     "expires_at": "2030-01-01T00:00:00Z",
@@ -14,10 +14,10 @@
     "document_id": "fixture-installer-plan",
     "selection": {
       "board_id": "apple:j274",
-      "board_registry_digest": "sha256:099f8b82aa48ed399f823394c2f9314e198cbc8715d5f4f4d13838c93175be42",
+      "board_registry_digest": "sha256:c7e73a43d4e567b6e456a838d387b3e219f0bae5b28779c937aaee502ef939f2",
       "manifest_id": "fixture-platform-manifest",
-      "manifest_digest": "sha256:56b1b640dd4cd54357b3a4094df7c81d5191e5c1a45d07012ab2d97add3b8d5a",
-      "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5"
+      "manifest_digest": "sha256:6e3a45574facdfdb2d0eaab365c0106fd5b519e6689346847e1a24eeb643c2ca",
+      "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111"
     },
     "artifacts": [
       {
@@ -47,6 +47,12 @@
         "operation": "write/v1",
         "target_id": "volume:fixture",
         "expected_digest": "sha256:62d7a6b1211d627650e2bf0c869b69b564e2cd74290ae1dd78ae4b5e20b0cfe7"
+      },
+      {
+        "sequence": 1,
+        "operation": "replace/v1",
+        "target_id": "volume:fixture2",
+        "expected_digest": "sha256:c1d2b5f1fd180bacb639735c65d0359b40115b1be2d4b98f0eb8dd0269f42534"
       }
     ]
   },

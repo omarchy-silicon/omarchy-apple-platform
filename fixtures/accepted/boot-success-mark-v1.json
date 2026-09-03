@@ -4,9 +4,9 @@
   "payload_version": "v1",
   "domain": "omarchy-boot-runtime",
   "context": "boot-success-marker",
-  "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5",
+  "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111",
   "payload": {
-    "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5",
+    "schema_set_digest": "sha256:332cc3a80daf3000af97dcf2873cb6436721b186f1ac076d7e10c4f5000ef111",
     "issuer": "fixture-issuer",
     "issued_at": "2026-01-01T00:00:00Z",
     "expires_at": "2030-01-01T00:00:00Z",
@@ -14,10 +14,13 @@
     "document_id": "fixture-boot-success-mark",
     "board_id": "apple:j274",
     "manifest_id": "fixture-platform-manifest",
-    "manifest_digest": "sha256:56b1b640dd4cd54357b3a4094df7c81d5191e5c1a45d07012ab2d97add3b8d5a",
+    "manifest_digest": "sha256:6e3a45574facdfdb2d0eaab365c0106fd5b519e6689346847e1a24eeb643c2ca",
     "slot_id": "slot-a",
+    "slot_generation": 3,
     "lineage_id": "123e4567-e89b-12d3-a456-426614174000",
-    "core_digest": "sha256:d0c721de09820b2ed71ec8ef68c7ecec7e82c363713f875dbef4cd65cfa72d43",
+    "source_generation": 2,
+    "attempt_counter": 7,
+    "core_digest": "sha256:3ec037dcb2b4d7461753e234817983c20bfc39c2487c63ed87a1334d423ef810",
     "marker_id": "marker:fixture"
   },
   "signatures": [

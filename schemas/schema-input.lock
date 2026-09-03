@@ -41,11 +41,11 @@
       "schema_id": "board-registry/v1",
       "schema_version": "v1",
       "source_path": "schemas/board-registry/v1/board-registry.schema.json",
-      "source_digest": "sha256:3e95118bcf78a847aa596a621285d010686fa36ecb922d4745cd19fb67c2074e",
+      "source_digest": "sha256:1120dce7e16dc3b31c224fb36250a631647d4a1e9ec67fe7af1d2d409c475b9b",
       "reference_digests": [
         {
           "reference_path": "schemas/board-registry/v1/board-registry.schema.json",
-          "digest": "sha256:3e95118bcf78a847aa596a621285d010686fa36ecb922d4745cd19fb67c2074e"
+          "digest": "sha256:1120dce7e16dc3b31c224fb36250a631647d4a1e9ec67fe7af1d2d409c475b9b"
         },
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -57,7 +57,7 @@
       "schema_id": "platform-manifest/v1",
       "schema_version": "v1",
       "source_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
-      "source_digest": "sha256:bc5e907329fe19e99e08f4731b77fdff7bde55902fe1d8070c4327004a9d9f76",
+      "source_digest": "sha256:8434faff72b187ce0f18f63cc4c63c01acee0669024643fd4532e1f3885f8a42",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -65,7 +65,7 @@
         },
         {
           "reference_path": "schemas/platform-manifest/v1/platform-manifest.schema.json",
-          "digest": "sha256:bc5e907329fe19e99e08f4731b77fdff7bde55902fe1d8070c4327004a9d9f76"
+          "digest": "sha256:8434faff72b187ce0f18f63cc4c63c01acee0669024643fd4532e1f3885f8a42"
         }
       ]
     },
@@ -73,7 +73,7 @@
       "schema_id": "installer-plan/v1",
       "schema_version": "v1",
       "source_path": "schemas/installer-plan/v1/installer-plan.schema.json",
-      "source_digest": "sha256:a96c055e0f1e458a09de6a52c8e83fe010912942e9c9dce7a19290ebdc3ffdbe",
+      "source_digest": "sha256:3554d447c8e20b0e51bd46aeff8d264defd10804e04b867f9d48d7fa7c3036de",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -81,7 +81,7 @@
         },
         {
           "reference_path": "schemas/installer-plan/v1/installer-plan.schema.json",
-          "digest": "sha256:a96c055e0f1e458a09de6a52c8e83fe010912942e9c9dce7a19290ebdc3ffdbe"
+          "digest": "sha256:3554d447c8e20b0e51bd46aeff8d264defd10804e04b867f9d48d7fa7c3036de"
         }
       ]
     },
@@ -89,7 +89,7 @@
       "schema_id": "qualification-record/v1",
       "schema_version": "v1",
       "source_path": "schemas/qualification-record/v1/qualification-record.schema.json",
-      "source_digest": "sha256:58f6a13c627eb880334f0b555df4b60e6d638d26ff49cbde6025f657f7f73786",
+      "source_digest": "sha256:867c16ce9d288d64ae198b43e0bc69cc8c7b1962f8e04f8717eede7615632652",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -97,7 +97,7 @@
         },
         {
           "reference_path": "schemas/qualification-record/v1/qualification-record.schema.json",
-          "digest": "sha256:58f6a13c627eb880334f0b555df4b60e6d638d26ff49cbde6025f657f7f73786"
+          "digest": "sha256:867c16ce9d288d64ae198b43e0bc69cc8c7b1962f8e04f8717eede7615632652"
         }
       ]
     },
@@ -105,11 +105,11 @@
       "schema_id": "boot-health/v1",
       "schema_version": "v1",
       "source_path": "schemas/boot-health/v1/boot-health.schema.json",
-      "source_digest": "sha256:b80902c74f68f83ce284e6c48ce58815a82d3c42ef117edc7d5cd39eed304913",
+      "source_digest": "sha256:2b13e58bbc1b0a827ffcedfb447687deb4f62d675cb8279d834e08df6e7e5915",
       "reference_digests": [
         {
           "reference_path": "schemas/boot-health/v1/boot-health.schema.json",
-          "digest": "sha256:b80902c74f68f83ce284e6c48ce58815a82d3c42ef117edc7d5cd39eed304913"
+          "digest": "sha256:2b13e58bbc1b0a827ffcedfb447687deb4f62d675cb8279d834e08df6e7e5915"
         },
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -121,7 +121,7 @@
       "schema_id": "owner-approval/v1",
       "schema_version": "v1",
       "source_path": "schemas/owner-approval/v1/owner-approval.schema.json",
-      "source_digest": "sha256:2661d749346473a2ed2207bb7203ec0515ed5879b5c86091d2e1ae2658aea970",
+      "source_digest": "sha256:9bf4b95f2b131c17cb5df710099ccfb8682715000769885f003f6f8e04a05364",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -133,7 +133,7 @@
       "schema_id": "boot-success-mark/v1",
       "schema_version": "v1",
       "source_path": "schemas/boot-success-mark/v1/boot-success-mark.schema.json",
-      "source_digest": "sha256:498a0610f3563ae5b3aa092b36f24c467eb8ae0d6a39f624883c8cec280235ce",
+      "source_digest": "sha256:fd8df247cefd2477505a54813470c080eaef78a4c13582f1a89040a52356f42f",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",
@@ -145,7 +145,7 @@
       "schema_id": "dtb-mutation-envelope/v1",
       "schema_version": "v1",
       "source_path": "schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json",
-      "source_digest": "sha256:d2c2836f3b801eeead48f22805956758e3a67ef7816b0f2c5d2cbdae4922cb5b",
+      "source_digest": "sha256:819507c78322c4bbbcdabb4fbb2eb4a2b1560fcaf255e77ffd3bda231b4b534e",
       "reference_digests": [
         {
           "reference_path": "schemas/common/v1/common.schema.json",

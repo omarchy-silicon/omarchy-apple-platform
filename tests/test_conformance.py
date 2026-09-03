@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from omarchy_platform.models import BoardRegistry, PlatformManifest
+import omarchy_platform.models as models
 from omarchy_platform.validate import admit_bundle, validate_foundation_document
 from omarchy_platform.errors import SchemaError
 
@@ -69,3 +70,17 @@ class ConformanceTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             BoardRegistry(value)
 
+    def test_recursive_type_fuzz_is_deterministic_for_all_payloads(self):
+        for kind in KINDS:
+            for hostile in (None, [], {}, {"schema": []}, {"schema": kind, "boards": [None]}, {"schema": kind, "checks": [None]}):
+                with self.subTest(kind=kind, hostile=hostile):
+                    try:
+                        validate_foundation_document(hostile, kind)
+                    except SchemaError as error:
+                        self.assertIn(error.code, {"PARSE_SCHEMA_FAILURE", "UNKNOWN_FIELD", "RESOURCE_LIMIT", "CROSS_DOCUMENT_MISMATCH", "SIGNATURE_CONTEXT_MISMATCH"})
+
+    def test_constructor_token_and_direct_type_probes_are_closed(self):
+        self.assertFalse(hasattr(models, "_TOKEN"))
+        model = BoardRegistry.from_document(bundle()["board-registry/v1"])
+        with self.assertRaises(TypeError):
+            type(model)(model.payload)

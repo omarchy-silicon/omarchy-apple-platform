@@ -19,7 +19,8 @@
         "plan_digest",
         "scope",
         "operation",
-        "approved"
+        "approved",
+        "operations"
       ],
       "properties": {
         "schema": {
@@ -63,6 +64,41 @@
         },
         "expires_at": {
           "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sequence",
+              "operation",
+              "target_id"
+            ],
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "operation": {
+                "enum": [
+                  "inspect/v1",
+                  "write/v1",
+                  "replace/v1",
+                  "remove/v1",
+                  "rollback/v1"
+                ]
+              },
+              "target_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+              }
+            }
+          },
+          "uniqueItems": true
         }
       },
       "additionalProperties": false

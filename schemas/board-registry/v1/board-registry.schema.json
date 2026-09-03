@@ -32,7 +32,9 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/board"
-          }
+          },
+          "maxItems": 1024,
+          "uniqueItems": true
         },
         "capability_vocabulary": {
           "type": "array",
@@ -41,7 +43,8 @@
           "items": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
-          }
+          },
+          "maxItems": 1024
         },
         "schema_set_digest": {
           "$ref": "../../common/v1/common.schema.json#/$defs/digest"
@@ -106,7 +109,8 @@
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "maxItems": 1024
         },
         "lifecycle": {
           "enum": [

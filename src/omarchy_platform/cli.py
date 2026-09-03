@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         value = _document(args.input, args.type)
         if args.command == "validate":
-            print(json.dumps({"foundation_valid": True, "semantic_validation": "not-implemented", "trusted": False, "type": args.type}, sort_keys=True))
+            print(json.dumps({"foundation_valid": True, "semantic_validation": "type-specific", "trusted": False, "type": args.type}, sort_keys=True))
         elif args.command == "canonicalize":
             try:
                 Path(args.output).write_bytes(canonical_bytes(value))

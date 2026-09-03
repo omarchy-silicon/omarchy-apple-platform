@@ -25,7 +25,8 @@
         "slot",
         "checks",
         "checks_digest",
-        "success"
+        "success",
+        "attempt_counter"
       ],
       "properties": {
         "schema": {
@@ -65,7 +66,9 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/check"
-          }
+          },
+          "maxItems": 1024,
+          "uniqueItems": true
         },
         "checks_digest": {
           "$ref": "../../common/v1/common.schema.json#/$defs/digest"
@@ -87,6 +90,11 @@
         },
         "expires_at": {
           "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "attempt_counter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
       "additionalProperties": false
@@ -124,7 +132,8 @@
       "additionalProperties": false,
       "required": [
         "check_id",
-        "status"
+        "status",
+        "evidence_digest"
       ],
       "properties": {
         "check_id": {
@@ -138,6 +147,9 @@
             "not-run",
             "unknown"
           ]
+        },
+        "evidence_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
         }
       }
     }

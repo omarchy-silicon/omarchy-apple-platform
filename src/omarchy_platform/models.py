@@ -6,9 +6,6 @@ from typing import Any, Mapping
 
 from .validate import validate_payload
 
-_TOKEN = object()
-
-
 def _freeze(value: Any) -> Any:
     if isinstance(value, dict):
         return MappingProxyType({key: _freeze(child) for key, child in value.items()})
@@ -19,19 +16,23 @@ def _freeze(value: Any) -> Any:
 
 class ImmutablePayload:
     payload_type: str = ""
-    def __init__(self, payload: Mapping[str, Any], _token: object | None = None):
-        if _token is not _TOKEN:
-            raise TypeError("use from_payload() to construct an immutable payload")
-        object.__setattr__(self, "payload", _freeze(dict(payload)))
-        object.__setattr__(self, "document_id", payload["document_id"])
-        object.__setattr__(self, "board_id", payload.get("board_id") or payload.get("selection", {}).get("board_id"))
+    def __init__(self, payload: Mapping[str, Any]):
+        raise TypeError("use from_payload() to construct an immutable payload")
+
+    @classmethod
+    def _validated_instance(cls, payload: Mapping[str, Any]):
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "payload", _freeze(dict(payload)))
+        object.__setattr__(instance, "document_id", payload["document_id"])
+        object.__setattr__(instance, "board_id", payload.get("board_id") or payload.get("selection", {}).get("board_id"))
+        return instance
 
     @classmethod
     def from_payload(cls, value: Mapping[str, Any]):
         if not isinstance(value, Mapping):
             raise TypeError("payload must be a mapping")
         checked = validate_payload(dict(value), cls.payload_type)
-        return cls(checked, _TOKEN)
+        return cls._validated_instance(checked)
 
     @classmethod
     def from_document(cls, value: Mapping[str, Any]):
@@ -78,4 +79,3 @@ class DtbMutationEnvelope(ImmutablePayload):
 
 
 __all__ = ["BoardRegistry", "PlatformManifest", "InstallerPlan", "QualificationRecord", "BootHealth", "OwnerApproval", "BootSuccessMark", "DtbMutationEnvelope"]
-
