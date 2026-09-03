@@ -1,0 +1,70 @@
+{
+  "record_id": "apple:j313",
+  "record_revision": "r1",
+  "marketing_product": "MacBook Air (M1, 2020)",
+  "marketing_year": 2020,
+  "apple_model_identifiers": ["MacBookAir10,1"],
+  "apple_board_selectors": ["j313"],
+  "device_tree_compatibles": ["apple,arm-platform", "apple,j313", "apple,t8103"],
+  "soc_identities": ["t8103"],
+  "lifecycle": "shipping",
+  "evidence_tier": "source-identity",
+  "claims": [
+    {
+      "claim_id": "board-identity",
+      "claim_type": "board-identity",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {
+        "apple_model_identifier": "MacBookAir10,1",
+        "apple_board_selector": "j313",
+        "device_tree_compatible": "apple,j313"
+      },
+      "source_refs": ["apple-air-m1-model", "apple-air-m1-specs", "linux-t8103-j313"],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    },
+    {
+      "claim_id": "device-tree",
+      "claim_type": "device-tree-capability",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {
+        "compatible": "apple,j313",
+        "source_path": "arch/arm64/boot/dts/apple/t8103-j313.dts",
+        "state": "implemented"
+      },
+      "source_refs": ["linux-t8103-j313"],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    },
+    {
+      "claim_id": "graphics",
+      "claim_type": "graphics-capability",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {"accelerator": "Apple M1 GPU", "state": "documented"},
+      "source_refs": ["apple-air-m1-specs"],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    },
+    {
+      "claim_id": "soc-identity",
+      "claim_type": "soc-identity",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {"soc_id": "t8103", "display_name": "Apple M1"},
+      "source_refs": ["apple-air-m1-specs", "linux-t8103-j313"],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    }
+  ],
+  "source_refs": ["apple-air-m1-model", "apple-air-m1-specs", "linux-t8103-j313"],
+  "contradiction_refs": [],
+  "unknowns": [
+    {"field": "boot-capability", "reason": "Boot behavior is outside this source-identity intake record."},
+    {"field": "firmware-schema", "reason": "No immutable firmware-schema source is included in the bounded intake release."},
+    {"field": "kernel-capability", "reason": "No Omarchy kernel qualification evidence is included."},
+    {"field": "physical-qualification", "reason": "Q-01 physical qualification has not been performed."}
+  ]
+}

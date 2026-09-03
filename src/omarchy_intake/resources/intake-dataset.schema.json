@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/schemas/intake-dataset/v1/intake-dataset.schema.json",
+  "title": "Q-00 intake-dataset/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "dataset_id", "dataset_revision", "schema_set_digest", "generated_at", "sources", "source_index", "records", "record_index", "contradictions", "projections", "residuals"],
+  "properties": {
+    "schema": {"const": "intake-dataset/v1"},
+    "dataset_id": {"$ref": "#/$defs/id"},
+    "dataset_revision": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"},
+    "schema_set_digest": {"$ref": "#/$defs/digest"},
+    "generated_at": {"$ref": "#/$defs/timestamp"},
+    "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}, "maxItems": 1024},
+    "source_index": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceIndex"}, "maxItems": 1024},
+    "records": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/record"}, "maxItems": 1024},
+    "record_index": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/recordIndex"}, "maxItems": 1024},
+    "contradictions": {"type": "array", "items": {"$ref": "#/$defs/contradiction"}, "maxItems": 1024},
+    "projections": {"type": "array", "items": {"$ref": "#/$defs/projection"}, "maxItems": 1024},
+    "residuals": {"type": "array", "items": {"$ref": "#/$defs/residual"}, "maxItems": 4096}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"},
+    "stringArray": {"type": "array", "items": {"type": "string"}, "maxItems": 1024},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "authority_class", "canonical_url", "revision", "retrieved_at", "content_digest", "media_type", "locator", "subject_refs", "snapshot_path", "response_metadata"],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/id"},
+        "authority_class": {"enum": ["apple-official", "asahi-upstream", "linux-upstream"]},
+        "canonical_url": {"type": "string", "pattern": "^https://[^?#]+$"},
+        "revision": {"type": "string", "pattern": "^(?:commit:[0-9a-f]{40}|snapshot:sha256:[0-9a-f]{64})$"},
+        "retrieved_at": {"$ref": "#/$defs/timestamp"},
+        "content_digest": {"$ref": "#/$defs/digest"},
+        "media_type": {"type": "string", "minLength": 1, "maxLength": 128},
+        "locator": {
+          "type": "object", "additionalProperties": false, "required": ["section", "lines"],
+          "properties": {"section": {"type": "string", "minLength": 1, "maxLength": 256}, "lines": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false, "minItems": 2, "maxItems": 2}}
+        },
+        "subject_refs": {"$ref": "#/$defs/stringArray"},
+        "snapshot_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "minLength": 1, "maxLength": 512},
+        "response_metadata": {
+          "type": "object", "additionalProperties": false, "required": ["status_code", "content_type", "content_length", "etag", "last_modified"],
+          "properties": {"status_code": {"type": "integer", "const": 200}, "content_type": {"type": "string", "minLength": 1, "maxLength": 128}, "content_length": {"type": "integer", "minimum": 0}, "etag": {"type": ["string", "null"], "maxLength": 256}, "last_modified": {"type": ["string", "null"], "maxLength": 256}}
+        }
+      }
+    },
+    "sourceIndex": {
+      "type": "object", "additionalProperties": false, "required": ["source_id", "content_digest"],
+      "properties": {"source_id": {"$ref": "#/$defs/id"}, "content_digest": {"$ref": "#/$defs/digest"}}
+    },
+    "recordIndex": {
+      "type": "object", "additionalProperties": false, "required": ["record_id", "record_revision", "record_digest"],
+      "properties": {"record_id": {"$ref": "#/$defs/id"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "record_digest": {"$ref": "#/$defs/digest"}}
+    },
+    "record": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_id", "record_revision", "marketing_product", "marketing_year", "apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities", "lifecycle", "evidence_tier", "claims", "source_refs", "contradiction_refs", "unknowns"],
+      "properties": {
+        "record_id": {"$ref": "#/$defs/id"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "marketing_product": {"type": "string", "minLength": 1, "maxLength": 256}, "marketing_year": {"type": "integer", "minimum": 2000, "maximum": 2100},
+        "apple_model_identifiers": {"$ref": "#/$defs/stringArray"}, "apple_board_selectors": {"$ref": "#/$defs/stringArray"}, "device_tree_compatibles": {"$ref": "#/$defs/stringArray"}, "soc_identities": {"$ref": "#/$defs/stringArray"}, "lifecycle": {"enum": ["shipping", "announced", "discontinued", "unknown"]}, "evidence_tier": {"enum": ["source-identity", "upstream-implementation", "observed-intake", "omarchy-qualified"]}, "claims": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/claim"}, "maxItems": 128}, "source_refs": {"$ref": "#/$defs/stringArray"}, "contradiction_refs": {"$ref": "#/$defs/stringArray"}, "unknowns": {"type": "array", "items": {"$ref": "#/$defs/unknown"}, "maxItems": 128}
+      }
+    },
+    "unknown": {
+      "type": "object", "additionalProperties": false, "required": ["field", "reason"],
+      "properties": {"field": {"type": "string", "minLength": 1, "maxLength": 128}, "reason": {"type": "string", "minLength": 1, "maxLength": 1024}}
+    },
+    "claim": {
+      "type": "object", "additionalProperties": false,
+      "required": ["claim_id", "claim_type", "subject", "state", "normalized_value", "source_refs", "observed_at", "residual_reason"],
+      "properties": {
+        "claim_id": {"$ref": "#/$defs/id"}, "claim_type": {"enum": ["board-identity", "soc-identity", "firmware-schema", "boot-capability", "kernel-capability", "device-tree-capability", "graphics-capability"]}, "subject": {"$ref": "#/$defs/id"}, "state": {"enum": ["confirmed", "unknown", "disputed"]}, "normalized_value": {}, "source_refs": {"$ref": "#/$defs/stringArray"}, "observed_at": {"$ref": "#/$defs/timestamp"}, "residual_reason": {"type": ["string", "null"], "maxLength": 1024}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "unknown"}}},
+          "then": {"properties": {"normalized_value": {"type": "null"}, "source_refs": {"maxItems": 0}, "residual_reason": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"normalized_value": {"oneOf": [{"$ref": "#/$defs/boardIdentity"}, {"$ref": "#/$defs/socIdentity"}, {"$ref": "#/$defs/firmwareSchema"}, {"$ref": "#/$defs/bootCapability"}, {"$ref": "#/$defs/kernelCapability"}, {"$ref": "#/$defs/deviceTreeCapability"}, {"$ref": "#/$defs/graphicsCapability"}]}, "source_refs": {"minItems": 1}, "residual_reason": {"type": "null"}}}
+        },
+        {"if": {"properties": {"claim_type": {"const": "board-identity"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/boardIdentity"}}}},
+        {"if": {"properties": {"claim_type": {"const": "soc-identity"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/socIdentity"}}}},
+        {"if": {"properties": {"claim_type": {"const": "firmware-schema"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/firmwareSchema"}}}},
+        {"if": {"properties": {"claim_type": {"const": "boot-capability"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/bootCapability"}}}},
+        {"if": {"properties": {"claim_type": {"const": "kernel-capability"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/kernelCapability"}}}},
+        {"if": {"properties": {"claim_type": {"const": "device-tree-capability"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/deviceTreeCapability"}}}},
+        {"if": {"properties": {"claim_type": {"const": "graphics-capability"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/graphicsCapability"}}}}
+      ]
+    },
+    "boardIdentity": {"type": "object", "additionalProperties": false, "required": ["apple_model_identifier", "apple_board_selector", "device_tree_compatible"], "properties": {"apple_model_identifier": {"type": "string", "minLength": 2, "maxLength": 64}, "apple_board_selector": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"}, "device_tree_compatible": {"type": "string", "pattern": "^apple,[a-z][a-z0-9-]{1,63}$"}}},
+    "socIdentity": {"type": "object", "additionalProperties": false, "required": ["soc_id", "display_name"], "properties": {"soc_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"}, "display_name": {"type": "string", "minLength": 1, "maxLength": 128}}},
+    "firmwareSchema": {"type": "object", "additionalProperties": false, "required": ["schema_id", "state"], "properties": {"schema_id": {"type": "string", "minLength": 1, "maxLength": 128}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
+    "bootCapability": {"type": "object", "additionalProperties": false, "required": ["component", "state"], "properties": {"component": {"type": "string", "minLength": 1, "maxLength": 128}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
+    "kernelCapability": {"type": "object", "additionalProperties": false, "required": ["interface", "state"], "properties": {"interface": {"type": "string", "minLength": 1, "maxLength": 128}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
+    "deviceTreeCapability": {"type": "object", "additionalProperties": false, "required": ["compatible", "source_path", "state"], "properties": {"compatible": {"type": "string", "pattern": "^apple,[a-z][a-z0-9-]{1,63}$"}, "source_path": {"type": "string", "minLength": 1, "maxLength": 255}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
+    "graphicsCapability": {"type": "object", "additionalProperties": false, "required": ["accelerator", "state"], "properties": {"accelerator": {"type": "string", "minLength": 1, "maxLength": 128}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
+    "contradiction": {
+      "type": "object", "additionalProperties": false, "required": ["contradiction_id", "record_id", "claim_refs", "kind", "description", "source_refs", "status", "opened_at", "supersedes"],
+      "properties": {"contradiction_id": {"$ref": "#/$defs/id"}, "record_id": {"$ref": "#/$defs/id"}, "claim_refs": {"$ref": "#/$defs/stringArray"}, "kind": {"enum": ["identity", "selector", "lifecycle", "firmware", "boot", "kernel", "device-tree", "graphics"]}, "description": {"type": "string", "minLength": 1, "maxLength": 2048}, "source_refs": {"$ref": "#/$defs/stringArray"}, "status": {"enum": ["open", "superseded", "resolved-by-authority"]}, "opened_at": {"$ref": "#/$defs/timestamp"}, "supersedes": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}}
+    },
+    "projection": {
+      "type": "object", "additionalProperties": false, "required": ["projection_id", "projection_type", "dataset_digest", "record_id", "record_revision", "record_digest", "payload"],
+      "properties": {"projection_id": {"$ref": "#/$defs/id"}, "projection_type": {"const": "board-registry/v1"}, "dataset_digest": {"$ref": "#/$defs/digest"}, "record_id": {"$ref": "#/$defs/id"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "record_digest": {"$ref": "#/$defs/digest"}, "payload": {"$ref": "#/$defs/projectionPayload"}}
+    },
+    "projectionPayload": {
+      "type": "object", "additionalProperties": false, "required": ["schema", "dataset_digest", "record_digest", "record_revision", "board_id", "identity_match", "soc_id", "lifecycle", "admissible"],
+      "properties": {"schema": {"const": "board-registry/v1"}, "dataset_digest": {"$ref": "#/$defs/digest"}, "record_digest": {"$ref": "#/$defs/digest"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "board_id": {"type": "string", "pattern": "^apple:[a-z][a-z0-9-]{1,63}$"}, "identity_match": {"type": "object", "additionalProperties": false, "required": ["macos_compatible", "linux_compatible"], "properties": {"macos_compatible": {"type": "string", "minLength": 1, "maxLength": 128}, "linux_compatible": {"type": "string", "pattern": "^apple,[a-z][a-z0-9-]{1,63}$"}}}, "soc_id": {"type": "string", "pattern": "^apple-soc:[a-z][a-z0-9-]{1,63}$"}, "lifecycle": {"enum": ["shipping", "announced", "discontinued", "unknown"]}, "admissible": {"const": false}}
+    },
+    "residual": {
+      "type": "object", "additionalProperties": false, "required": ["residual_id", "subject", "reason", "state"],
+      "properties": {"residual_id": {"$ref": "#/$defs/id"}, "subject": {"$ref": "#/$defs/id"}, "reason": {"type": "string", "minLength": 1, "maxLength": 2048}, "state": {"enum": ["unknown", "not-covered", "blocked"]}}
+    }
+  }
+}
