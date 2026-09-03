@@ -10,15 +10,14 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema", "schema_set_digest", "document_id", "issuer", "issued_at", "expires_at", "semantic_validation"],
+      "required": ["schema", "schema_set_digest", "document_id", "issuer", "issued_at", "expires_at"],
       "properties": {
         "schema": {"type": "string"},
         "schema_set_digest": {"$ref": "#/$defs/digest"},
         "document_id": {"$ref": "#/$defs/documentId"},
         "issuer": {"$ref": "#/$defs/issuer"},
         "issued_at": {"$ref": "#/$defs/timestamp"},
-        "expires_at": {"$ref": "#/$defs/timestamp"},
-        "semantic_validation": {"const": "not-implemented"}
+        "expires_at": {"$ref": "#/$defs/timestamp"}
       }
     }
   }

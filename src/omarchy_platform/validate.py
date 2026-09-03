@@ -17,7 +17,7 @@ _TIMESTAMP = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 ENVELOPE_FIELDS = ("format", "payload_type", "payload_version", "domain", "context", "schema_set_digest", "payload", "signatures")
-PAYLOAD_FIELDS = ("schema", "schema_set_digest", "document_id", "issuer", "issued_at", "expires_at", "semantic_validation")
+PAYLOAD_FIELDS = ("schema", "schema_set_digest", "document_id", "issuer", "issued_at", "expires_at")
 SIGNATURE_FIELDS = ("key_id", "signer_role", "algorithm", "signature_format", "signature")
 
 
@@ -80,13 +80,11 @@ def validate_payload(payload: Any, payload_type: str) -> dict[str, Any]:
     _match(payload["issuer"], _ISSUER, "$.payload.issuer", "issuer")
     _match(payload["issued_at"], _TIMESTAMP, "$.payload.issued_at", "timestamp")
     _match(payload["expires_at"], _TIMESTAMP, "$.payload.expires_at", "timestamp")
-    if payload["semantic_validation"] != "not-implemented":
-        raise _error("PARSE_SCHEMA_FAILURE", "$.payload.semantic_validation", "semantic validators are not implemented")
     return payload
 
 
-def validate_document(value: Any, payload_type: str) -> dict[str, Any]:
-    """Validate a payload or its closed signed envelope; never returns partial data."""
+def validate_foundation_document(value: Any, payload_type: str) -> dict[str, Any]:
+    """Validate only the common envelope foundation; never returns partial data."""
     if payload_type not in AUTHENTICATED_PAYLOAD_TYPES:
         raise _error("PARSE_SCHEMA_FAILURE", "$.payload_type", "unknown payload type")
     if not isinstance(value, dict):

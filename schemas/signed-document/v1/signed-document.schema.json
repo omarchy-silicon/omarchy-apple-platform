@@ -7,7 +7,7 @@
   "required": ["format", "payload_type", "payload_version", "domain", "context", "schema_set_digest", "payload", "signatures"],
   "properties": {
     "format": {"const": "omarchy-signed/v1"},
-    "payload_type": {"type": "string"}, "payload_version": {"const": "v1"},
+    "payload_type": {"enum": ["board-registry/v1", "platform-manifest/v1", "installer-plan/v1", "qualification-record/v1", "boot-health/v1", "owner-approval/v1", "boot-success-mark/v1", "dtb-mutation-envelope/v1"]}, "payload_version": {"const": "v1"},
     "domain": {"type": "string"}, "context": {"type": "string"},
     "schema_set_digest": {"$ref": "../../common/v1/common.schema.json#/$defs/digest"},
     "payload": {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},

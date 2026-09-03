@@ -3,7 +3,7 @@
   "$id": "https://omarchy.local/schemas/owner-approval/v1/owner-approval.schema.json",
   "title": "F-02 owner-approval/v1 payload foundation",
   "allOf": [
-    {"$ref": "../../../common/v1/common.schema.json#/$defs/payload"},
+    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
     {"properties": {"schema": {"const": "owner-approval/v1"}}}
   ],
   "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."

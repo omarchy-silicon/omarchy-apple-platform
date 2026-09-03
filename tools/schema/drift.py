@@ -33,8 +33,13 @@ def main() -> int:
         raise SystemExit("DRIFT: vocabulary digest mismatch")
     if any(lock["limits"][name] != value for name, value in LIMITS.items()):
         raise SystemExit("DRIFT: parser limits do not match generated constants")
+    canonical_source = "sha256:" + sha256((ROOT / "src/omarchy_platform/canonical.py").read_bytes()).hexdigest()
+    if canonical_source != lock["canonicalization"]["implementation_source_digest"]:
+        raise SystemExit("DRIFT: canonicalization implementation source digest mismatch")
     if tuple(entry["schema_id"] for entry in lock["schema_entries"]) != SCHEMA_INPUT_IDS:
         raise SystemExit("DRIFT: schema entry IDs/path set is incomplete or out of order")
+    if any(lock[name] for name in ("generator_inputs", "parser_inputs", "toolchain_inputs")):
+        raise SystemExit("DRIFT: non-empty generator/parser/toolchain inputs require their pinned residual implementation")
     for entry in lock["schema_entries"]:
         expected_path = EXPECTED.get(entry["schema_id"])
         if expected_path != entry["source_path"]:
@@ -45,7 +50,7 @@ def main() -> int:
     computed = schema_set_digest(lock)
     if computed != SCHEMA_SET_DIGEST or computed != json.loads((ROOT / "bindings/generated-output.lock").read_text())["schema_set_digest"]:
         raise SystemExit("DRIFT: schema-set digest does not match constants and output lock")
-    print(f"DRIFT: PASS schema_set_digest={computed}")
+    print(f"DRIFT: PASS schema_set_digest={computed}; generator_inputs=[] (residual); parser_inputs=[] (residual); toolchain_inputs=[] (residual)")
     return 0
 
 

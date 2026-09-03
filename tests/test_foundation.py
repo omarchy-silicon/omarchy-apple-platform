@@ -4,21 +4,56 @@ import sys
 import unittest
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
+
 from omarchy_platform.canonical import canonical_bytes, payload_digest, schema_set_digest
 from omarchy_platform.constants import AUTHENTICATED_PAYLOAD_TYPES, LIMITS, SCHEMA_SET_DIGEST
 from omarchy_platform.errors import ParseError, SchemaError
 from omarchy_platform.strictjson import parse
-from omarchy_platform.validate import validate_document
+from omarchy_platform.validate import validate_foundation_document
 
 ROOT = Path(__file__).parents[1]
 
 
+def schema_registry(documents):
+    registry = Registry()
+    for _path, document in documents:
+        registry = registry.with_resource(document["$id"], Resource.from_contents(document))
+    return registry
+
+
 class FoundationTests(unittest.TestCase):
+    def test_draft_2020_12_schema_artifacts_execute_offline(self):
+        schema_paths = sorted((ROOT / "schemas").glob("**/*.schema.json"))
+        self.assertEqual(len(schema_paths), 11)
+        documents = [(path, json.loads(path.read_text())) for path in schema_paths]
+        registry = Registry()
+        for _path, document in documents:
+            Draft202012Validator.check_schema(document)
+            registry = registry.with_resource(document["$id"], Resource.from_contents(document))
+        signed = next(document for path, document in documents if path.name == "signed-document.schema.json")
+        signed_validator = Draft202012Validator(signed, registry=registry)
+        for payload_type in AUTHENTICATED_PAYLOAD_TYPES:
+            fixture = json.loads((ROOT / "fixtures/accepted" / (payload_type.replace("/", "-") + ".json")).read_text())
+            self.assertEqual(list(signed_validator.iter_errors(fixture)), [])
+            payload_schema = next(document for path, document in documents if path.parent.parent.name == payload_type.split("/")[0])
+            self.assertEqual(list(Draft202012Validator(payload_schema, registry=registry).iter_errors(fixture["payload"])), [])
+
+    def test_schema_artifacts_reject_hostile_unknown_field_and_wrong_type(self):
+        schema = json.loads((ROOT / "schemas/signed-document/v1/signed-document.schema.json").read_text())
+        common = json.loads((ROOT / "schemas/common/v1/common.schema.json").read_text())
+        registry = schema_registry([(Path("signed"), schema), (Path("common"), common)])
+        validator = Draft202012Validator(schema, registry=registry)
+        fixture = json.loads((ROOT / "fixtures/accepted/board-registry-v1.json").read_text())
+        self.assertTrue(list(validator.iter_errors({**fixture, "unknown": True})))
+        self.assertTrue(list(validator.iter_errors({**fixture, "payload_type": "not-a-payload/v9"})))
+
     def test_all_eight_accepted_envelopes_validate(self):
         for payload_type in AUTHENTICATED_PAYLOAD_TYPES:
             path = ROOT / "fixtures/accepted" / (payload_type.replace("/", "-") + ".json")
             value = parse(path.read_bytes())
-            self.assertEqual(validate_document(value, payload_type)["payload_type"], payload_type)
+            self.assertEqual(validate_foundation_document(value, payload_type)["payload_type"], payload_type)
 
     def test_hostile_transport_inputs_fail_without_partial_value(self):
         cases = [
@@ -67,15 +102,17 @@ class FoundationTests(unittest.TestCase):
         a = parse((ROOT / "fixtures/canonicalization/order-a.json").read_bytes())
         b = parse((ROOT / "fixtures/canonicalization/order-b.json").read_bytes())
         self.assertEqual(canonical_bytes(a), canonical_bytes(b))
+        self.assertEqual(canonical_bytes([1e-6, 1e-7, 1e20, 1e21]), b"[0.000001,1e-7,100000000000000000000,1e+21]")
+        self.assertEqual(canonical_bytes({"é": "\u000a", "a": "😀"}), '{"a":"😀","é":"\\n"}'.encode())
 
     def test_schema_and_envelope_mismatch_fail_closed(self):
         fixture = json.loads((ROOT / "fixtures/accepted/board-registry-v1.json").read_text())
         with self.assertRaises(SchemaError) as caught:
-            validate_document({**fixture, "payload_type": "boot-health/v1"}, "board-registry/v1")
+            validate_foundation_document({**fixture, "payload_type": "boot-health/v1"}, "board-registry/v1")
         self.assertEqual(caught.exception.code, "SIGNATURE_CONTEXT_MISMATCH")
         bad = {**fixture, "payload": {**fixture["payload"], "unknown": True}}
         with self.assertRaises(SchemaError) as caught:
-            validate_document(bad, "board-registry/v1")
+            validate_foundation_document(bad, "board-registry/v1")
         self.assertEqual(caught.exception.code, "UNKNOWN_FIELD")
 
     def test_schema_lock_digest_and_cli_smoke(self):
@@ -84,7 +121,8 @@ class FoundationTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-m", "omarchy_platform", "schema", "list"], cwd=ROOT, text=True, capture_output=True, check=True)
         self.assertEqual(result.stdout.splitlines(), list(AUTHENTICATED_PAYLOAD_TYPES))
         result = subprocess.run([sys.executable, "-m", "omarchy_platform", "validate", "--type", "board-registry/v1", "--input", "fixtures/accepted/board-registry-v1.json"], cwd=ROOT, text=True, capture_output=True, check=True)
-        self.assertIn('"valid": true', result.stdout)
+        self.assertIn('"foundation_valid": true', result.stdout)
+        self.assertIn('"trusted": false', result.stdout)
 
 
 if __name__ == "__main__":

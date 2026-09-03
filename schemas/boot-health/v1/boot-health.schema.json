@@ -3,7 +3,7 @@
   "$id": "https://omarchy.local/schemas/boot-health/v1/boot-health.schema.json",
   "title": "F-02 boot-health/v1 payload foundation",
   "allOf": [
-    {"$ref": "../../../common/v1/common.schema.json#/$defs/payload"},
+    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
     {"properties": {"schema": {"const": "boot-health/v1"}}}
   ],
   "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."

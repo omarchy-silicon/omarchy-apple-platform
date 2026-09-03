@@ -2,17 +2,17 @@
   "lock_schema": "schema-input-lock/v1",
   "schema_set_id": "platform-schema-set/v1",
   "schema_entries": [
-    {"schema_id": "common/v1", "schema_version": "v1", "source_path": "schemas/common/v1/common.schema.json", "source_digest": "sha256:39c731a054d520a9bb970caa6abe551b46ef4df4a65f66d10eec1b42103209b4", "reference_digests": []},
+    {"schema_id": "common/v1", "schema_version": "v1", "source_path": "schemas/common/v1/common.schema.json", "source_digest": "sha256:1a1046c6bccf7c209b332d0bde9aa2b2e424c6d219423433b2217f36ef27a1d7", "reference_digests": []},
     {"schema_id": "vocabularies/v1", "schema_version": "v1", "source_path": "schemas/common/v1/vocabularies.schema.json", "source_digest": "sha256:37bb231134f8a3bdfcc03b671a0449a34022d298984f2c1988e76d00c98e709f", "reference_digests": []},
-    {"schema_id": "signed-document/v1", "schema_version": "v1", "source_path": "schemas/signed-document/v1/signed-document.schema.json", "source_digest": "sha256:6e72c841cbe7cbd735108e787527af6b766823380e6e858755cdf0b3a1aad825", "reference_digests": []},
-    {"schema_id": "board-registry/v1", "schema_version": "v1", "source_path": "schemas/board-registry/v1/board-registry.schema.json", "source_digest": "sha256:6fb3c3e43eb707e2062a891da58066ce61a8d46d96015b0498c3806a740bfff0", "reference_digests": []},
-    {"schema_id": "platform-manifest/v1", "schema_version": "v1", "source_path": "schemas/platform-manifest/v1/platform-manifest.schema.json", "source_digest": "sha256:6dddf96f4f37affd9c993fa11310249bcdc1898e15e6399dd21de8341f4198ce", "reference_digests": []},
-    {"schema_id": "installer-plan/v1", "schema_version": "v1", "source_path": "schemas/installer-plan/v1/installer-plan.schema.json", "source_digest": "sha256:18259bf04493d946e53a92571c5e019aaeae1c51a53e8bd22d886bea3e457cf4", "reference_digests": []},
-    {"schema_id": "qualification-record/v1", "schema_version": "v1", "source_path": "schemas/qualification-record/v1/qualification-record.schema.json", "source_digest": "sha256:2282cb56cde2fb59c2a393aa34e66bddc17f1cc8a27bea0884add6d60d2a5fc1", "reference_digests": []},
-    {"schema_id": "boot-health/v1", "schema_version": "v1", "source_path": "schemas/boot-health/v1/boot-health.schema.json", "source_digest": "sha256:8e89f9bc9b64694fea1bb2c45415dbdc4fa14102424569e314a8f26032902ea2", "reference_digests": []},
-    {"schema_id": "owner-approval/v1", "schema_version": "v1", "source_path": "schemas/owner-approval/v1/owner-approval.schema.json", "source_digest": "sha256:8078a957ad02a1044e050e4dd30f9e725b513d3e6a8c12e6f44cb04611beabc8", "reference_digests": []},
-    {"schema_id": "boot-success-mark/v1", "schema_version": "v1", "source_path": "schemas/boot-success-mark/v1/boot-success-mark.schema.json", "source_digest": "sha256:cacdc6faf1d6a8475b1a33d4af2e7822b8b32aa0308f582e935af76e140cea28", "reference_digests": []},
-    {"schema_id": "dtb-mutation-envelope/v1", "schema_version": "v1", "source_path": "schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json", "source_digest": "sha256:6a91796799643720012feccb3681c4b9f57b10922cc210d56ee7f880f9d07f6c", "reference_digests": []}
+    {"schema_id": "signed-document/v1", "schema_version": "v1", "source_path": "schemas/signed-document/v1/signed-document.schema.json", "source_digest": "sha256:f78f643942c10329fd333fb44a13999fd8c0e80d83d2c87990e1a4350beed148", "reference_digests": []},
+    {"schema_id": "board-registry/v1", "schema_version": "v1", "source_path": "schemas/board-registry/v1/board-registry.schema.json", "source_digest": "sha256:3b43558f52f43107463a0c9448e8c851b2ddfddad70db0ae9347295ba07f0862", "reference_digests": []},
+    {"schema_id": "platform-manifest/v1", "schema_version": "v1", "source_path": "schemas/platform-manifest/v1/platform-manifest.schema.json", "source_digest": "sha256:8f4b6ca8c1b749262525939ea0c2fe04e12bcffd206e0b7ad1c731a7702d8e9e", "reference_digests": []},
+    {"schema_id": "installer-plan/v1", "schema_version": "v1", "source_path": "schemas/installer-plan/v1/installer-plan.schema.json", "source_digest": "sha256:50faac4d74228b02469e83eb98b198afc0a79e97bd1707ad3779885d0940a507", "reference_digests": []},
+    {"schema_id": "qualification-record/v1", "schema_version": "v1", "source_path": "schemas/qualification-record/v1/qualification-record.schema.json", "source_digest": "sha256:f829837a7f64d7416e4d19fd5d51c300d892792f4d86d3804200bfcc647420e3", "reference_digests": []},
+    {"schema_id": "boot-health/v1", "schema_version": "v1", "source_path": "schemas/boot-health/v1/boot-health.schema.json", "source_digest": "sha256:ef3c375305ab631cd0c9fc53c3508c4cc48ce84f15c594e880fca9ee5a0709e8", "reference_digests": []},
+    {"schema_id": "owner-approval/v1", "schema_version": "v1", "source_path": "schemas/owner-approval/v1/owner-approval.schema.json", "source_digest": "sha256:0a07ee07c00de95b30f62e8b4d0b5f997448486d82a6eb288afb59d7410f9bb2", "reference_digests": []},
+    {"schema_id": "boot-success-mark/v1", "schema_version": "v1", "source_path": "schemas/boot-success-mark/v1/boot-success-mark.schema.json", "source_digest": "sha256:23797ef664c9f381d9c47813bbb354188a80b9fc5bc03cc8d123cdf141578281", "reference_digests": []},
+    {"schema_id": "dtb-mutation-envelope/v1", "schema_version": "v1", "source_path": "schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json", "source_digest": "sha256:81805002a287d52543f99060f9e8cc8fd221be8b4cd72c241994a70fb3056739", "reference_digests": []}
   ],
   "vocabulary": {
     "vocabulary_id": "authenticated-payload-vocabulary/v1",
@@ -25,7 +25,7 @@
     "standard": "RFC8785",
     "implementation_id": "omarchy-jcs/v1",
     "implementation_version": "1.0.0",
-    "implementation_source_digest": "sha256:PLACEHOLDER_JCS_SOURCE_DIGEST",
+    "implementation_source_digest": "sha256:524782c91178e26a1ef81770f26eb28a5332eba3dd83eb8ba6d6dfa7f7d9a86d",
     "number_policy": "reject-negative-zero-and-nonfinite/v1"
   },
   "limits": {

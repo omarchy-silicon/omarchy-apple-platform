@@ -9,7 +9,7 @@ from .canonical import canonical_bytes, payload_digest
 from .constants import AUTHENTICATED_PAYLOAD_TYPES
 from .errors import ValidationError
 from .strictjson import parse
-from .validate import validate_document
+from .validate import validate_foundation_document
 
 
 def _read(path: str) -> bytes:
@@ -17,7 +17,7 @@ def _read(path: str) -> bytes:
 
 
 def _document(path: str, type_name: str):
-    return validate_document(parse(_read(path)), type_name)
+    return validate_foundation_document(parse(_read(path)), type_name)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         value = _document(args.input, args.type)
         if args.command == "validate":
-            print(json.dumps({"valid": True, "type": args.type}, sort_keys=True))
+            print(json.dumps({"foundation_valid": True, "semantic_validation": "not-implemented", "trusted": False, "type": args.type}, sort_keys=True))
         elif args.command == "canonicalize":
             Path(args.output).write_bytes(canonical_bytes(value))
         else:

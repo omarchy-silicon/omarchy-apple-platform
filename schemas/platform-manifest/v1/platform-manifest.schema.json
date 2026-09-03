@@ -3,7 +3,7 @@
   "$id": "https://omarchy.local/schemas/platform-manifest/v1/platform-manifest.schema.json",
   "title": "F-02 platform-manifest/v1 payload foundation",
   "allOf": [
-    {"$ref": "../../../common/v1/common.schema.json#/$defs/payload"},
+    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
     {"properties": {"schema": {"const": "platform-manifest/v1"}}}
   ],
   "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
