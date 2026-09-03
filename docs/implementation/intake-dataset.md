@@ -1,6 +1,6 @@
 # Q-00 cited Apple Silicon intake dataset design
 
-Status: design note only. This note defines the executable Q-00 dataset boundary; it is not an intake dataset, board-registry publication, qualification record, support claim, release input, or DONE claim.
+Status: Q-00 implementation in progress. This note defines the executable Q-00 dataset boundary; it is not a board-registry publication, qualification record, support claim, release input, or DONE claim.
 
 ## Purpose and boundary
 
@@ -20,9 +20,9 @@ Each source record has exactly `source_id`, `authority_class`, `canonical_url`, 
 
 ### Normalized board records and claims
 
-Each record has exactly `record_id`, `record_revision`, `marketing_product`, `marketing_year`, `apple_model_identifiers`, `apple_board_selectors`, `device_tree_compatibles`, `soc_identities`, `lifecycle`, `evidence_tier`, `claims`, `source_refs`, `contradiction_refs`, and `unknowns`. `record_revision` is append-only and a correction creates a new record revision; it never rewrites the prior observation. Model identifiers, board selectors, compatible strings, and SoC identities are separately typed arrays, sorted and semantically unique. A string that merely shares a family prefix cannot satisfy an exact board selector.
+Each record has exactly `record_id`, `record_revision`, `supersedes_record_digest`, `supersedes_record_revision`, `marketing_product`, `marketing_year`, `apple_model_identifiers`, `apple_board_selectors`, `device_tree_compatibles`, `soc_identities`, `lifecycle`, `evidence_tier`, `claims`, `source_refs`, `contradiction_refs`, and `unknowns`. `record_revision` is append-only and a correction creates a new record revision with an explicit prior digest and revision; it never rewrites the prior observation. Model identifiers, board selectors, compatible strings, and SoC identities are separately typed ASCII arrays, sorted and semantically unique. A string that merely shares a family prefix cannot satisfy an exact board selector.
 
-`claims` is a closed discriminated union. Each claim has `claim_id`, `claim_type`, `subject`, `state`, `normalized_value`, `source_refs`, and `observed_at`; `state` is `confirmed`, `unknown`, or `disputed`. A `confirmed` or `disputed` claim requires at least one source reference; an `unknown` claim has no invented value and must carry a residual reason. `normalized_value` is closed per claim type, never an arbitrary JSON object:
+`claims` is a closed discriminated union. Each claim has `claim_id`, `claim_type`, `subject`, `state`, `normalized_value`, `source_refs`, `evidence`, `observed_at`, and `residual_reason`; `state` is `confirmed`, `unknown`, or `disputed`. A `confirmed` or `disputed` claim requires at least one source reference and one matching evidence assertion for every source; each assertion binds the exact source digest, locator, and bounded snapshot content. An `unknown` claim has no invented value, no citation or evidence, and must carry a residual reason. `normalized_value` is closed per claim type, never an arbitrary JSON object:
 
 - `board-identity`: exact Apple model identifier, board selector, and device-tree compatible tuple, with each member independently cited.
 - `soc-identity`: exact SoC identifier, die variant, core topology, and memory/package facts only when separately evidenced.
@@ -38,7 +38,7 @@ The normalized claim subject must equal the containing `record_id` and, for boar
 
 ### Contradictions and supersession
 
-Each contradiction has exactly `contradiction_id`, `record_id`, `claim_refs`, `kind`, `description`, `source_refs`, `status`, `opened_at`, and `supersedes`. `kind` is closed to `identity`, `selector`, `lifecycle`, `firmware`, `boot`, `kernel`, `device-tree`, and `graphics`; `status` is `open`, `superseded`, or `resolved-by-authority`. At least two cited claims from distinct sources are required. The validator rejects a record with an open contradiction in an identity, selector, or lifecycle claim and emits the contradiction rather than selecting a winner. `resolved-by-authority` requires a new cited claim and a superseding record revision; it is not a silent field replacement. A later correction references the prior record digest, preserving both historical observations.
+Each contradiction has exactly `contradiction_id`, `record_id`, `claim_refs`, `kind`, `description`, `source_refs`, `status`, `opened_at`, `supersedes`, `resolution_claim_refs`, `prior_record_digest`, and `prior_record_revision`. `kind` is closed to `identity`, `selector`, `lifecycle`, `firmware`, `boot`, `kernel`, `device-tree`, and `graphics`; `status` is `open`, `superseded`, or `resolved-by-authority`. At least two cited claims from distinct sources are required. The validator rejects a record with an open contradiction in an identity, selector, or lifecycle claim and emits the contradiction rather than selecting a winner. `resolved-by-authority` requires a new confirmed cited claim, a matching superseding record revision and prior digest, a changed normalized value, and an acyclic edge to an open contradiction; it is not a silent field replacement. A later correction references the prior record digest, preserving both historical observations.
 
 ## Digest-addressed manifest and projections
 

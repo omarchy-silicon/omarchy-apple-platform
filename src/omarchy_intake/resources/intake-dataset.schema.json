@@ -24,6 +24,11 @@
     "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"},
     "stringArray": {"type": "array", "items": {"type": "string"}, "maxItems": 1024},
+    "idArray": {"type": "array", "items": {"$ref": "#/$defs/id"}, "maxItems": 1024},
+    "modelIdArray": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9,._-]{1,63}$"}, "maxItems": 1024},
+    "boardSelectorArray": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"}, "maxItems": 1024},
+    "dtCompatibleArray": {"type": "array", "items": {"type": "string", "pattern": "^apple,[a-z][a-z0-9-]{1,63}$"}, "maxItems": 1024},
+    "socIdArray": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"}, "maxItems": 1024},
     "source": {
       "type": "object", "additionalProperties": false,
       "required": ["source_id", "authority_class", "canonical_url", "revision", "retrieved_at", "content_digest", "media_type", "locator", "subject_refs", "snapshot_path", "response_metadata"],
@@ -39,7 +44,7 @@
           "type": "object", "additionalProperties": false, "required": ["section", "lines"],
           "properties": {"section": {"type": "string", "minLength": 1, "maxLength": 256}, "lines": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false, "minItems": 2, "maxItems": 2}}
         },
-        "subject_refs": {"$ref": "#/$defs/stringArray"},
+        "subject_refs": {"$ref": "#/$defs/idArray"},
         "snapshot_path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "minLength": 1, "maxLength": 512},
         "response_metadata": {
           "type": "object", "additionalProperties": false, "required": ["status_code", "content_type", "content_length", "etag", "last_modified"],
@@ -55,12 +60,16 @@
       "type": "object", "additionalProperties": false, "required": ["record_id", "record_revision", "record_digest"],
       "properties": {"record_id": {"$ref": "#/$defs/id"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "record_digest": {"$ref": "#/$defs/digest"}}
     },
+    "evidence": {
+      "type": "object", "additionalProperties": false, "required": ["source_id", "content_digest", "locator", "assertion"],
+      "properties": {"source_id": {"$ref": "#/$defs/id"}, "content_digest": {"$ref": "#/$defs/digest"}, "locator": {"type": "object", "additionalProperties": false, "required": ["section", "lines"], "properties": {"section": {"type": "string", "minLength": 1, "maxLength": 256}, "lines": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false, "minItems": 2, "maxItems": 2}}}, "assertion": {"type": "string", "minLength": 1, "maxLength": 1024}}
+    },
     "record": {
       "type": "object", "additionalProperties": false,
-      "required": ["record_id", "record_revision", "marketing_product", "marketing_year", "apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities", "lifecycle", "evidence_tier", "claims", "source_refs", "contradiction_refs", "unknowns"],
+      "required": ["record_id", "record_revision", "supersedes_record_digest", "supersedes_record_revision", "marketing_product", "marketing_year", "apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities", "lifecycle", "evidence_tier", "claims", "source_refs", "contradiction_refs", "unknowns"],
       "properties": {
-        "record_id": {"$ref": "#/$defs/id"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "marketing_product": {"type": "string", "minLength": 1, "maxLength": 256}, "marketing_year": {"type": "integer", "minimum": 2000, "maximum": 2100},
-        "apple_model_identifiers": {"$ref": "#/$defs/stringArray"}, "apple_board_selectors": {"$ref": "#/$defs/stringArray"}, "device_tree_compatibles": {"$ref": "#/$defs/stringArray"}, "soc_identities": {"$ref": "#/$defs/stringArray"}, "lifecycle": {"enum": ["shipping", "announced", "discontinued", "unknown"]}, "evidence_tier": {"enum": ["source-identity", "upstream-implementation", "observed-intake", "omarchy-qualified"]}, "claims": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/claim"}, "maxItems": 128}, "source_refs": {"$ref": "#/$defs/stringArray"}, "contradiction_refs": {"$ref": "#/$defs/stringArray"}, "unknowns": {"type": "array", "items": {"$ref": "#/$defs/unknown"}, "maxItems": 128}
+        "record_id": {"$ref": "#/$defs/id"}, "record_revision": {"type": "string", "pattern": "^r[0-9]+$"}, "supersedes_record_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}, "supersedes_record_revision": {"type": ["string", "null"], "pattern": "^r[0-9]+$"}, "marketing_product": {"type": "string", "minLength": 1, "maxLength": 256}, "marketing_year": {"type": "integer", "minimum": 2000, "maximum": 2100},
+        "apple_model_identifiers": {"$ref": "#/$defs/modelIdArray"}, "apple_board_selectors": {"$ref": "#/$defs/boardSelectorArray"}, "device_tree_compatibles": {"$ref": "#/$defs/dtCompatibleArray"}, "soc_identities": {"$ref": "#/$defs/socIdArray"}, "lifecycle": {"enum": ["shipping", "announced", "discontinued", "unknown"]}, "evidence_tier": {"enum": ["source-identity", "upstream-implementation", "observed-intake", "omarchy-qualified"]}, "claims": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/claim"}, "maxItems": 128}, "source_refs": {"$ref": "#/$defs/idArray"}, "contradiction_refs": {"$ref": "#/$defs/idArray"}, "unknowns": {"type": "array", "items": {"$ref": "#/$defs/unknown"}, "maxItems": 128}
       }
     },
     "unknown": {
@@ -69,15 +78,15 @@
     },
     "claim": {
       "type": "object", "additionalProperties": false,
-      "required": ["claim_id", "claim_type", "subject", "state", "normalized_value", "source_refs", "observed_at", "residual_reason"],
+      "required": ["claim_id", "claim_type", "subject", "state", "normalized_value", "source_refs", "evidence", "observed_at", "residual_reason"],
       "properties": {
-        "claim_id": {"$ref": "#/$defs/id"}, "claim_type": {"enum": ["board-identity", "soc-identity", "firmware-schema", "boot-capability", "kernel-capability", "device-tree-capability", "graphics-capability"]}, "subject": {"$ref": "#/$defs/id"}, "state": {"enum": ["confirmed", "unknown", "disputed"]}, "normalized_value": {}, "source_refs": {"$ref": "#/$defs/stringArray"}, "observed_at": {"$ref": "#/$defs/timestamp"}, "residual_reason": {"type": ["string", "null"], "maxLength": 1024}
+        "claim_id": {"$ref": "#/$defs/id"}, "claim_type": {"enum": ["board-identity", "soc-identity", "firmware-schema", "boot-capability", "kernel-capability", "device-tree-capability", "graphics-capability"]}, "subject": {"$ref": "#/$defs/id"}, "state": {"enum": ["confirmed", "unknown", "disputed"]}, "normalized_value": {}, "source_refs": {"$ref": "#/$defs/idArray"}, "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}, "maxItems": 128}, "observed_at": {"$ref": "#/$defs/timestamp"}, "residual_reason": {"type": ["string", "null"], "maxLength": 1024}
       },
       "allOf": [
         {
           "if": {"properties": {"state": {"const": "unknown"}}},
-          "then": {"properties": {"normalized_value": {"type": "null"}, "source_refs": {"maxItems": 0}, "residual_reason": {"type": "string", "minLength": 1}}},
-          "else": {"properties": {"normalized_value": {"oneOf": [{"$ref": "#/$defs/boardIdentity"}, {"$ref": "#/$defs/socIdentity"}, {"$ref": "#/$defs/firmwareSchema"}, {"$ref": "#/$defs/bootCapability"}, {"$ref": "#/$defs/kernelCapability"}, {"$ref": "#/$defs/deviceTreeCapability"}, {"$ref": "#/$defs/graphicsCapability"}]}, "source_refs": {"minItems": 1}, "residual_reason": {"type": "null"}}}
+          "then": {"properties": {"normalized_value": {"type": "null"}, "source_refs": {"maxItems": 0}, "evidence": {"maxItems": 0}, "residual_reason": {"type": "string", "minLength": 1}}},
+          "else": {"properties": {"normalized_value": {"oneOf": [{"$ref": "#/$defs/boardIdentity"}, {"$ref": "#/$defs/socIdentity"}, {"$ref": "#/$defs/firmwareSchema"}, {"$ref": "#/$defs/bootCapability"}, {"$ref": "#/$defs/kernelCapability"}, {"$ref": "#/$defs/deviceTreeCapability"}, {"$ref": "#/$defs/graphicsCapability"}]}, "source_refs": {"minItems": 1}, "evidence": {"minItems": 1}, "residual_reason": {"type": "null"}}}
         },
         {"if": {"properties": {"claim_type": {"const": "board-identity"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/boardIdentity"}}}},
         {"if": {"properties": {"claim_type": {"const": "soc-identity"}, "state": {"enum": ["confirmed", "disputed"]}}}, "then": {"properties": {"normalized_value": {"$ref": "#/$defs/socIdentity"}}}},
@@ -96,8 +105,8 @@
     "deviceTreeCapability": {"type": "object", "additionalProperties": false, "required": ["compatible", "source_path", "state"], "properties": {"compatible": {"type": "string", "pattern": "^apple,[a-z][a-z0-9-]{1,63}$"}, "source_path": {"type": "string", "minLength": 1, "maxLength": 255}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
     "graphicsCapability": {"type": "object", "additionalProperties": false, "required": ["accelerator", "state"], "properties": {"accelerator": {"type": "string", "minLength": 1, "maxLength": 128}, "state": {"enum": ["documented", "implemented", "unknown"]}}},
     "contradiction": {
-      "type": "object", "additionalProperties": false, "required": ["contradiction_id", "record_id", "claim_refs", "kind", "description", "source_refs", "status", "opened_at", "supersedes"],
-      "properties": {"contradiction_id": {"$ref": "#/$defs/id"}, "record_id": {"$ref": "#/$defs/id"}, "claim_refs": {"$ref": "#/$defs/stringArray"}, "kind": {"enum": ["identity", "selector", "lifecycle", "firmware", "boot", "kernel", "device-tree", "graphics"]}, "description": {"type": "string", "minLength": 1, "maxLength": 2048}, "source_refs": {"$ref": "#/$defs/stringArray"}, "status": {"enum": ["open", "superseded", "resolved-by-authority"]}, "opened_at": {"$ref": "#/$defs/timestamp"}, "supersedes": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}}
+      "type": "object", "additionalProperties": false, "required": ["contradiction_id", "record_id", "claim_refs", "kind", "description", "source_refs", "status", "opened_at", "supersedes", "resolution_claim_refs", "prior_record_digest", "prior_record_revision"],
+      "properties": {"contradiction_id": {"$ref": "#/$defs/id"}, "record_id": {"$ref": "#/$defs/id"}, "claim_refs": {"$ref": "#/$defs/idArray"}, "kind": {"enum": ["identity", "selector", "lifecycle", "firmware", "boot", "kernel", "device-tree", "graphics"]}, "description": {"type": "string", "minLength": 1, "maxLength": 2048}, "source_refs": {"$ref": "#/$defs/idArray"}, "status": {"enum": ["open", "superseded", "resolved-by-authority"]}, "opened_at": {"$ref": "#/$defs/timestamp"}, "supersedes": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}, "resolution_claim_refs": {"$ref": "#/$defs/idArray"}, "prior_record_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}, "prior_record_revision": {"type": ["string", "null"], "pattern": "^r[0-9]+$"}}
     },
     "projection": {
       "type": "object", "additionalProperties": false, "required": ["projection_id", "projection_type", "dataset_digest", "record_id", "record_revision", "record_digest", "payload"],

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import stat
 from dataclasses import dataclass
 from datetime import datetime
 from importlib import resources
@@ -36,6 +37,10 @@ CONTRADICTION_STATES = ("open", "superseded", "resolved-by-authority")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+MODEL_ID = re.compile(r"^[A-Za-z][A-Za-z0-9,._-]{1,63}$")
+BOARD_SELECTOR = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
+DT_COMPATIBLE = re.compile(r"^apple,[a-z][a-z0-9-]{1,63}$")
+SOC_ID = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 REVISION = re.compile(r"^r[0-9]+$")
 UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
 
@@ -101,6 +106,13 @@ def _sorted_strings(value: Any, path: str) -> list[str]:
     return value
 
 
+def _sorted_ids(value: Any, path: str) -> list[str]:
+    values = _sorted_strings(value, path)
+    for index, item in enumerate(values):
+        _string(item, f"{path}[{index}]", ID)
+    return values
+
+
 def _sorted_objects(value: Any, path: str, key: str) -> list[dict[str, Any]]:
     if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         _fail("SCHEMA_INVALID", path, "array of objects required")
@@ -116,14 +128,21 @@ def _sorted_objects(value: Any, path: str, key: str) -> list[dict[str, Any]]:
 
 def _relative_snapshot(root: Path, value: Any, path: str) -> Path:
     rel = _string(value, path)
-    candidate = (root / rel).resolve()
-    try:
-        candidate.relative_to(root.resolve())
-    except ValueError:
-        _fail("SNAPSHOT_PATH_INVALID", path, "snapshot escapes dataset root")
-    if Path(rel).is_absolute() or any(part in ("", ".", "..") for part in Path(rel).parts):
+    raw = Path(rel)
+    source_root = root / "data/intake/sources"
+    if raw.is_absolute() or any(part in ("", ".", "..") for part in raw.parts):
         _fail("SNAPSHOT_PATH_INVALID", path, "snapshot path must be a normalized relative path")
-    if not candidate.is_file() or candidate.is_symlink():
+    if raw.parts[:3] != ("data", "intake", "sources") or len(raw.parts) <= 3:
+        _fail("SNAPSHOT_PATH_INVALID", path, "snapshot path must be below data/intake/sources")
+    candidate_raw = root / raw
+    if candidate_raw.is_symlink():
+        _fail("SNAPSHOT_PATH_INVALID", path, "source snapshots may not be symlinks")
+    candidate = candidate_raw.resolve()
+    try:
+        candidate.relative_to(source_root.resolve())
+    except ValueError:
+        _fail("SNAPSHOT_PATH_INVALID", path, "snapshot escapes source directory")
+    if not stat.S_ISREG(candidate.stat().st_mode):
         _fail("SNAPSHOT_MISSING", path, "checked-in source snapshot is missing")
     return candidate
 
@@ -145,7 +164,7 @@ def _url(value: Any, path: str) -> tuple[str, str, str]:
     return value, host, parsed.path
 
 
-def _validate_schema(dataset: dict[str, Any], schema_root: Path | None) -> None:
+def _load_schema(schema_root: Path | None) -> dict[str, Any]:
     schema_path = (schema_root / "schemas/intake-dataset/v1/intake-dataset.schema.json") if schema_root else None
     if schema_path is not None and schema_path.is_file():
         try:
@@ -157,6 +176,12 @@ def _validate_schema(dataset: dict[str, Any], schema_root: Path | None) -> None:
             schema = json.loads(resources.files("omarchy_intake").joinpath("resources/intake-dataset.schema.json").read_text(encoding="utf-8"))
         except (FileNotFoundError, ModuleNotFoundError, json.JSONDecodeError, OSError) as error:
             _fail("TOOLING_BLOCK", "$", f"dataset schema is unavailable: {error}")
+    return schema
+
+
+def _validate_schema(dataset: dict[str, Any], schema_root: Path | None, schema: dict[str, Any] | None = None) -> None:
+    if schema is None:
+        schema = _load_schema(schema_root)
     validator = Draft202012Validator(schema)
     errors = sorted(validator.iter_errors(dataset), key=lambda item: (list(item.absolute_path), item.validator, item.message))
     if errors:
@@ -195,7 +220,7 @@ def _validate_sources(dataset: dict[str, Any], root: Path) -> dict[str, dict[str
         lines = locator["lines"]
         if type(lines) is not list or len(lines) != 2 or any(type(line) is not int or line < 1 for line in lines) or lines[0] > lines[1]:
             _fail("SCHEMA_INVALID", f"{path}.locator.lines", "locator requires an increasing two-line range")
-        subject_refs = _sorted_strings(source["subject_refs"], f"{path}.subject_refs")
+        subject_refs = _sorted_ids(source["subject_refs"], f"{path}.subject_refs")
         candidate = _relative_snapshot(root, source["snapshot_path"], f"{path}.snapshot_path")
         try:
             snapshot = candidate.read_bytes()
@@ -204,7 +229,6 @@ def _validate_sources(dataset: dict[str, Any], root: Path) -> dict[str, dict[str
         actual_digest = content_digest(snapshot)
         if actual_digest != digest:
             _fail("DIGEST_MISMATCH", f"{path}.content_digest", "snapshot bytes do not match content digest")
-        _validate_response_metadata(source["response_metadata"], f"{path}.response_metadata", len(snapshot))
         if source["authority_class"] == "apple-official":
             if host not in {"support.apple.com", "developer.apple.com", "www.apple.com"}:
                 _fail("SOURCE_AUTHORITY_INVALID", f"{path}.canonical_url", "Apple authority requires an Apple publisher host")
@@ -223,9 +247,66 @@ def _validate_sources(dataset: dict[str, Any], root: Path) -> dict[str, dict[str
                 _fail("SOURCE_AUTHORITY_INVALID", f"{path}.canonical_url", "Asahi authority requires the AsahiLinux owner")
             if source["authority_class"] == "linux-upstream" and owner not in {"torvalds", "asahilinux"}:
                 _fail("SOURCE_AUTHORITY_INVALID", f"{path}.canonical_url", "Linux authority requires an upstream Linux owner")
+        try:
+            snapshot_text = snapshot.decode("utf-8")
+        except UnicodeDecodeError:
+            _fail("SOURCE_CITATION_MISMATCH", f"{path}.snapshot_path", "source snapshot must be UTF-8")
+        if url.encode("utf-8") not in snapshot:
+            _fail("SOURCE_CITATION_MISMATCH", f"{path}.canonical_url", "snapshot does not contain the declared source URL")
+        snapshot_lines = snapshot_text.splitlines()
+        if lines[1] > len(snapshot_lines):
+            _fail("SOURCE_CITATION_MISMATCH", f"{path}.locator.lines", "locator is outside the snapshot")
+        if locator["section"].encode("utf-8") not in snapshot:
+            _fail("SOURCE_CITATION_MISMATCH", f"{path}.locator.section", "locator section is absent from snapshot")
+        _validate_response_metadata(source["response_metadata"], f"{path}.response_metadata", len(snapshot))
         sources[source_id] = source
         _ = url
     return sources
+
+
+def _validate_claim_evidence(claim: dict[str, Any], source_refs: list[str], sources: dict[str, dict[str, Any]], record_id: str, root: Path, path: str) -> None:
+    evidence = _sorted_objects(claim["evidence"], f"{path}.evidence", "source_id")
+    if claim["state"] == "unknown":
+        if evidence:
+            _fail("UNKNOWN_CLAIM_POPULATED", f"{path}.evidence", "unknown claim may not carry evidence")
+        return
+    if [item["source_id"] for item in evidence] != source_refs:
+        _fail("EVIDENCE_SET_MISMATCH", f"{path}.evidence", "claim evidence must equal claim citations")
+    cited_content: list[str] = []
+    for index, item in enumerate(evidence):
+        epath = f"{path}.evidence[{index}]"
+        _object(item, epath, {"source_id", "content_digest", "locator", "assertion"})
+        source_id = _string(item["source_id"], f"{epath}.source_id", ID)
+        if source_id not in sources:
+            _fail("CITATION_MISSING", f"{epath}.source_id", "evidence cites an unknown source")
+        source = sources[source_id]
+        if record_id not in source["subject_refs"]:
+            _fail("CITATION_SUBJECT_MISMATCH", f"{epath}.source_id", "source is not bound to this record")
+        if item["content_digest"] != source["content_digest"]:
+            _fail("EVIDENCE_DIGEST_MISMATCH", f"{epath}.content_digest", "evidence is not bound to the source snapshot")
+        if item["locator"] != source["locator"]:
+            _fail("EVIDENCE_LOCATOR_MISMATCH", f"{epath}.locator", "evidence locator must equal the source locator")
+        assertion = _string(item["assertion"], f"{epath}.assertion")
+        snapshot = _relative_snapshot(root, source["snapshot_path"], f"{epath}.snapshot_path")
+        try:
+            lines = snapshot.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError) as error:
+            _fail("SOURCE_CITATION_MISMATCH", epath, f"cannot read cited snapshot: {error}")
+        first, last = source["locator"]["lines"]
+        bounded_content = "\n".join(lines[first - 1:last])
+        if assertion not in bounded_content:
+            _fail("SOURCE_CITATION_MISMATCH", f"{epath}.assertion", "assertion is absent from cited locator content")
+        cited_content.append(bounded_content)
+    normalized = claim["normalized_value"]
+    if isinstance(normalized, dict):
+        expected = [str(value) for key, value in normalized.items() if key != "state" and isinstance(value, str)]
+        joined = "\n".join(cited_content)
+        for value in expected:
+            alternatives = [value]
+            if value.endswith(" GPU"):
+                alternatives.append(value.removesuffix(" GPU"))
+            if not any(candidate in joined for candidate in alternatives):
+                _fail("CLAIM_EVIDENCE_UNBOUND", f"{path}.evidence", "bounded evidence does not contain the normalized claim value")
 
 
 def _validate_normalized_claim(claim_type: str, value: Any, path: str) -> None:
@@ -244,14 +325,14 @@ def _validate_normalized_claim(claim_type: str, value: Any, path: str) -> None:
     for key, item in value.items():
         _string(item, f"{path}.{key}")
     if claim_type == "board-identity":
-        _string(value["apple_model_identifier"], f"{path}.apple_model_identifier", re.compile(r"^[A-Za-z][A-Za-z0-9,._-]{1,63}$"))
-        _string(value["apple_board_selector"], f"{path}.apple_board_selector", re.compile(r"^[a-z][a-z0-9-]{1,63}$"))
-        _string(value["device_tree_compatible"], f"{path}.device_tree_compatible", re.compile(r"^apple,[a-z][a-z0-9-]{1,63}$"))
+        _string(value["apple_model_identifier"], f"{path}.apple_model_identifier", MODEL_ID)
+        _string(value["apple_board_selector"], f"{path}.apple_board_selector", BOARD_SELECTOR)
+        _string(value["device_tree_compatible"], f"{path}.device_tree_compatible", DT_COMPATIBLE)
     elif claim_type == "soc-identity":
-        _string(value["soc_id"], f"{path}.soc_id", re.compile(r"^[a-z][a-z0-9-]{1,63}$"))
+        _string(value["soc_id"], f"{path}.soc_id", SOC_ID)
         _string(value["display_name"], f"{path}.display_name")
     elif claim_type == "device-tree-capability":
-        _string(value["compatible"], f"{path}.compatible", re.compile(r"^apple,[a-z][a-z0-9-]{1,63}$"))
+        _string(value["compatible"], f"{path}.compatible", DT_COMPATIBLE)
         _string(value["source_path"], f"{path}.source_path", re.compile(r"^[A-Za-z0-9_./-]{1,255}$"))
     else:
         _string(value[next(key for key in value if key != "state")], path)
@@ -259,23 +340,43 @@ def _validate_normalized_claim(claim_type: str, value: Any, path: str) -> None:
         _enum(value["state"], f"{path}.state", ("documented", "implemented", "unknown"))
 
 
-def _validate_records(dataset: dict[str, Any], sources: dict[str, dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str], dict[str, Any]], dict[str, list[str]]]:
+def _validate_records(dataset: dict[str, Any], sources: dict[str, dict[str, Any]], root: Path) -> tuple[dict[str, dict[str, Any]], dict[tuple[str, str], dict[str, Any]], dict[str, list[str]]]:
     values = _sorted_objects(dataset["records"], "$.records", "record_id")
     records: dict[str, dict[str, Any]] = {}
     claims: dict[tuple[str, str], dict[str, Any]] = {}
     conflicts: dict[str, list[str]] = {}
     for index, record in enumerate(values):
         path = f"$.records[{index}]"
-        _object(record, path, {"record_id", "record_revision", "marketing_product", "marketing_year", "apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities", "lifecycle", "evidence_tier", "claims", "source_refs", "contradiction_refs", "unknowns"})
+        _object(record, path, {"record_id", "record_revision", "supersedes_record_digest", "supersedes_record_revision", "marketing_product", "marketing_year", "apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities", "lifecycle", "evidence_tier", "claims", "source_refs", "contradiction_refs", "unknowns"})
         record_id = _string(record["record_id"], f"{path}.record_id", ID)
-        _string(record["record_revision"], f"{path}.record_revision", REVISION)
+        revision = _string(record["record_revision"], f"{path}.record_revision", REVISION)
+        if revision == "r1":
+            if record["supersedes_record_digest"] is not None or record["supersedes_record_revision"] is not None:
+                _fail("SUPERSESSION_INVALID", path, "r1 record cannot supersede an earlier record")
+        else:
+            _digest(record["supersedes_record_digest"], f"{path}.supersedes_record_digest")
+            _string(record["supersedes_record_revision"], f"{path}.supersedes_record_revision", REVISION)
+            if record["supersedes_record_digest"] is None or record["supersedes_record_revision"] is None:
+                _fail("SUPERSESSION_INVALID", path, "revised record requires its prior digest and revision")
         _string(record["marketing_product"], f"{path}.marketing_product")
         if type(record["marketing_year"]) is not int or not 2000 <= record["marketing_year"] <= 2100:
             _fail("SCHEMA_INVALID", f"{path}.marketing_year", "marketing year is outside bounds")
-        for key in ("apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities", "source_refs", "contradiction_refs"):
+        for key in ("apple_model_identifiers", "apple_board_selectors", "device_tree_compatibles", "soc_identities"):
             _sorted_strings(record[key], f"{path}.{key}")
+        _sorted_ids(record["source_refs"], f"{path}.source_refs")
+        _sorted_ids(record["contradiction_refs"], f"{path}.contradiction_refs")
+        for item in record["apple_model_identifiers"]:
+            _string(item, f"{path}.apple_model_identifiers", MODEL_ID)
+        for item in record["apple_board_selectors"]:
+            _string(item, f"{path}.apple_board_selectors", BOARD_SELECTOR)
+        for item in record["device_tree_compatibles"]:
+            _string(item, f"{path}.device_tree_compatibles", DT_COMPATIBLE)
+        for item in record["soc_identities"]:
+            _string(item, f"{path}.soc_identities", SOC_ID)
         _enum(record["lifecycle"], f"{path}.lifecycle", LIFECYCLES)
         _enum(record["evidence_tier"], f"{path}.evidence_tier", EVIDENCE_TIERS)
+        if record["evidence_tier"] == "omarchy-qualified":
+            _fail("QUALIFICATION_REQUIRED", f"{path}.evidence_tier", "Q-00 cannot assert omarchy-qualified evidence without a Q-01 binding")
         unknowns = _sorted_objects(record["unknowns"], f"{path}.unknowns", "field")
         for uindex, unknown in enumerate(unknowns):
             upath = f"{path}.unknowns[{uindex}]"
@@ -287,15 +388,16 @@ def _validate_records(dataset: dict[str, Any], sources: dict[str, dict[str, Any]
         by_type: dict[str, tuple[str, bytes]] = {}
         for cindex, claim in enumerate(record_claims):
             cpath = f"{path}.claims[{cindex}]"
-            _object(claim, cpath, {"claim_id", "claim_type", "subject", "state", "normalized_value", "source_refs", "observed_at", "residual_reason"})
+            _object(claim, cpath, {"claim_id", "claim_type", "subject", "state", "normalized_value", "source_refs", "evidence", "observed_at", "residual_reason"})
             claim_id = _string(claim["claim_id"], f"{cpath}.claim_id", ID)
             claim_type = _enum(claim["claim_type"], f"{cpath}.claim_type", CLAIM_TYPES)
             if claim["subject"] != record_id:
                 _fail("CLAIM_SUBJECT_MISMATCH", f"{cpath}.subject", "claim subject must equal its containing record")
             _enum(claim["state"], f"{cpath}.state", CLAIM_STATES)
-            source_refs = _sorted_strings(claim["source_refs"], f"{cpath}.source_refs")
+            source_refs = _sorted_ids(claim["source_refs"], f"{cpath}.source_refs")
             _timestamp(claim["observed_at"], f"{cpath}.observed_at")
             if claim["state"] == "unknown":
+                _validate_claim_evidence(claim, source_refs, sources, record_id, root, cpath)
                 if claim["normalized_value"] is not None or source_refs:
                     _fail("UNKNOWN_CLAIM_POPULATED", cpath, "unknown claim may not carry a value or citation")
                 _string(claim["residual_reason"], f"{cpath}.residual_reason")
@@ -305,6 +407,15 @@ def _validate_records(dataset: dict[str, Any], sources: dict[str, dict[str, Any]
                 if not source_refs:
                     _fail("UNCITED_CLAIM", f"{cpath}.source_refs", "confirmed/disputed claim requires a citation")
                 _validate_normalized_claim(claim_type, claim["normalized_value"], f"{cpath}.normalized_value")
+                normalized_value = claim["normalized_value"]
+                if claim_type == "board-identity":
+                    if normalized_value["apple_model_identifier"] not in record["apple_model_identifiers"] or normalized_value["apple_board_selector"] not in record["apple_board_selectors"] or normalized_value["device_tree_compatible"] not in record["device_tree_compatibles"]:
+                        _fail("CLAIM_RECORD_MISMATCH", f"{cpath}.normalized_value", "board identity must match the record selectors and identifiers")
+                elif claim_type == "soc-identity" and normalized_value["soc_id"] not in record["soc_identities"]:
+                    _fail("CLAIM_RECORD_MISMATCH", f"{cpath}.normalized_value.soc_id", "SoC identity must match the record declaration")
+                elif claim_type == "device-tree-capability" and normalized_value["compatible"] not in record["device_tree_compatibles"]:
+                    _fail("CLAIM_RECORD_MISMATCH", f"{cpath}.normalized_value.compatible", "device-tree capability must match the record declaration")
+                _validate_claim_evidence(claim, source_refs, sources, record_id, root, cpath)
                 for source_id in source_refs:
                     if source_id not in sources:
                         _fail("CITATION_MISSING", f"{cpath}.source_refs", "claim cites an unknown source")
@@ -339,17 +450,17 @@ def _validate_contradictions(dataset: dict[str, Any], records: dict[str, dict[st
     contradictions: dict[str, dict[str, Any]] = {}
     for index, contradiction in enumerate(values):
         path = f"$.contradictions[{index}]"
-        _object(contradiction, path, {"contradiction_id", "record_id", "claim_refs", "kind", "description", "source_refs", "status", "opened_at", "supersedes"})
+        _object(contradiction, path, {"contradiction_id", "record_id", "claim_refs", "kind", "description", "source_refs", "status", "opened_at", "supersedes", "resolution_claim_refs", "prior_record_digest", "prior_record_revision"})
         contradiction_id = _string(contradiction["contradiction_id"], f"{path}.contradiction_id", ID)
         record_id = _string(contradiction["record_id"], f"{path}.record_id", ID)
         if record_id not in records:
             _fail("CONTRADICTION_RECORD_MISSING", f"{path}.record_id", "contradiction references an unknown record")
-        claim_refs = _sorted_strings(contradiction["claim_refs"], f"{path}.claim_refs")
+        claim_refs = _sorted_ids(contradiction["claim_refs"], f"{path}.claim_refs")
         if len(claim_refs) < 2 or any((record_id, ref) not in claims for ref in claim_refs):
             _fail("CONTRADICTION_CLAIM_MISSING", f"{path}.claim_refs", "contradiction requires two claims from this record")
         _enum(contradiction["kind"], f"{path}.kind", CONTRADICTION_KINDS)
         _string(contradiction["description"], f"{path}.description")
-        source_refs = _sorted_strings(contradiction["source_refs"], f"{path}.source_refs")
+        source_refs = _sorted_ids(contradiction["source_refs"], f"{path}.source_refs")
         if len(source_refs) < 2 or len(set(source_refs)) < 2:
             _fail("CONTRADICTION_UNCITED", f"{path}.source_refs", "contradiction requires two distinct citations")
         for source_id in source_refs:
@@ -357,15 +468,26 @@ def _validate_contradictions(dataset: dict[str, Any], records: dict[str, dict[st
                 _fail("CITATION_MISSING", f"{path}.source_refs", "contradiction cites an unknown source")
             if record_id not in sources[source_id]["subject_refs"]:
                 _fail("CITATION_SUBJECT_MISMATCH", f"{path}.source_refs", "contradiction source is not bound to this record")
-        expected_claim_sources = {source_id for claim_id in claim_refs for source_id in claims[(record_id, claim_id)]["source_refs"]}
+        resolution_claim_refs = _sorted_ids(contradiction["resolution_claim_refs"], f"{path}.resolution_claim_refs")
+        if any((record_id, ref) not in claims for ref in resolution_claim_refs):
+            _fail("CONTRADICTION_CLAIM_MISSING", f"{path}.resolution_claim_refs", "resolution claim is not part of this record")
+        expected_claim_sources = {source_id for claim_id in claim_refs + resolution_claim_refs for source_id in claims[(record_id, claim_id)]["source_refs"] if (record_id, claim_id) in claims}
         if set(source_refs) != expected_claim_sources:
             _fail("CONTRADICTION_CITATION_MISMATCH", f"{path}.source_refs", "contradiction citations must equal its claim citations")
         _enum(contradiction["status"], f"{path}.status", CONTRADICTION_STATES)
         _timestamp(contradiction["opened_at"], f"{path}.opened_at")
+        if contradiction["prior_record_digest"] is not None:
+            _digest(contradiction["prior_record_digest"], f"{path}.prior_record_digest")
+        if contradiction["prior_record_revision"] is not None:
+            _string(contradiction["prior_record_revision"], f"{path}.prior_record_revision", REVISION)
         if contradiction["supersedes"] is not None:
             _string(contradiction["supersedes"], f"{path}.supersedes", ID)
             if contradiction["status"] != "superseded":
                 _fail("SUPERSESSION_INVALID", f"{path}.supersedes", "only a superseded contradiction may point backward")
+        if contradiction["status"] != "resolved-by-authority" and contradiction["resolution_claim_refs"]:
+            _fail("SUPERSESSION_INVALID", f"{path}.resolution_claim_refs", "only an authority resolution may cite replacement claims")
+        if contradiction["status"] != "resolved-by-authority" and (contradiction["prior_record_digest"] is not None or contradiction["prior_record_revision"] is not None):
+            _fail("SUPERSESSION_INVALID", f"{path}.prior_record_digest", "prior record metadata is only valid for authority resolution")
         contradictions[contradiction_id] = contradiction
     for record_id, record in records.items():
         refs = set(record["contradiction_refs"])
@@ -390,6 +512,37 @@ def _validate_contradictions(dataset: dict[str, Any], records: dict[str, dict[st
                 _fail("SUPERSESSION_INVALID", f"$.contradictions[{contradiction_id}].supersedes", "supersession must point to an existing earlier contradiction")
             if contradictions[superseded]["status"] != "open":
                 _fail("SUPERSESSION_INVALID", f"$.contradictions[{contradiction_id}].supersedes", "only an open contradiction may be superseded")
+        if contradiction["status"] == "resolved-by-authority":
+            path = f"$.contradictions[{contradiction_id}]"
+            record = records[contradiction["record_id"]]
+            if contradiction["prior_record_digest"] is None or contradiction["prior_record_revision"] is None:
+                _fail("SUPERSESSION_INVALID", f"{path}.prior_record_digest", "authority resolution requires prior record digest and revision")
+            if not contradiction["resolution_claim_refs"]:
+                _fail("SUPERSESSION_INVALID", f"{path}.resolution_claim_refs", "authority resolution requires a new cited claim")
+            if set(contradiction["claim_refs"]).intersection(contradiction["resolution_claim_refs"]):
+                _fail("SUPERSESSION_INVALID", f"{path}.resolution_claim_refs", "resolution claims must be new claim identifiers")
+            if record["supersedes_record_digest"] != contradiction["prior_record_digest"] or record["supersedes_record_revision"] != contradiction["prior_record_revision"]:
+                _fail("SUPERSESSION_INVALID", f"{path}.prior_record_digest", "resolution prior record binding does not match the revised record")
+            if record["record_revision"] <= contradiction["prior_record_revision"]:
+                _fail("SUPERSESSION_INVALID", f"{path}.prior_record_revision", "replacement record revision must advance")
+            target = contradictions[contradiction["supersedes"]]
+            target_values = {canonical_bytes(claims[(target["record_id"], ref)]["normalized_value"]) for ref in target["claim_refs"]}
+            for ref in contradiction["resolution_claim_refs"]:
+                if (contradiction["record_id"], ref) not in claims:
+                    _fail("SUPERSESSION_INVALID", f"{path}.resolution_claim_refs", "resolution claim is missing from the record")
+                claim = claims[(contradiction["record_id"], ref)]
+                if claim["state"] != "confirmed" or canonical_bytes(claim["normalized_value"]) in target_values:
+                    _fail("SUPERSESSION_INVALID", f"{path}.resolution_claim_refs", "resolution must cite a new, changed confirmed claim")
+            if not set(contradiction["source_refs"]).intersection({source_id for ref in contradiction["resolution_claim_refs"] for source_id in claims[(contradiction["record_id"], ref)]["source_refs"]}):
+                _fail("SUPERSESSION_INVALID", f"{path}.source_refs", "resolution edge is not authority-backed")
+    for contradiction_id in contradictions:
+        trail: set[str] = set()
+        current = contradiction_id
+        while current in contradictions and contradictions[current]["supersedes"] is not None:
+            if current in trail:
+                _fail("SUPERSESSION_CYCLE", f"$.contradictions[{contradiction_id}].supersedes", "contradiction supersession graph must be acyclic")
+            trail.add(current)
+            current = contradictions[current]["supersedes"]
     return contradictions
 
 
@@ -467,10 +620,14 @@ def validate_dataset(dataset: Any, *, root: Path | None = None, expected_digest:
     _string(dataset["dataset_revision"], "$.dataset_revision", re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"))
     _digest(dataset["schema_set_digest"], "$.schema_set_digest")
     _timestamp(dataset["generated_at"], "$.generated_at")
+    schema = _load_schema(root)
+    expected_schema_digest = content_digest(canonical_bytes(schema))
+    if dataset["schema_set_digest"] != expected_schema_digest:
+        _fail("SCHEMA_SET_DIGEST_MISMATCH", "$.schema_set_digest", "manifest does not bind the packaged intake schema-set")
     if root is None:
         root = Path.cwd()
     sources = _validate_sources(dataset, root)
-    records, claims, conflicts = _validate_records(dataset, sources)
+    records, claims, conflicts = _validate_records(dataset, sources, root)
     used_sources = {source_id for record in records.values() for source_id in record["source_refs"]}
     for source_id, source in sources.items():
         expected_subjects = sorted(record_id for record_id, record in records.items() if source_id in record["source_refs"])
@@ -496,7 +653,7 @@ def validate_dataset(dataset: Any, *, root: Path | None = None, expected_digest:
     expected_index = [{"record_id": record_id, "record_revision": record["record_revision"], "record_digest": record_digests[record_id]} for record_id, record in records.items()]
     if record_index != expected_index:
         _fail("MANIFEST_INDEX_MISMATCH", "$.record_index", "record index does not match record records")
-    _validate_schema(dataset, root)
+    _validate_schema(dataset, root, schema)
     dataset_digest = dataset_digest_for(dataset)
     if expected_digest is not None and dataset_digest != expected_digest:
         _fail("MANIFEST_DIGEST_MISMATCH", "$.dataset_digest", "manifest digest does not match lock")

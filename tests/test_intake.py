@@ -76,7 +76,7 @@ class IntakeDatasetTests(unittest.TestCase):
         conflict["normalized_value"]["apple_board_selector"] = "j293"
         value["records"][0]["claims"].append(conflict)
         value["records"][0]["claims"].sort(key=lambda item: item["claim_id"])
-        with self.assertRaisesRegex(IntakeValidationError, "CONFLICTING_CLAIMS"):
+        with self.assertRaisesRegex(IntakeValidationError, "(?:CLAIM_RECORD_MISMATCH|CONFLICTING_CLAIMS)"):
             validate_dataset(value, root=ROOT)
 
     def test_duplicate_and_reverse_semantic_arrays_reject(self):
@@ -128,6 +128,61 @@ class IntakeDatasetTests(unittest.TestCase):
         with mock.patch.object(socket, "socket", side_effect=AssertionError("network attempted")):
             result = validate_dataset_file(MANIFEST, root=ROOT)
         self.assertEqual(result.dataset_digest, json.loads((ROOT / "data/intake/manifest.lock.json").read_text())["dataset_digest"])
+
+    def test_claim_evidence_binds_url_snapshot_digest_and_locator(self):
+        value = dataset()
+        source = next(item for item in value["sources"] if item["source_id"] == "apple-air-m1-model")
+        source["snapshot_path"] = "data/intake/sources/apple-air-m1-specs.json"
+        source["content_digest"] = next(item for item in value["sources"] if item["source_id"] == "apple-air-m1-specs")["content_digest"]
+        source["revision"] = "snapshot:" + source["content_digest"]
+        with self.assertRaisesRegex(IntakeValidationError, "(?:SOURCE_CITATION_MISMATCH|EVIDENCE_DIGEST_MISMATCH)"):
+            validate_dataset(value, root=ROOT)
+        value = dataset()
+        source = next(item for item in value["sources"] if item["source_id"] == "apple-air-m1-model")
+        source["locator"]["lines"] = [2, 2]
+        with self.assertRaisesRegex(IntakeValidationError, "SOURCE_CITATION_MISMATCH"):
+            validate_dataset(value, root=ROOT)
+
+    def test_record_selector_and_qualification_guards(self):
+        value = dataset()
+        value["records"][0]["claims"][0]["normalized_value"]["apple_board_selector"] = "j293"
+        with self.assertRaisesRegex(IntakeValidationError, "CLAIM_RECORD_MISMATCH"):
+            validate_dataset(value, root=ROOT)
+        value = dataset()
+        value["records"][0]["evidence_tier"] = "omarchy-qualified"
+        with self.assertRaisesRegex(IntakeValidationError, "QUALIFICATION_REQUIRED"):
+            validate_dataset(value, root=ROOT)
+
+    def test_schema_digest_and_snapshot_path_guards(self):
+        value = dataset()
+        value["schema_set_digest"] = "sha256:" + "0" * 64
+        with self.assertRaisesRegex(IntakeValidationError, "SCHEMA_SET_DIGEST_MISMATCH"):
+            validate_dataset(value, root=ROOT)
+        value = dataset()
+        value["sources"][0]["snapshot_path"] = "data/intake/sources/../records/apple-j313-r1.json"
+        with self.assertRaisesRegex(IntakeValidationError, "SNAPSHOT_PATH_INVALID"):
+            validate_dataset(value, root=ROOT)
+
+    def test_resolved_contradiction_requires_authority_replacement_edge(self):
+        value = dataset()
+        record = value["records"][0]
+        record["contradiction_refs"] = ["identity-replacement"]
+        value["contradictions"] = [{
+            "contradiction_id": "identity-replacement",
+            "record_id": record["record_id"],
+            "claim_refs": ["board-identity", "graphics"],
+            "kind": "identity",
+            "description": "synthetic unresolved identity disagreement",
+            "source_refs": ["apple-air-m1-model", "apple-air-m1-specs", "linux-t8103-j313"],
+            "status": "resolved-by-authority",
+            "opened_at": "2026-09-03T00:00:00Z",
+            "supersedes": "missing-open-contradiction",
+            "resolution_claim_refs": ["soc-identity"],
+            "prior_record_digest": None,
+            "prior_record_revision": None,
+        }]
+        with self.assertRaisesRegex(IntakeValidationError, "SUPERSESSION_INVALID"):
+            validate_dataset(value, root=ROOT)
 
     def test_cli_is_deterministic_and_offline(self):
         command = [sys.executable, "-m", "omarchy_intake", "validate", "--manifest", str(MANIFEST), "--root", str(ROOT), "--offline"]
