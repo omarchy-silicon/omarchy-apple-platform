@@ -34,13 +34,25 @@ jobs:
           git cat-file -e "$BASE_SHA^{commit}"
           mkdir -p "$RUNNER_TEMP/program-baseline"
           git show "$BASE_SHA:PROGRAM.md" > "$RUNNER_TEMP/program-baseline/PROGRAM.md"
-          git show "$BASE_SHA:data/program/program-integrity.lock.json" > "$RUNNER_TEMP/program-baseline/program-integrity.lock.json"
+          if git cat-file -e "$BASE_SHA:data/program/program-integrity.lock.json"; then
+            git show "$BASE_SHA:data/program/program-integrity.lock.json" > "$RUNNER_TEMP/program-baseline/program-integrity.lock.json"
+            echo "lock_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "lock_exists=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "program=$RUNNER_TEMP/program-baseline/PROGRAM.md" >> "$GITHUB_OUTPUT"
           echo "lock=$RUNNER_TEMP/program-baseline/program-integrity.lock.json" >> "$GITHUB_OUTPUT"
       - name: PROGRAM validator and immutable-history drift
+        if: steps.trusted-baseline.outputs.lock_exists == 'true'
         run: |
           omarchy-program --program PROGRAM.md --lock data/program/program-integrity.lock.json --baseline-program "${{ steps.trusted-baseline.outputs.program }}" --baseline-lock "${{ steps.trusted-baseline.outputs.lock }}"
           PYTHONPATH=src python tools/program/drift.py --program PROGRAM.md --lock data/program/program-integrity.lock.json --baseline-program "${{ steps.trusted-baseline.outputs.program }}" --baseline-lock "${{ steps.trusted-baseline.outputs.lock }}"
+      - name: PROGRAM bootstrap validator and immutable-history drift
+        if: steps.trusted-baseline.outputs.lock_exists == 'false'
+        run: |
+          cmp "${{ steps.trusted-baseline.outputs.program }}" PROGRAM.md
+          omarchy-program --program PROGRAM.md --lock data/program/program-integrity.lock.json
+          PYTHONPATH=src python tools/program/drift.py --program PROGRAM.md --lock data/program/program-integrity.lock.json
       - name: Deterministic lock generator
         run: |
           PYTHONPATH=src python tools/program/generate.py --program PROGRAM.md > /tmp/program-lock-a.json

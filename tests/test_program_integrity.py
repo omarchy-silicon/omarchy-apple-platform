@@ -264,6 +264,17 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertIn('git show "$BASE_SHA:PROGRAM.md"', workflow)
         self.assertIn('git show "$BASE_SHA:data/program/program-integrity.lock.json"', workflow)
 
+    def test_workflow_fails_closed_for_lockless_bootstrap(self):
+        workflow = (ROOT / ".github/workflows/program-integrity.yml").read_text()
+        self.assertIn('if git cat-file -e "$BASE_SHA:data/program/program-integrity.lock.json"; then', workflow)
+        self.assertIn('echo "lock_exists=true" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn('echo "lock_exists=false" >> "$GITHUB_OUTPUT"', workflow)
+        self.assertIn("if: steps.trusted-baseline.outputs.lock_exists == 'true'", workflow)
+        self.assertIn("if: steps.trusted-baseline.outputs.lock_exists == 'false'", workflow)
+        self.assertIn('cmp "${{ steps.trusted-baseline.outputs.program }}" PROGRAM.md', workflow)
+        self.assertIn('omarchy-program --program PROGRAM.md --lock data/program/program-integrity.lock.json', workflow)
+        self.assertIn('PYTHONPATH=src python tools/program/drift.py --program PROGRAM.md --lock data/program/program-integrity.lock.json', workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
