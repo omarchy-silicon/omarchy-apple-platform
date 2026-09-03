@@ -18,7 +18,6 @@ MAX_DEPENDENCIES = 32
 MAX_GRAPH_DEPTH = 64
 EXPECTED_SLICE_COUNT = 52
 STATUS_VOCABULARY = ("DONE", "IN PROGRESS", "TODO", "HUMAN-ONLY BLOCKED")
-EXPECTED_STATUS_COUNTS = {"DONE": 2, "IN PROGRESS": 6, "TODO": 38, "HUMAN-ONLY BLOCKED": 6}
 SLICE_ID = re.compile(r"^[A-Z]-[0-9]{2}$")
 DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 ROW = re.compile(r"^\| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$")
@@ -234,16 +233,22 @@ def _validate_ownership(slices: list[Slice], text: str) -> None:
             _fail("HUMAN_ONLY_CONSTRAINT", f"PROGRAM.md:{item.line}", "human m1n1 owner dependency is reserved for m1n1 rows")
 
 
+def _status_counts(statuses: list[str] | tuple[str, ...]) -> dict[str, int]:
+    counts = Counter(statuses)
+    return {status: counts.get(status, 0) for status in STATUS_VOCABULARY}
+
+
 def _validate_statuses(slices: list[Slice], lock: dict, baseline_slices: list[Slice] | None = None) -> None:
-    counts = Counter(item.status for item in slices)
-    for status in STATUS_VOCABULARY:
-        counts.setdefault(status, 0)
-    if not baseline_slices and dict(counts) != EXPECTED_STATUS_COUNTS:
-        _fail("STATUS_CENSUS_INVALID", "PROGRAM.md:12", f"current status census must be {EXPECTED_STATUS_COUNTS}")
-    expected = lock.get("status_by_id")
     actual = {item.identifier: item.status for item in slices}
-    if not isinstance(expected, dict) or actual != expected:
+    expected = lock.get("status_by_id")
+    if not isinstance(expected, dict) or set(expected) != set(actual) or any(status not in STATUS_VOCABULARY for status in expected.values()) or actual != expected:
         _fail("STATUS_LAUNDERING", "PROGRAM.md:12", "slice statuses differ from the immutable current census baseline")
+    actual_counts = _status_counts(list(actual.values()))
+    status_counts = lock.get("expected_status_counts")
+    if not isinstance(status_counts, dict) or set(status_counts) != set(STATUS_VOCABULARY) or any(type(count) is not int or count < 0 for count in status_counts.values()) or status_counts != actual_counts:
+        _fail("STATUS_CENSUS_INVALID", "data/program/program-integrity.lock.json", "expected status counts must exactly match the current status census")
+    if _status_counts(list(expected.values())) != actual_counts:
+        _fail("STATUS_LAUNDERING", "data/program/program-integrity.lock.json", "status_by_id does not derive the current status census")
 
 
 def _validate_progress(slices: list[Slice], progress: list[Progress], lock: dict, baseline_slices: list[Slice] | None = None, baseline_progress: list[Progress] | None = None) -> None:
@@ -321,7 +326,7 @@ def build_lock(slices: list[Slice], progress: list[Progress]) -> dict:
     return {
         "version": 1,
         "expected_slice_count": EXPECTED_SLICE_COUNT,
-        "expected_status_counts": EXPECTED_STATUS_COUNTS,
+        "expected_status_counts": _status_counts([item.status for item in slices]),
         "status_by_id": {item.identifier: item.status for item in slices},
         "slice_structure": [
             {"id": item.identifier, "repository": item.repository, "deliverable": item.deliverable, "depends_on": list(item.dependencies)}
@@ -337,7 +342,7 @@ def _validate_lock_structure(slices: list[Slice], lock: dict) -> None:
     actual = [{"id": item.identifier, "repository": item.repository, "deliverable": item.deliverable, "depends_on": list(item.dependencies)} for item in slices]
     if structure != actual:
         _fail("SLICE_HISTORY_EDITED_OR_REORDERED", "PROGRAM.md:12", "historical slice structure must remain ordered and immutable")
-    if lock.get("expected_slice_count") != EXPECTED_SLICE_COUNT or lock.get("expected_status_counts") != EXPECTED_STATUS_COUNTS:
+    if lock.get("expected_slice_count") != EXPECTED_SLICE_COUNT:
         _fail("BASELINE_INVALID", "data/program/program-integrity.lock.json", "baseline census constants are invalid")
 
 

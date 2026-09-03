@@ -65,6 +65,51 @@ class ProgramIntegrityTests(unittest.TestCase):
         self.assertFalse(result["release_ready"])
         self.assertEqual(result["status_counts"], {"DONE": 2, "IN PROGRESS": 6, "TODO": 38, "HUMAN-ONLY BLOCKED": 6})
 
+    def test_regenerated_lock_accepts_standalone_todo_to_in_progress_transition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            program = root / "PROGRAM.md"
+            lock = root / "lock.json"
+            shutil.copy2(PROGRAM, program)
+            text = program.read_text()
+            text = text.replace(
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
+                "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | IN PROGRESS |",
+            )
+            text += "| 2026-09-03 | status transition: P-01 from TODO to IN PROGRESS | coordinator evidence |\n"
+            program.write_text(text)
+            slices, progress = parse_for_lock(program)
+            generated = build_lock(slices, progress)
+            lock.write_text(json.dumps(generated, sort_keys=True, indent=2) + "\n")
+
+            result = validate_program(program, lock)
+
+            self.assertEqual(result["status_counts"]["IN PROGRESS"], 7)
+            self.assertEqual(generated["expected_status_counts"]["IN PROGRESS"], 7)
+            self.assertEqual(generated["expected_status_counts"]["TODO"], 37)
+
+    def test_forged_status_count_map_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            program = root / "PROGRAM.md"
+            lock = root / "lock.json"
+            shutil.copy2(PROGRAM, program)
+            forged = json.loads(LOCK.read_text())
+            forged["expected_status_counts"]["TODO"] += 1
+            lock.write_text(json.dumps(forged, sort_keys=True, indent=2) + "\n")
+
+            with self.assertRaises(ProgramValidationError) as caught:
+                validate_program(program, lock)
+
+            self.assertEqual(caught.exception.code, "STATUS_CENSUS_INVALID")
+
+    def test_unknown_program_status_is_rejected(self):
+        error = self.run_mutation(self.mutate_text(
+            "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | TODO |",
+            "| P-01 | omarchy-mac | Consume generated board registry and implement fail-closed pre-mutation admission | F-02, Q-00 | PLANNED |",
+        ))
+        self.assertEqual(error.code, "STATUS_INVALID")
+
     def test_cli_output_is_stable_json_and_never_infers_release_ready(self):
         command = [sys.executable, "-m", "omarchy_program", "--program", str(PROGRAM), "--lock", str(LOCK)]
         first = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=True)
