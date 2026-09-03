@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -141,6 +142,31 @@ def test_incomplete_sbom_rejects() -> None:
     assert caught.value.code == "INCOMPLETE_SBOM"
 
 
+def test_duplicate_sbom_paths_reject_before_mapping_collapse() -> None:
+    _closure, _recipe, left, right = _results()
+    sbom = make_sbom(left)
+    duplicate = replace(sbom, entries=(sbom.entries[0], sbom.entries[0]))
+    with pytest.raises(BuildProvenanceError) as caught:
+        validate_sbom(duplicate, left.outputs, left.artifact_set_digest)
+    assert caught.value.code == "INCOMPLETE_SBOM"
+    with pytest.raises(BuildProvenanceError) as caught:
+        make_package_index(
+            release_id="duplicate-sbom",
+            channel="edge",
+            platform_manifest_id="manifest:fixture",
+            platform_manifest_digest=digest_bytes(b"manifest"),
+            schema_set_digest=digest_bytes(b"schema-set"),
+            artifact_id="artifact:fixture",
+            artifact_class="kernel",
+            left=left,
+            right=right,
+            provenance=make_provenance(left, _definition("fixture-a"), _closure, sbom),
+            sbom=duplicate,
+            rollback_artifact_digests=(left.outputs[0].content_digest,),
+        )
+    assert caught.value.code == "INCOMPLETE_SBOM"
+
+
 def test_store_is_content_addressed_and_no_overwrite() -> None:
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
@@ -233,7 +259,83 @@ def test_rollback_restores_retained_digest_and_rejects_missing_artifact() -> Non
         object_path.unlink()
         with pytest.raises(StoreError) as caught:
             store.rollback("edge", "failed-release", "old-release", context=_context(old_index, channel="edge"))
-        assert caught.value.code == "OBJECT_MISSING"
+        assert caught.value.code == "ROLLBACK_ARTIFACT_MISSING"
+
+
+def test_rollback_rejects_forged_index_from_another_channel() -> None:
+    _closure, _recipe, left, right = _results()
+    edge_index = _index(left, right, release_id="edge-restore")
+    rc_index = PackageIndex.create(
+        release_id="rc-restore",
+        channel="rc",
+        platform_manifest_id=edge_index.platform_manifest_id,
+        platform_manifest_digest=edge_index.platform_manifest_digest,
+        schema_set_digest_value=edge_index.schema_set_digest,
+        artifacts=edge_index.artifacts,
+        rollback_artifact_digests=edge_index.rollback_artifact_digests,
+    )
+    failed_index = _index(left, right, release_id="edge-failed")
+    with tempfile.TemporaryDirectory() as directory:
+        store = LocalArtifactStore(directory)
+        _seed_artifact(store, left)
+        store.publish_index(rc_index, context=_context(rc_index, channel="rc"))
+        store.publish_index(failed_index, context=_context(failed_index, channel="edge"))
+        rc_record = store.read_channel("rc", "rc-restore")
+        forged = {**rc_record, "channel": "edge", "release_id": "edge-restore"}
+        forged["record_digest"] = digest_bytes(b"omarchy-channel-record/v1\x00" + canonical_bytes({key: value for key, value in forged.items() if key != "record_digest"}))
+        store._put_channel_record("edge", "edge-restore", forged)
+        context = TrustedTrustContext("artifact-release", ("key:a",), 1, digest_bytes(canonical_bytes(rc_index.to_dict())), rc_index.schema_set_digest, "edge", "2099-01-01T00:00:00Z", "replay:edge")
+        with pytest.raises(StoreError) as caught:
+            store.rollback("edge", "edge-failed", "edge-restore", context=context)
+        assert caught.value.code == "ROLLBACK_BINDING_MISMATCH"
+
+
+def test_rollback_missing_artifact_member_is_typed() -> None:
+    _closure, _recipe, left, right = _results()
+    restore_index = _index(left, right, release_id="restore-missing-member")
+    failed_index = _index(left, right, release_id="failed-missing-member")
+    with tempfile.TemporaryDirectory() as directory:
+        store = LocalArtifactStore(directory)
+        _seed_artifact(store, left)
+        store.publish_index(failed_index, context=_context(failed_index, channel="edge"))
+        malformed = restore_index.to_dict()
+        del malformed["rollback_artifact_digests"]
+        malformed_digest = store.put(canonical_bytes(malformed))
+        record = {
+            "version": "channel-record/v1",
+            "channel": "edge",
+            "release_id": restore_index.release_id,
+            "index_digest": malformed_digest,
+            "artifact_set_digest": restore_index.artifact_set_digest,
+            "rollback_artifact_digests": list(restore_index.rollback_artifact_digests),
+        }
+        record["record_digest"] = digest_bytes(b"omarchy-channel-record/v1\x00" + canonical_bytes(record))
+        store._put_channel_record("edge", restore_index.release_id, record)
+        with pytest.raises(StoreError) as caught:
+            store.rollback("edge", failed_index.release_id, restore_index.release_id, context=_context(restore_index, channel="edge"))
+        assert caught.value.code == "ROLLBACK_ARTIFACT_MISSING"
+
+
+def test_store_rejects_dangling_symlink_parent_and_channel_node_conflicts() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory) / "dangling"
+        os.symlink(Path(directory) / "does-not-exist", root)
+        with pytest.raises(StoreError) as caught:
+            LocalArtifactStore(root)
+        assert caught.value.code == "UNSAFE_PATH"
+
+        parent_file = Path(directory) / "not-a-directory"
+        parent_file.write_bytes(b"x")
+        with pytest.raises(StoreError) as caught:
+            LocalArtifactStore(parent_file / "child")
+        assert caught.value.code == "UNSAFE_PATH"
+
+        store = LocalArtifactStore(Path(directory) / "store")
+        conflict = Path(directory) / "store" / "channels" / "edge" / "release.json"
+        conflict.mkdir(parents=True)
+        with pytest.raises(StoreError) as caught:
+            store._put_channel_record("edge", "release", {"version": "channel-record/v1"})
+        assert caught.value.code == "IMMUTABLE_CHANNEL_CONFLICT"
 
 
 def test_f03_protocol_accepts_only_closed_matching_context() -> None:

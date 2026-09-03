@@ -10,6 +10,7 @@ from omarchy_platform.errors import ParseError
 from .comparison import compare_results
 from .errors import BuildProvenanceError
 from .models import HIGH_TRUST_CLASSES, BuildResult, PackageArtifact, PackageIndex, Provenance, Sbom
+from .sbom import validate_sbom
 from .trust import TrustAdapter, require_trusted_context
 from .util import canonical_bytes, digest_bytes, expect_digest, expect_string, sorted_unique
 
@@ -38,6 +39,7 @@ def make_package_index(
         raise BuildProvenanceError("PROVENANCE_BINDING_MISMATCH", "$.provenance_digest", "provenance is not from either build")
     if sbom.sbom_digest not in {left.sbom_digest, right.sbom_digest}:
         raise BuildProvenanceError("SBOM_ARTIFACT_SET_MISMATCH", "$.sbom_digest", "SBOM is not from either build")
+    validate_sbom(sbom, left.outputs, left.artifact_set_digest)
     if left.artifact_set_digest != sbom.artifact_set_digest:
         raise BuildProvenanceError("SBOM_ARTIFACT_SET_MISMATCH", "$.artifact_set_digest", "SBOM is not bound to build output")
     if len(left.outputs) != 1:

@@ -42,6 +42,12 @@ def make_sbom(
 def validate_sbom(sbom: Sbom, outputs: tuple[OutputRecord, ...], artifact_set_digest: str) -> None:
     """Reject absent, extra, duplicate, or mismatched output/dependency entries."""
 
+    entry_paths = [entry.output_path for entry in sbom.entries]
+    if len(entry_paths) != len(set(entry_paths)):
+        raise BuildProvenanceError("INCOMPLETE_SBOM", "$.entries", "SBOM output paths must be unique")
+    output_paths = [output.path for output in outputs]
+    if len(output_paths) != len(set(output_paths)):
+        raise BuildProvenanceError("ARTIFACT_MISMATCH", "$.outputs", "emitted output paths must be unique")
     if sbom.artifact_set_digest != artifact_set_digest:
         raise BuildProvenanceError("SBOM_ARTIFACT_SET_MISMATCH", "$.artifact_set_digest", "SBOM is not bound to output set")
     expected = {item.path: item for item in outputs}

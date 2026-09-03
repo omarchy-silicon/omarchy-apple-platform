@@ -343,6 +343,9 @@ class Sbom:
 
     @classmethod
     def create(cls, artifact_set_digest_value: str, entries: tuple[SbomEntry, ...]) -> "Sbom":
+        paths = [entry.output_path for entry in entries]
+        if len(paths) != len(set(paths)):
+            raise BuildProvenanceError("INCOMPLETE_SBOM", "$.entries", "SBOM output paths must be unique")
         body = {"version": "sbom/v1", "artifact_set_digest": artifact_set_digest_value, "entries": [item.to_dict() for item in entries]}
         return cls(artifact_set_digest_value, entries, digest_value("omarchy-sbom/v1", body))
 

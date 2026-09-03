@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .errors import StoreError
+from .errors import BuildProvenanceError, StoreError
 from .models import CHANNELS, PackageIndex, TrustedTrustContext
 from .trust import stable_authorization
 from .util import MAX_DOCUMENT_BYTES, MAX_OUTPUT_BYTES, canonical_bytes, digest_bytes, expect_digest, expect_string, read_json
@@ -25,19 +25,41 @@ class LocalArtifactStore:
 
     def __init__(self, root: str | os.PathLike[str], *, max_object_bytes: int = MAX_OUTPUT_BYTES):
         raw_root = Path(root).absolute()
-        if raw_root.exists() and raw_root.is_symlink():
+        if raw_root.is_symlink():
             raise StoreError("UNSAFE_PATH", "$", "store root may not be a symlink")
+        for ancestor in (raw_root, *raw_root.parents):
+            # macOS exposes the system temporary directory as /tmp -> /private/tmp.
+            # It is the one platform-owned link permitted for isolated test roots;
+            # links introduced anywhere below it remain rejected. Verify its
+            # destination too, so a replaced system link is not trusted.
+            if ancestor.is_symlink():
+                try:
+                    platform_temp_link = ancestor == Path("/tmp") and ancestor.resolve(strict=True) == Path("/private/tmp")
+                except OSError:
+                    platform_temp_link = False
+                if not platform_temp_link:
+                    raise StoreError("UNSAFE_PATH", "$", "store path may not traverse a symlink")
+            if ancestor.exists() and not ancestor.is_dir():
+                raise StoreError("UNSAFE_PATH", "$", "store path may not traverse a non-directory")
         self.root = raw_root.resolve()
         self.max_object_bytes = max_object_bytes
         self.objects = self.root / "objects" / "sha256"
         self.channels = self.root / "channels"
-        if (self.root / "objects").is_symlink() or self.channels.is_symlink():
-            raise StoreError("UNSAFE_PATH", "$", "store directories may not be symlinks")
-        self.objects.mkdir(parents=True, exist_ok=True)
-        self.channels.mkdir(parents=True, exist_ok=True)
-        for candidate in (self.root, self.objects, self.channels):
-            if candidate.is_symlink():
-                raise StoreError("UNSAFE_PATH", "$", "store roots may not be symlinks")
+        self._ensure_directory(self.root, "$", parents=True)
+        self._ensure_directory(self.root / "objects", "$.objects")
+        self._ensure_directory(self.objects, "$.objects.sha256")
+        self._ensure_directory(self.channels, "$.channels")
+
+    @staticmethod
+    def _ensure_directory(path: Path, field: str, *, parents: bool = False) -> None:
+        if path.is_symlink() or (path.exists() and not path.is_dir()):
+            raise StoreError("UNSAFE_PATH", field, "store path must be a real directory")
+        try:
+            path.mkdir(parents=parents, exist_ok=True)
+        except OSError as error:
+            raise StoreError("STORE_INIT_FAILURE", field, "store directory could not be created") from error
+        if path.is_symlink() or not path.is_dir():
+            raise StoreError("UNSAFE_PATH", field, "store path must be a real directory")
 
     def _object_path(self, digest: str) -> Path:
         expect_digest(digest, "$.digest")
@@ -106,11 +128,7 @@ class LocalArtifactStore:
         if channel not in CHANNELS:
             raise StoreError("UNKNOWN_CHANNEL", "$.channel", "channel is outside the closed vocabulary")
         directory = self.channels / channel
-        if directory.exists() and directory.is_symlink():
-            raise StoreError("UNSAFE_PATH", "$.channel", "channel directory may not be a symlink")
-        directory.mkdir(parents=True, exist_ok=True)
-        if directory.is_symlink():
-            raise StoreError("UNSAFE_PATH", "$.channel", "channel directory may not be a symlink")
+        self._ensure_directory(directory, "$.channel")
         path = directory / f"{release_id}.json"
         if path.parent != directory or path.is_symlink():
             raise StoreError("UNSAFE_PATH", "$.release_id", "channel record path is unsafe")
@@ -148,9 +166,17 @@ class LocalArtifactStore:
         if len(data) > MAX_DOCUMENT_BYTES:
             raise StoreError("RESOURCE_LIMIT", "$.channel", "channel record byte limit exceeded")
         if path.exists():
-            if path.is_symlink() or path.read_bytes() != data:
+            if path.is_symlink() or not path.is_file():
+                raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten")
+            try:
+                existing = path.read_bytes()
+            except OSError as error:
+                raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten") from error
+            if existing != data:
                 raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten")
             return
+        if path.is_symlink():
+            raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten")
         temporary: Path | None = None
         try:
             fd, name = tempfile.mkstemp(prefix=".channel-", dir=path.parent)
@@ -162,7 +188,13 @@ class LocalArtifactStore:
             try:
                 os.link(temporary, path)
             except FileExistsError:
-                if path.is_symlink() or path.read_bytes() != data:
+                if path.is_symlink() or not path.is_file():
+                    raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten") from None
+                try:
+                    existing = path.read_bytes()
+                except OSError as error:
+                    raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten") from error
+                if existing != data:
                     raise StoreError("IMMUTABLE_CHANNEL_CONFLICT", "$.release_id", "channel record cannot be overwritten") from None
         except StoreError:
             raise
@@ -228,17 +260,44 @@ class LocalArtifactStore:
             raise StoreError("TRUST_ADAPTER_REQUIRED", "$.context", "F-03 authorization is required before rollback")
         if channel == "stable" and not stable_authorization(context):
             raise StoreError("STABLE_PROMOTION_REQUIRES_F07", "$.channel", "stable rollback is F-07-only")
-        failed = self.read_channel(channel, failed_release_id)
-        restored = self.read_channel(channel, restore_release_id)
-        restore_index = PackageIndex.from_dict(json.loads(self.read(restored["index_digest"])))
+        try:
+            failed = self.read_channel(channel, failed_release_id)
+            restored = self.read_channel(channel, restore_release_id)
+            if failed.get("channel") != channel or failed.get("release_id") != failed_release_id or restored.get("channel") != channel or restored.get("release_id") != restore_release_id:
+                raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.channel", "rollback records are not bound to requested channel and release")
+            restore_bytes = self.read(restored["index_digest"])
+            restore_payload = json.loads(restore_bytes)
+            if not isinstance(restore_payload, dict) or "rollback_artifact_digests" not in restore_payload:
+                raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.rollback_artifact_digests", "rollback artifact member is missing")
+            restore_index = PackageIndex.from_dict(restore_payload)
+        except StoreError as error:
+            if error.code in {"ROLLBACK_BINDING_MISMATCH", "ROLLBACK_ARTIFACT_MISSING"}:
+                raise
+            if error.code in {"OBJECT_MISSING", "DIGEST_MISMATCH"}:
+                raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.restored_index_digest", "rollback index object is unavailable") from error
+            raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.restored_index_digest", "rollback index record is unavailable") from error
+        except BuildProvenanceError as error:
+            if error.code == "MISSING_FIELD" and error.path.endswith(".rollback_artifact_digests"):
+                raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.rollback_artifact_digests", "rollback artifact member is missing") from error
+            raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.restored_index_digest", "rollback index record is invalid") from error
+        except Exception as error:
+            raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.restored_index_digest", "rollback index record is invalid") from error
+        if restore_index.channel != channel or restore_index.release_id != restore_release_id:
+            raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.restored_index_digest", "rollback index is not bound to requested channel and release")
         if context.channel != channel or context.metadata_digest != self._object_metadata_digest(restored["index_digest"]):
             raise StoreError("TRUST_CONTEXT_MISMATCH", "$.restored_index_digest", "rollback authorization is not bound to restored index")
         if not restore_index.rollback_artifact_digests:
             raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.rollback_artifact_digests", "rollback set is empty")
         for artifact in restore_index.artifacts:
-            self.read(artifact.content_digest)
+            try:
+                self.read(artifact.content_digest)
+            except StoreError as error:
+                raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.artifacts", "rollback artifact is unavailable") from error
         for digest in restore_index.rollback_artifact_digests:
-            self.read(digest)
+            try:
+                self.read(digest)
+            except StoreError as error:
+                raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.rollback_artifact_digests", "rollback artifact is unavailable") from error
         # The recovery record is append-only and points only at the retained
         # existing index; no build or fetch is performed here.
         recovery_id = f"rollback-{failed_release_id}-to-{restore_release_id}"
