@@ -15,20 +15,21 @@ closed key set and every list is deterministically sorted by its identifier.
 
 `candidate`, `manifest`, and `schema_set` each contain `id`, `version`, and
 `digest`; the three references are copied into every artifact record and must
-match the bundle references exactly. A digest is a lowercase `sha256:` value
-with 64 hexadecimal characters. Source URIs are immutable HTTPS URIs whose
-path contains a pinned digest or version and which have no query or fragment.
+match the bundle references exactly. A digest is a non-null lowercase `sha256:`
+value with 64 hexadecimal characters. Source URIs are immutable HTTPS URIs
+with lowercase DNS, no userinfo/port/query/fragment, no dot or empty segments,
+and a final path segment containing the exact source and content digests.
 
 Each artifact contains exactly: `artifact_id`, `component_id`,
 `content_digest`, `source_digest`, `upstream_digest`, `fork_digest`,
 `source_uri`, `artifact_class`, `spdx_expression`, `copyright_notice`,
 `source_offer`, `redistribution`, `owner_decision`, `firmware_policy`,
 `generated`, `build_provenance`, `sbom_ref`, `candidate_ref`, `manifest_ref`,
-and `schema_set_ref`. The digest fields are explicit even when a value is
-`null`; upstream and fork are mutually exclusive unless the fork record
-explicitly names its upstream digest. Classes, SPDX expressions, firmware
-policy, redistribution states, and source-offer states are closed vocabularies
-in `policy/vocabulary.json`.
+and `schema_set_ref`. Upstream identity is required for every artifact; fork
+identity is additionally required for fork artifacts and is never inferred from
+two null values. Classes, SPDX expressions, firmware/asset policy,
+redistribution states, source-offer states, provenance versions, SBOM formats,
+and record versions are closed vocabularies in `policy/vocabulary.json`.
 
 Legal decisions are residual inputs, not invented by this evaluator. An owner
 decision has `decision_id`, `evidence_digest`, `decided_at`, and `expires_at`.
@@ -44,13 +45,14 @@ and sorted. Empty or incomplete bundles reject rather than defaulting.
 
 ## Evaluation and attestation
 
-`evaluate(bundle, now=...)` returns a closed result with `decision` (`allow` or
+`evaluate(bundle)` returns a closed result with `decision` (`allow` or
 `reject`), `code`, `path`, and deterministic `bundle_digest`. The first failure
 in the documented lexical order wins; no warning is a success. All parsing and
 validation is pure and read-only. `attest(bundle, result)` produces canonical
 bytes containing the exact inventory, policy, candidate, manifest, and
-schema-set digests plus `signed: false`, `trusted: false`, and
-`promotable: false`. It is an evidence projection only.
+schema-set digests plus `signed: false`, `trusted: false`, `clock_trusted: false`,
+and `promotable: false`. It is an evidence projection only. Production uses an
+internal UTC clock; only the private test adapter can replace it.
 
 The module CLI is `PYTHONPATH=src python -m omarchy_release_compliance` with
 `validate`, `evaluate`, and `attest` subcommands. It reads one JSON document
@@ -65,6 +67,8 @@ unknown/prohibited/direct-fetch-only redistribution, absent and expired owner
 decisions, missing NOTICE/source/SBOM/provenance, mutable URI, digest mismatch,
 fork/upstream ambiguity, and candidate/manifest/schema-set transplant. Tests
 also mutate the accepted object in memory so fixtures cannot become decorative.
-`tools/compliance/drift.py` verifies the vocabulary, fixture manifest, and
-hostile-code coverage without network access.
-
+`tools/compliance/drift.py` verifies the vocabulary, exact fixture manifest,
+hardcoded hostile-code oracle, canonical SHA-256 hashes, generated outputs, and
+hostile-code coverage without network access. `tools/compliance/generate.py`
+materializes consolidated NOTICE and public source-offers projections; both,
+like the unsigned attestation, are untrusted and non-promotable until F-03.

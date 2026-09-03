@@ -1,1 +1,7 @@
-{"mutation":"duplicate","path":"artifacts","code":"DUPLICATE_ID"}
+{
+  "code": "DUPLICATE_ID",
+  "mutation": "duplicate",
+  "path": "artifacts",
+  "sha256": "sha256:7179937d4ae007959d8d5bd1ba73018080e0032393e030eb5d8997b47be72e34",
+  "value": null
+}

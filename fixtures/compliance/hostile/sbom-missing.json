@@ -1,1 +1,7 @@
-{"mutation":"set","path":"artifacts[1].sbom_ref","value":null,"code":"SBOM_MISSING"}
+{
+  "code": "SBOM_MISSING",
+  "mutation": "set",
+  "path": "artifacts[1].sbom_ref",
+  "sha256": "sha256:491e79e4056b09b08ee2cef190fe8ffd89dd4661a622f6b43b6f75c14e465f57",
+  "value": null
+}

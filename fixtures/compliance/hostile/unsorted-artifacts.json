@@ -1,1 +1,7 @@
-{"mutation":"reverse","path":"artifacts","code":"UNSORTED_IDS"}
+{
+  "code": "UNSORTED_IDS",
+  "mutation": "reverse",
+  "path": "artifacts",
+  "sha256": "sha256:c9b6bc19b7755652e8d4f42d74c05a7e6fd1b3559ccfaa6d691ff65c97bf87a1",
+  "value": null
+}

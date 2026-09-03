@@ -1,1 +1,7 @@
-{"mutation":"set","path":"artifacts[1].build_provenance","value":null,"code":"PROVENANCE_MISSING"}
+{
+  "code": "PROVENANCE_MISSING",
+  "mutation": "set",
+  "path": "artifacts[1].build_provenance",
+  "sha256": "sha256:024d6ab9fd3dcea66ce5297e65517ede703c26d458b140d3970035293db801dd",
+  "value": null
+}

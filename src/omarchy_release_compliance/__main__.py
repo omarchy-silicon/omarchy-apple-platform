@@ -3,42 +3,40 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
 import sys
 
+from omarchy_platform.constants import LIMITS
 from omarchy_platform.strictjson import parse
 from omarchy_platform.errors import ValidationError
 from omarchy_release_compliance.engine import ComplianceError, attest, evaluate, validate
 
 
 def _read(path: str) -> object:
-    raw = sys.stdin.buffer.read() if path == "-" else open(path, "rb").read()
+    if path == "-":
+        raw = sys.stdin.buffer.read(LIMITS["max_input_bytes"] + 1)
+    else:
+        with open(path, "rb") as source:
+            raw = source.read(LIMITS["max_input_bytes"] + 1)
+    if len(raw) > LIMITS["max_input_bytes"]:
+        raise ComplianceError("RESOURCE_LIMIT", "$", "input exceeds bounded max bytes")
     return parse(raw)
-
-
-def _now(value: str | None) -> datetime:
-    if value:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return datetime.now(timezone.utc)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="omarchy_release_compliance")
     parser.add_argument("command", choices=("validate", "evaluate", "attest"))
     parser.add_argument("path", nargs="?", default="-", help="JSON file, or - for stdin")
-    parser.add_argument("--now", help="evaluation time as UTC ISO-8601 timestamp")
     args = parser.parse_args(argv)
     try:
         bundle = _read(args.path)
-        when = _now(args.now)
         if args.command == "validate":
-            output = {"version": "release-compliance/v1", "decision": "allow", "code": "OK", "path": "$"}
-            validate(bundle, now=when)
+            output = {"version": "release-compliance/v1", "decision": "allow", "code": "OK", "path": "$", "clock_trusted": False}
+            validate(bundle)
         elif args.command == "evaluate":
-            output = evaluate(bundle, now=when)
+            output = evaluate(bundle)
         else:
-            output = json.loads(attest(bundle, now=when))
+            output = json.loads(attest(bundle))
         encoded = json.dumps(output, sort_keys=True, separators=(",", ":")) + "\n"
         if output.get("decision") == "reject":
             sys.stderr.write(encoded)
@@ -46,13 +44,13 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(encoded)
         return 0
     except ComplianceError as error:
-        sys.stderr.write(json.dumps({"version": "release-compliance/v1", "decision": "reject", **error.as_dict()}, sort_keys=True, separators=(",", ":")) + "\n")
+        sys.stderr.write(json.dumps({"version": "release-compliance/v1", "decision": "reject", "clock_trusted": False, **error.as_dict()}, sort_keys=True, separators=(",", ":")) + "\n")
         return 2
     except ValidationError as error:
-        sys.stderr.write(json.dumps({"version": "release-compliance/v1", "decision": "reject", "code": error.code, "path": error.path, "detail": error.message}, sort_keys=True, separators=(",", ":")) + "\n")
+        sys.stderr.write(json.dumps({"version": "release-compliance/v1", "decision": "reject", "clock_trusted": False, "code": error.code, "path": error.path, "detail": error.message}, sort_keys=True, separators=(",", ":")) + "\n")
         return 3
     except (OSError, ValueError, TypeError) as error:
-        sys.stderr.write(json.dumps({"version": "release-compliance/v1", "decision": "reject", "code": "PARSE_OR_INPUT_FAILURE", "path": "$", "detail": str(error)}, sort_keys=True, separators=(",", ":")) + "\n")
+        sys.stderr.write(json.dumps({"version": "release-compliance/v1", "decision": "reject", "clock_trusted": False, "code": "PARSE_OR_INPUT_FAILURE", "path": "$", "detail": str(error)}, sort_keys=True, separators=(",", ":")) + "\n")
         return 3
 
 

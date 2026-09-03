@@ -1,1 +1,7 @@
-{"mutation":"set","path":"artifacts[0].redistribution","value":"prohibited","code":"REDISTRIBUTION_PROHIBITED"}
+{
+  "code": "REDISTRIBUTION_PROHIBITED",
+  "mutation": "set",
+  "path": "artifacts[0].redistribution",
+  "sha256": "sha256:2e3b5f248891f7658a4c36d1444c3154e12819e9847a06d9822ef387d2869eb0",
+  "value": "prohibited"
+}

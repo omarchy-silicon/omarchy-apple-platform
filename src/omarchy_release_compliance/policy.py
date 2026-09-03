@@ -16,6 +16,12 @@ VOCABULARY = {
     "asset_policy": ["not-applicable", "opaque-reference", "redistributable"],
     "firmware_policy": ["not-applicable", "opaque-reference", "redistributable"],
     "source_offer_status": ["not-required", "offered"],
+    "provenance_version": "build-provenance/v1",
+    "sbom_version": "sbom-ref/v1",
+    "sbom_formats": ["cyclonedx-json", "spdx-json"],
+    "notice_version": "notice/v1",
+    "source_offer_version": "source-offer/v1",
+    "owner_decision_version": "owner-decision/v1",
 }
 
 

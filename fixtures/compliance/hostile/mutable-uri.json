@@ -1,1 +1,7 @@
-{"mutation":"set","path":"artifacts[0].source_uri","value":"https://example.invalid/omarchy-base/latest.tar.gz","code":"MUTABLE_SOURCE_URI"}
+{
+  "code": "MUTABLE_SOURCE_URI",
+  "mutation": "set",
+  "path": "artifacts[0].source_uri",
+  "sha256": "sha256:3b6849ce43dbffb88773194e718123c51d4238360fe9e487d835fb25e8ba5aff",
+  "value": "https://example.invalid/omarchy-base/latest.tar.gz"
+}

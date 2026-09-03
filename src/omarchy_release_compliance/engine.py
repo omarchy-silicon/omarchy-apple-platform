@@ -15,6 +15,7 @@ VERSION = "release-compliance/v1"
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_DNS = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$")
 _TOP = ("version", "policy", "candidate", "manifest", "schema_set", "artifacts")
 _TARGET = ("id", "version", "digest")
 _ARTIFACT = (
@@ -23,9 +24,12 @@ _ARTIFACT = (
     "redistribution", "owner_decision", "firmware_policy", "asset_policy", "generated", "build_provenance", "sbom_ref",
     "candidate_ref", "manifest_ref", "schema_set_ref",
 )
-_NOTICE = ("id", "text")
-_OFFER = ("status", "location", "digest", "expires_at")
-_DECISION = ("decision_id", "evidence_digest", "decided_at", "expires_at")
+_NOTICE = ("version", "id", "text", "digest")
+_OFFER = ("version", "status", "location", "digest", "expires_at")
+_DECISION = ("version", "decision_id", "evidence_digest", "decided_at", "expires_at")
+_PROVENANCE = ("version", "builder", "recipe_digest", "source_digest", "environment_digest")
+_SBOM = ("version", "format", "digest", "uri")
+_CLOCK = lambda: datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -71,8 +75,8 @@ def _string(value: Any, path: str, *, identifier: bool = False) -> str:
     return value
 
 
-def _digest(value: Any, path: str) -> str:
-    if value is None:
+def _digest(value: Any, path: str, *, required: bool = True) -> str | None:
+    if value is None and not required:
         return value
     if not isinstance(value, str) or not _DIGEST.fullmatch(value):
         _fail("INVALID_DIGEST", path, "lowercase sha256 digest required")
@@ -99,13 +103,23 @@ def _target(value: Any, path: str) -> dict[str, Any]:
 
 def _immutable_uri(value: Any, path: str) -> str:
     uri = _string(value, path)
-    parsed = urlsplit(uri)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-        _fail("MUTABLE_SOURCE_URI", path, "only pinned HTTPS URIs are accepted")
+    try:
+        parsed = urlsplit(uri)
+        hostname = parsed.hostname
+        port = parsed.port
+    except (ValueError, UnicodeError):
+        _fail("MUTABLE_SOURCE_URI", path, "malformed HTTPS URI")
+    if parsed.scheme != "https" or not hostname or not _DNS.fullmatch(hostname) or re.search(r"[A-Z]", parsed.netloc) or parsed.username or parsed.password or port is not None:
+        _fail("MUTABLE_SOURCE_URI", path, "only lowercase-host HTTPS URIs without userinfo or port are accepted")
     if parsed.query or parsed.fragment or "%" in parsed.path:
-        _fail("MUTABLE_SOURCE_URI", path, "query, fragment, and encoded paths are not immutable")
-    if not re.search(r"sha256:[0-9a-f]{64}", parsed.path) and not re.search(r"(?:^|[/_-])v?\d+\.\d+(?:\.\d+)?(?:[/_.-]|$)", parsed.path):
-        _fail("MUTABLE_SOURCE_URI", path, "URI must contain a pinned digest or version")
+        _fail("MUTABLE_SOURCE_URI", path, "query, fragment, and percent-encoded paths are not immutable")
+    if not parsed.path.startswith("/"):
+        _fail("MUTABLE_SOURCE_URI", path, "absolute path is required")
+    segments = parsed.path[1:].split("/")
+    if not segments or any(segment in ("", ".", "..") for segment in segments):
+        _fail("MUTABLE_SOURCE_URI", path, "empty, dot, and traversal path segments are forbidden")
+    if not re.search(r"sha256:[0-9a-f]{64}", segments[-1]):
+        _fail("MUTABLE_SOURCE_URI", path, "final URI path segment must contain a pinned digest")
     return uri
 
 
@@ -127,16 +141,14 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
     a = _object(item, path, _ARTIFACT)
     _string(a["artifact_id"], f"{path}.artifact_id", identifier=True)
     _string(a["component_id"], f"{path}.component_id", identifier=True)
-    for field in ("content_digest", "source_digest", "upstream_digest", "fork_digest"):
-        _digest(a[field], f"{path}.{field}")
-    if a["source_digest"] is None:
-        _fail("INCOMPLETE_INVENTORY", f"{path}.source_digest", "source digest is required")
-    if a["content_digest"] is None:
-        _fail("INCOMPLETE_INVENTORY", f"{path}.content_digest", "content digest is required")
+    _digest(a["content_digest"], f"{path}.content_digest")
+    _digest(a["source_digest"], f"{path}.source_digest")
+    _digest(a["upstream_digest"], f"{path}.upstream_digest", required=False)
+    _digest(a["fork_digest"], f"{path}.fork_digest", required=False)
     source_uri = _immutable_uri(a["source_uri"], f"{path}.source_uri")
-    pinned = re.search(r"sha256:[0-9a-f]{64}", urlsplit(source_uri).path)
-    if pinned and pinned.group(0) != a["source_digest"]:
-        _fail("DIGEST_MISMATCH", f"{path}.source_uri", "pinned URI digest does not match source_digest")
+    final_segment = urlsplit(source_uri).path.rsplit("/", 1)[-1]
+    if a["source_digest"] not in final_segment or a["content_digest"] not in final_segment:
+        _fail("DIGEST_MISMATCH", f"{path}.source_uri", "final URI path segment must bind exact source and content digests")
     if a["artifact_class"] not in vocabulary()["artifact_classes"]:
         _fail("UNKNOWN_ARTIFACT_CLASS", f"{path}.artifact_class", "artifact class is outside policy vocabulary")
     if a["spdx_expression"] not in vocabulary()["spdx_expressions"]:
@@ -159,17 +171,26 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
     _sorted_unique(notices, f"{path}.copyright_notice", "id")
     for index, notice in enumerate(notices):
         n = _object(notice, f"{path}.copyright_notice[{index}]", _NOTICE)
+        if n["version"] != vocabulary()["notice_version"]:
+            _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.copyright_notice[{index}].version", "unsupported NOTICE version")
         _string(n["id"], f"{path}.copyright_notice[{index}].id", identifier=True)
         _string(n["text"], f"{path}.copyright_notice[{index}].text")
+        _digest(n["digest"], f"{path}.copyright_notice[{index}].digest")
+        expected_notice = domain_digest("omarchy-notice/v1", {"id": n["id"], "text": n["text"]})
+        if n["digest"] != expected_notice:
+            _fail("DIGEST_MISMATCH", f"{path}.copyright_notice[{index}].digest", "NOTICE digest does not match its closed record")
     offer = a["source_offer"]
     if not isinstance(offer, dict):
         _fail("SOURCE_OFFER_MISSING", f"{path}.source_offer", "source-offer record is required")
     offer = _object(offer, f"{path}.source_offer", _OFFER)
+    if offer["version"] != vocabulary()["source_offer_version"]:
+        _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.source_offer.version", "unsupported source-offer version")
     if offer["status"] not in vocabulary()["source_offer_status"] or offer["status"] != "offered":
         _fail("SOURCE_OFFER_MISSING", f"{path}.source_offer.status", "redistributed artifacts require offered source")
-    _immutable_uri(offer["location"], f"{path}.source_offer.location")
+    offer_location = _immutable_uri(offer["location"], f"{path}.source_offer.location")
     _digest(offer["digest"], f"{path}.source_offer.digest")
-    if offer["digest"] != a["source_digest"] or offer["location"] != a["source_uri"]:
+    offer_final = urlsplit(offer_location).path.rsplit("/", 1)[-1]
+    if offer["digest"] != a["source_digest"] or offer["location"] != a["source_uri"] or a["content_digest"] not in offer_final or a["source_digest"] not in offer_final:
         _fail("DIGEST_MISMATCH", f"{path}.source_offer", "source offer must match source identity")
     expiry = _timestamp(offer["expires_at"], f"{path}.source_offer.expires_at")
     if expiry <= now:
@@ -187,40 +208,75 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
     if not isinstance(decision, dict):
         _fail("OWNER_DECISION_MISSING", f"{path}.owner_decision", "owner/legal decision is required")
     decision = _object(decision, f"{path}.owner_decision", _DECISION)
+    if decision["version"] != vocabulary()["owner_decision_version"]:
+        _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.owner_decision.version", "unsupported owner-decision version")
     _string(decision["decision_id"], f"{path}.owner_decision.decision_id", identifier=True)
     _digest(decision["evidence_digest"], f"{path}.owner_decision.evidence_digest")
     decided = _timestamp(decision["decided_at"], f"{path}.owner_decision.decided_at")
     expires = _timestamp(decision["expires_at"], f"{path}.owner_decision.expires_at")
-    if decision["evidence_digest"] is None or expires <= decided:
+    if expires <= decided:
         _fail("OWNER_DECISION_MISSING", f"{path}.owner_decision", "decision evidence and valid interval are required")
     if expires <= now:
         _fail("OWNER_DECISION_EXPIRED", f"{path}.owner_decision.expires_at", "owner/legal decision is expired")
     if not isinstance(a["generated"], bool):
         _fail("INCOMPLETE_INVENTORY", f"{path}.generated", "generated must be boolean")
     if a["generated"]:
-        if not isinstance(a["build_provenance"], dict) or not a["build_provenance"]:
+        provenance = a["build_provenance"]
+        if not isinstance(provenance, dict):
             _fail("PROVENANCE_MISSING", f"{path}.build_provenance", "generated artifacts require build provenance")
-        if not isinstance(a["sbom_ref"], str) or not a["sbom_ref"]:
+        provenance = _object(provenance, f"{path}.build_provenance", _PROVENANCE)
+        if provenance["version"] != vocabulary()["provenance_version"]:
+            _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.build_provenance.version", "unsupported provenance version")
+        _string(provenance["builder"], f"{path}.build_provenance.builder", identifier=True)
+        for field in ("recipe_digest", "source_digest", "environment_digest"):
+            _digest(provenance[field], f"{path}.build_provenance.{field}")
+        if provenance["source_digest"] != a["source_digest"]:
+            _fail("DIGEST_MISMATCH", f"{path}.build_provenance.source_digest", "provenance source digest must match artifact source")
+        sbom = a["sbom_ref"]
+        if not isinstance(sbom, dict):
             _fail("SBOM_MISSING", f"{path}.sbom_ref", "generated artifacts require an SBOM reference")
+        sbom = _object(sbom, f"{path}.sbom_ref", _SBOM)
+        if sbom["version"] != vocabulary()["sbom_version"]:
+            _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.sbom_ref.version", "unsupported SBOM version")
+        if sbom["format"] not in vocabulary()["sbom_formats"]:
+            _fail("UNKNOWN_SBOM_FORMAT", f"{path}.sbom_ref.format", "SBOM format is outside vocabulary")
+        _digest(sbom["digest"], f"{path}.sbom_ref.digest")
+        _immutable_uri(sbom["uri"], f"{path}.sbom_ref.uri")
+        if sbom["digest"] not in urlsplit(sbom["uri"]).path.rsplit("/", 1)[-1]:
+            _fail("DIGEST_MISMATCH", f"{path}.sbom_ref.uri", "SBOM URI must bind its digest")
     else:
         if a["build_provenance"] is not None or a["sbom_ref"] is not None:
             _fail("INVALID_PROVENANCE", f"{path}.build_provenance", "non-generated artifacts must use null provenance/SBOM")
     _check_ref(a["candidate_ref"], candidate, f"{path}.candidate_ref")
     _check_ref(a["manifest_ref"], manifest, f"{path}.manifest_ref")
     _check_ref(a["schema_set_ref"], schema_set, f"{path}.schema_set_ref")
+    if a["fork_digest"] is None and a["upstream_digest"] is None:
+        _fail("FORK_UPSTREAM_AMBIGUOUS", f"{path}.upstream_digest", "at least one explicit upstream/fork identity is required")
     if a["fork_digest"] is not None and a["upstream_digest"] is None:
         _fail("FORK_UPSTREAM_AMBIGUOUS", f"{path}.fork_digest", "a fork must name its upstream digest")
     if a["fork_digest"] is not None and a["artifact_class"] != "fork":
         _fail("FORK_UPSTREAM_AMBIGUOUS", f"{path}.fork_digest", "fork digest requires fork artifact class")
     if a["artifact_class"] == "fork" and a["fork_digest"] is None:
         _fail("FORK_UPSTREAM_AMBIGUOUS", f"{path}.fork_digest", "fork artifacts require fork digest")
+    if a["artifact_class"] != "fork" and a["upstream_digest"] is None:
+        _fail("FORK_UPSTREAM_AMBIGUOUS", f"{path}.upstream_digest", "non-fork artifacts require upstream identity")
 
 
-def validate(bundle: Any, *, now: datetime | None = None) -> dict[str, Any]:
-    """Validate and return a defensive copy of an accepted bundle."""
-    if now is None:
-        now = datetime.now(timezone.utc)
-    if now.tzinfo is None:
+def _utc_now() -> datetime:
+    """Internal clock seam; production callers cannot supply a timestamp."""
+    return _CLOCK()
+
+
+def _set_test_clock(clock) -> None:
+    """Private test-only clock adapter, intentionally not exposed by CLI."""
+    global _CLOCK
+    _CLOCK = clock
+
+
+def validate(bundle: Any) -> dict[str, Any]:
+    """Validate and return an accepted bundle using the internal UTC clock."""
+    now = _utc_now()
+    if not isinstance(now, datetime) or now.tzinfo is None:
         _fail("INVALID_TIMESTAMP", "$.now", "evaluation time must be timezone-aware")
     top = _object(bundle, "$", _TOP)
     if top["version"] != VERSION:
@@ -228,6 +284,7 @@ def validate(bundle: Any, *, now: datetime | None = None) -> dict[str, Any]:
     policy = _object(top["policy"], "$.policy", ("version", "digest"))
     if policy["version"] != vocabulary()["version"]:
         _fail("UNSUPPORTED_POLICY", "$.policy.version", "unsupported policy version")
+    _digest(policy["digest"], "$.policy.digest")
     expected_policy = domain_digest("omarchy-compliance-policy/v1", vocabulary())
     if policy["digest"] != expected_policy:
         _fail("POLICY_DIGEST_MISMATCH", "$.policy.digest", "policy digest does not match closed vocabulary")
@@ -251,27 +308,30 @@ def validate(bundle: Any, *, now: datetime | None = None) -> dict[str, Any]:
     return bundle
 
 
-def evaluate(bundle: Any, *, now: datetime | None = None) -> dict[str, Any]:
+def evaluate(bundle: Any) -> dict[str, Any]:
     """Return a closed allow/reject result without throwing for policy failures."""
     try:
-        accepted = validate(bundle, now=now)
+        validate(bundle)
+        policy_digest = bundle["policy"]["digest"]
+        candidate, manifest, schema_set = (bundle[key] for key in ("candidate", "manifest", "schema_set"))
+        inventory_digest = domain_digest("omarchy-release-inventory/v1", bundle["artifacts"])
+        bundle_digest = domain_digest("omarchy-release-bundle/v1", bundle)
+        valid_until = min(min(a["source_offer"]["expires_at"], a["owner_decision"]["expires_at"]) for a in bundle["artifacts"])
     except ComplianceError as error:
-        return {"version": VERSION, "decision": "reject", **error.as_dict()}
-    policy_digest = bundle["policy"]["digest"]
-    candidate, manifest, schema_set = (bundle[key] for key in ("candidate", "manifest", "schema_set"))
-    inventory_digest = domain_digest("omarchy-release-inventory/v1", bundle["artifacts"])
-    bundle_digest = domain_digest("omarchy-release-bundle/v1", bundle)
+        return {"version": VERSION, "decision": "reject", "clock_trusted": False, **error.as_dict()}
+    except Exception:
+        return {"version": VERSION, "decision": "reject", "clock_trusted": False, "code": "VALIDATION_FAILURE", "path": "$", "detail": "input failed closed validation"}
     return {
-        "version": VERSION, "decision": "allow", "code": "OK", "path": "$", "detail": "compliant",
+        "version": VERSION, "decision": "allow", "code": "OK", "path": "$", "detail": "compliant", "clock_trusted": False, "valid_until": valid_until,
         "inventory_digest": inventory_digest, "policy_digest": policy_digest,
         "candidate_digest": candidate["digest"], "manifest_digest": manifest["digest"],
         "schema_set_digest": schema_set["digest"], "bundle_digest": bundle_digest,
     }
 
 
-def attest(bundle: Any, *, now: datetime | None = None) -> bytes:
+def attest(bundle: Any) -> bytes:
     """Project an accepted result into unsigned evidence bytes."""
-    result = evaluate(bundle, now=now)
+    result = evaluate(bundle)
     if result["decision"] != "allow":
         raise ComplianceError(result["code"], result["path"], result.get("detail", "rejected"))
     projection = {
@@ -280,6 +340,8 @@ def attest(bundle: Any, *, now: datetime | None = None) -> bytes:
         "signed": False,
         "trusted": False,
         "promotable": False,
+        "clock_trusted": False,
+        "valid_until": result["valid_until"],
         "inventory_digest": result["inventory_digest"],
         "policy_digest": result["policy_digest"],
         "candidate_digest": result["candidate_digest"],

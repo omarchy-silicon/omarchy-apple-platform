@@ -1,1 +1,7 @@
-{"mutation":"add","path":"artifacts[0].surprise","value":true,"code":"UNKNOWN_FIELD"}
+{
+  "code": "UNKNOWN_FIELD",
+  "mutation": "add",
+  "path": "artifacts[0].surprise",
+  "sha256": "sha256:f10bb4b56fcf0f68310715bb6461c1dd41622beb21b5a666a3bd5997f8a8d692",
+  "value": true
+}

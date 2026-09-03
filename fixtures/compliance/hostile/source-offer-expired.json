@@ -1,1 +1,7 @@
-{"mutation":"set","path":"artifacts[0].source_offer.expires_at","value":"2026-01-01T00:00:00Z","code":"SOURCE_OFFER_EXPIRED"}
+{
+  "code": "SOURCE_OFFER_EXPIRED",
+  "mutation": "set",
+  "path": "artifacts[0].source_offer.expires_at",
+  "sha256": "sha256:247cc977d8c106ad917b9c622b7f2f2e945bd9cce5e7661909a3d90619f0669d",
+  "value": "2026-01-01T00:00:00Z"
+}

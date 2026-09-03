@@ -1,0 +1,12 @@
+F-06 NOTICE BUNDLE v1
+inventory_digest=sha256:1b241ed3d2b377e69963fc984f9b0d13d5c7c92c35bad8e5ca00716ae0b44b5c
+policy_digest=sha256:8a2f98a488a3c8b6bb5a1535dfc0e579d25767a608736c05d783fd62ca8cc079
+candidate_digest=sha256:1111111111111111111111111111111111111111111111111111111111111111
+manifest_digest=sha256:2222222222222222222222222222222222222222222222222222222222222222
+schema_set_digest=sha256:3333333333333333333333333333333333333333333333333333333333333333
+signed=false
+trusted=false
+promotable=false
+
+[omarchy-base/notice-omarchy] Copyright Omarchy contributors
+[omarchy-launcher/notice-launcher] Copyright Omarchy contributors

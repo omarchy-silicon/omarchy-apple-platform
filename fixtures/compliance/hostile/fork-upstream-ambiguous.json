@@ -1,1 +1,7 @@
-{"mutation":"set","path":"artifacts[0].fork_digest","value":"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","code":"FORK_UPSTREAM_AMBIGUOUS"}
+{
+  "code": "FORK_UPSTREAM_AMBIGUOUS",
+  "mutation": "set",
+  "path": "artifacts[0].fork_digest",
+  "sha256": "sha256:041feb37c3d3302aba99a42d5cc19281a0900155d429667bc5b24fb327f17c19",
+  "value": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}
