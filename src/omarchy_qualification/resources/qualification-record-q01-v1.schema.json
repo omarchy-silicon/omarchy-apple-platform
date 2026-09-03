@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/q01/qualification-record-q01-v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema", "schema_set_digest", "record_id", "board_id", "board_selector", "profile_id", "intake_dataset_digest", "intake_record_id", "intake_record_digest", "f02_schema_set_digest", "manifest_id", "manifest_digest", "firmware_baseline", "physical_units", "capabilities", "evidence", "tool_versions", "redaction", "residuals", "issued_at", "validated_at", "outcome", "admission"],
+  "properties": {
+    "schema": {"const": "qualification-record/q01-v1"},
+    "schema_set_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "record_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "board_id": {"type": "string", "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"},
+    "board_selector": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$"},
+    "profile_id": {"type": "string", "pattern": "^profile:[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "intake_dataset_digest": {"$ref": "#/$defs/digest"},
+    "intake_record_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "intake_record_digest": {"$ref": "#/$defs/digest"},
+    "f02_schema_set_digest": {"$ref": "#/$defs/digest"},
+    "manifest_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"},
+    "manifest_digest": {"$ref": "#/$defs/digest"},
+    "firmware_baseline": {"$ref": "#/$defs/firmware"},
+    "physical_units": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/unit"}},
+    "capabilities": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"$ref": "#/$defs/capability"}},
+    "evidence": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/evidence"}},
+    "tool_versions": {"$ref": "#/$defs/tools"},
+    "redaction": {"$ref": "#/$defs/redaction"},
+    "residuals": {"type": "array", "items": {"$ref": "#/$defs/residual"}},
+    "issued_at": {"$ref": "#/$defs/timestamp"},
+    "validated_at": {"$ref": "#/$defs/timestamp"},
+    "outcome": {"enum": ["UNKNOWN", "NOT_QUALIFIED", "PARTIAL", "FULL"]},
+    "admission": {"enum": ["NOT_QUALIFIED", "QUALIFIED"]}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$"},
+    "firmware": {"type": "object", "additionalProperties": false, "required": ["firmware_id", "version", "build", "captured_at"], "properties": {"firmware_id": {"type": "string"}, "version": {"type": "string"}, "build": {"type": "string"}, "captured_at": {"$ref": "#/$defs/timestamp"}}},
+    "unit": {"type": "object", "additionalProperties": false, "required": ["unit_id", "identity_digest", "board_id", "profile_id", "inventory_tag"], "properties": {"unit_id": {"type": "string"}, "identity_digest": {"$ref": "#/$defs/digest"}, "board_id": {"type": "string"}, "profile_id": {"type": "string"}, "inventory_tag": {"type": "string"}}},
+    "capability": {"type": "object", "additionalProperties": false, "required": ["capability_id", "applicability", "status", "evidence_ids", "threshold_met"], "properties": {"capability_id": {"type": "string"}, "applicability": {"enum": ["applicable", "not-applicable", "unknown"]}, "status": {"enum": ["pass", "fail", "unknown"]}, "evidence_ids": {"type": "array", "items": {"type": "string"}}, "threshold_met": {"type": "boolean"}}},
+    "evidence": {"type": "object", "additionalProperties": false, "required": ["evidence_id", "bytes_b64", "content_digest", "modality", "physical", "unit_ids", "observed_at", "tool_version", "redaction_ref"], "properties": {"evidence_id": {"type": "string"}, "bytes_b64": {"type": "string", "minLength": 1}, "content_digest": {"$ref": "#/$defs/digest"}, "modality": {"enum": ["automated", "human-observed", "automated-and-human"]}, "physical": {"type": "boolean"}, "unit_ids": {"type": "array", "items": {"type": "string"}}, "observed_at": {"$ref": "#/$defs/timestamp"}, "tool_version": {"type": "string"}, "redaction_ref": {"type": ["string", "null"]}}},
+    "tools": {"type": "object", "additionalProperties": false, "required": ["validator", "schema"], "properties": {"validator": {"type": "string"}, "schema": {"type": "string"}}},
+    "redaction": {"type": "object", "additionalProperties": false, "required": ["policy", "applied", "residuals"], "properties": {"policy": {"enum": ["none", "q01-redaction-v1"]}, "applied": {"type": "boolean"}, "residuals": {"type": "array", "items": {"type": "string"}}}},
+    "residual": {"type": "object", "additionalProperties": false, "required": ["residual_id", "reason", "state"], "properties": {"residual_id": {"type": "string"}, "reason": {"type": "string"}, "state": {"enum": ["unknown", "blocked", "not-covered"]}}}
+  }
+}

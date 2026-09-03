@@ -19,6 +19,7 @@ omarchy-trust = "omarchy_trust.cli:main"
 omarchy-intake = "omarchy_intake.cli:main"
 omarchy-build = "omarchy_build.cli:main"
 omarchy-program = "omarchy_program.cli:main"
+omarchy-qualification = "omarchy_qualification.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -27,6 +28,7 @@ where = ["src"]
 omarchy_trust = ["resources/*.json"]
 omarchy_intake = ["resources/*.json"]
 omarchy_build = ["schemas/*.json"]
+omarchy_qualification = ["resources/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
