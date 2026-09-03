@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.invalid/schemas/candidate-manifest/v1",
+  "title": "F-05 immutable candidate manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "candidate_id", "channel", "board_id", "profile_id", "firmware", "platform", "intake", "qualification", "package", "compliance", "required_gates", "rollback", "source", "candidate_digest"],
+  "properties": {"version": {"const": "candidate-manifest/v1"}, "candidate_id": {"type": "string"}, "channel": {"enum": ["edge", "rc", "stable"]}, "board_id": {"type": "string"}, "profile_id": {"type": "string"}, "firmware": {"type": "object"}, "platform": {"type": "object"}, "intake": {"type": "object"}, "qualification": {"type": "object"}, "package": {"type": "object"}, "compliance": {"type": "object"}, "required_gates": {"type": "array"}, "rollback": {"type": "array"}, "source": {"type": "object"}, "candidate_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

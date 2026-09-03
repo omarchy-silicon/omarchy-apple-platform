@@ -11,7 +11,7 @@ from omarchy_platform.canonical import canonical_bytes
 from omarchy_platform.strictjson import parse
 
 from .errors import CandidateAssemblyError
-from .generated import REQUIRED_GATE_IDS, SCHEMA_DIGEST, VERSION
+from .generated import INPUT_VERSION, OUTPUT_VERSION, REQUIRED_GATE_IDS, VERSION
 
 _DIGEST = "sha256:"
 
@@ -77,8 +77,8 @@ def _sorted(values: list[str], path: str) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
-class TrustedReceipt:
-    """Typed authority result; callers cannot substitute a boolean trust flag."""
+class _VerifiedAuthority:
+    """Private result constructed by an F-03/F-06/Q-00/Q-01 adapter."""
 
     authority: str
     subject: str
@@ -88,11 +88,15 @@ class TrustedReceipt:
     channel: str
     expires_at: str
     replay_id: str
+    metadata_digest: str
+    schema_set_digest: str
 
     def __post_init__(self) -> None:
         _string(self.authority, "$.authority")
         _string(self.subject, "$.subject")
         _digest(self.digest, "$.digest")
+        _digest(self.metadata_digest, "$.metadata_digest")
+        _digest(self.schema_set_digest, "$.schema_set_digest")
         _string(self.board_id, "$.board_id")
         _string(self.profile_id, "$.profile_id")
         if self.channel not in {"edge", "rc", "stable"}:
@@ -102,9 +106,9 @@ class TrustedReceipt:
 
 
 class CandidateAuthority(Protocol):
-    """F-03/F-06/Q-00/Q-01 adapters provide verified typed receipts."""
+    """Adapters verify exact canonical source bytes and return a private result."""
 
-    def verify(self, kind: str, value: Mapping[str, Any], digest: str, *, board_id: str, profile_id: str, channel: str) -> TrustedReceipt: ...
+    def verify_canonical(self, kind: str, source_bytes: bytes, *, digest: str, board_id: str, profile_id: str, channel: str, schema_set_digest: str, verification_time: str, subject: str) -> _VerifiedAuthority: ...
 
 
 class ArtifactReader(Protocol):
@@ -132,16 +136,18 @@ class CandidateAssemblyInput:
     @classmethod
     def from_dict(cls, value: Any) -> "CandidateAssemblyInput":
         value = _closed(value, cls.FIELDS, "$")
-        if value["version"] != VERSION:
-            _fail("UNSUPPORTED_VERSION", "$.version", f"{VERSION} required")
+        if value["version"] != INPUT_VERSION:
+            _fail("UNSUPPORTED_VERSION", "$.version", f"{INPUT_VERSION} required")
         candidate_id = _string(value["candidate_id"], "$.candidate_id")
         channel = _string(value["channel"], "$.channel")
         if channel not in {"edge", "rc", "stable"}:
             _fail("UNKNOWN_CHANNEL", "$.channel", "channel is outside the closed vocabulary")
         board_id, profile_id = _string(value["board_id"], "$.board_id"), _string(value["profile_id"], "$.profile_id")
         firmware = _closed(value["firmware"], ("firmware_id", "version", "build_digest"), "$.firmware")
-        for field in ("firmware_id", "version"):
+        for field in ("firmware_id",):
             _string(firmware[field], f"$.firmware.{field}")
+        if not isinstance(firmware["version"], str) or not __import__("re").fullmatch(r"(?:0|[1-9][0-9]{0,4})\.(?:0|[1-9][0-9]{0,4})\.(?:0|[1-9][0-9]{0,4})", firmware["version"]):
+            _fail("INVALID_FIRMWARE_VERSION", "$.firmware.version", "F-02-compatible semantic version required")
         _digest(firmware["build_digest"], "$.firmware.build_digest")
         platform = _closed(value["platform"], ("manifest_id", "manifest_digest", "schema_set_digest", "tuple_id", "abi_version", "artifact_ids"), "$.platform")
         for field in ("manifest_id", "tuple_id", "abi_version"):
@@ -155,7 +161,7 @@ class CandidateAssemblyInput:
         _digest(qualification["inventory_digest"], "$.qualification.inventory_digest"); _string(qualification["record_id"], "$.qualification.record_id"); _digest(qualification["record_digest"], "$.qualification.record_digest")
         if qualification["outcome"] != "FULL" or qualification["admission"] != "QUALIFIED":
             _fail("QUALIFICATION_REQUIRED", "$.qualification", "only FULL/QUALIFIED records can enter a candidate")
-        package = _closed(value["package"], ("release_id", "index_digest", "artifact_set_digest", "schema_set_digest", "tuple_id", "abi_version", "artifacts", "rollback_artifact_digests"), "$.package")
+        package = _closed(value["package"], ("release_id", "index_digest", "artifact_set_digest", "schema_set_digest", "tuple_id", "abi_version", "index", "artifacts", "rollback_artifact_digests"), "$.package")
         for field in ("release_id", "tuple_id", "abi_version"):
             _string(package[field], f"$.package.{field}")
         for field in ("index_digest", "artifact_set_digest", "schema_set_digest"):
@@ -177,6 +183,7 @@ class CandidateAssemblyInput:
                 _digest(item[field], f"{path}.{field}")
             checked_artifacts.append(item)
         ids = _sorted([item["artifact_id"] for item in checked_artifacts], "$.package.artifacts")
+        _sorted([item["component_id"] for item in checked_artifacts], "$.package.component_ids")
         if tuple(platform["artifact_ids"]) != ids:
             _fail("ARTIFACT_SET_MISMATCH", "$.package.artifacts", "platform artifact set differs from package artifact set")
         rollback = _sorted(package["rollback_artifact_digests"], "$.package.rollback_artifact_digests")
@@ -222,27 +229,43 @@ class CandidateAssemblyInput:
         return cls(candidate_id, channel, board_id, profile_id, firmware, platform, intake, qualification, package, compliance, tuple(gate_rows), rollback, source)
 
     def body(self) -> dict[str, Any]:
-        return {"version": VERSION, "candidate_id": self.candidate_id, "channel": self.channel, "board_id": self.board_id, "profile_id": self.profile_id, "firmware": self.firmware, "platform": self.platform, "intake": self.intake, "qualification": self.qualification, "package": self.package, "compliance": self.compliance, "required_gates": list(self.required_gates), "rollback": list(self.rollback), "source": self.source}
+        return {"version": INPUT_VERSION, "candidate_id": self.candidate_id, "channel": self.channel, "board_id": self.board_id, "profile_id": self.profile_id, "firmware": self.firmware, "platform": self.platform, "intake": self.intake, "qualification": self.qualification, "package": self.package, "compliance": self.compliance, "required_gates": list(self.required_gates), "rollback": list(self.rollback), "source": self.source}
 
 
-@dataclass(frozen=True)
+_MANIFEST_TOKEN = object()
+
+
+@dataclass(frozen=True, init=False)
 class CandidateManifest:
     body_value: Mapping[str, Any]
     candidate_digest: str
 
-    def to_dict(self) -> dict[str, Any]:
+    def __init__(self, body_value: Mapping[str, Any], candidate_digest: str, *, _token: object | None = None):
+        if _token is not _MANIFEST_TOKEN:
+            raise TypeError("use assemble_candidate() or from_dict() to construct a candidate manifest")
+        object.__setattr__(self, "body_value", _freeze(dict(body_value)))
+        object.__setattr__(self, "candidate_digest", candidate_digest)
+
+    def _unchecked_dict(self) -> dict[str, Any]:
         return {**_thaw(self.body_value), "candidate_digest": self.candidate_digest}
 
+    def to_dict(self) -> dict[str, Any]:
+        checked = type(self).from_dict(self._unchecked_dict())
+        return checked._unchecked_dict()
+
     def bytes(self) -> bytes:
-        return canonical_bytes(self.to_dict())
+        checked = type(self).from_dict(self._unchecked_dict())
+        return canonical_bytes(checked._unchecked_dict())
 
     @classmethod
     def from_dict(cls, value: Any) -> "CandidateManifest":
         value = _closed(value, CandidateAssemblyInput.FIELDS + ("candidate_digest",), "$")
+        if value["version"] != __import__("omarchy_candidate.generated", fromlist=["OUTPUT_VERSION"]).OUTPUT_VERSION:
+            _fail("UNSUPPORTED_VERSION", "$.version", "candidate-manifest/v1 required")
         candidate_digest = _digest(value["candidate_digest"], "$.candidate_digest")
-        data = dict(value); data.pop("candidate_digest")
+        data = dict(value); data.pop("candidate_digest"); data["version"] = INPUT_VERSION
         checked = CandidateAssemblyInput.from_dict(data)
-        expected = digest_value("omarchy-candidate-manifest/v1", checked.body())
+        expected = digest_value("omarchy-candidate-manifest/v1", {**checked.body(), "version": OUTPUT_VERSION})
         if expected != candidate_digest:
             _fail("DIGEST_MISMATCH", "$.candidate_digest", "candidate manifest digest does not match canonical body")
-        return cls(_freeze(checked.body()), candidate_digest)
+        return cls({**checked.body(), "version": OUTPUT_VERSION}, candidate_digest, _token=_MANIFEST_TOKEN)

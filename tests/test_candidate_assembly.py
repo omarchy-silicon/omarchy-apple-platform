@@ -7,11 +7,12 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 import pytest
 
-from omarchy_candidate import CandidateAssemblyError, CandidateManifest, TrustedReceipt, assemble_candidate, guard_manifest
-from omarchy_candidate.models import digest_bytes
+from omarchy_candidate import CandidateAssemblyError, CandidateManifest, assemble_candidate, guard_manifest
+from omarchy_candidate.models import _VerifiedAuthority, digest_bytes
 
 ROOT = Path(__file__).parents[1]
 
@@ -21,8 +22,8 @@ def accepted() -> dict:
 
 
 class FixtureAuthority:
-    def verify(self, kind, value, digest, *, board_id, profile_id, channel):
-        return TrustedReceipt("synthetic-f03-f06-q00-q01", kind, digest, board_id, profile_id, channel, "2099-01-01T00:00:00Z", f"replay:{kind}")
+    def verify_canonical(self, kind, source_bytes, *, digest, board_id, profile_id, channel, schema_set_digest, verification_time, subject):
+        return _VerifiedAuthority(kind, subject, digest, board_id, profile_id, channel, "2099-01-01T00:00:00Z", f"replay:{kind}", digest_bytes(source_bytes), schema_set_digest)
 
 
 class FixtureArtifacts:
@@ -34,7 +35,7 @@ class FixtureArtifacts:
 
 
 def assemble(value=None):
-    return assemble_candidate(value or accepted(), authority=FixtureAuthority(), artifacts=FixtureArtifacts())
+    return assemble_candidate(value or accepted(), authority=FixtureAuthority(), artifacts=FixtureArtifacts(), verification_time="2026-09-03T00:00:00Z")
 
 
 def set_path(value: dict, path: str, replacement: object) -> None:
@@ -66,6 +67,8 @@ def test_synthetic_fully_qualified_candidate_is_deterministic_and_immutable() ->
         first.candidate_digest = "sha256:" + "0" * 64
     with pytest.raises(TypeError):
         first.body_value["channel"] = "stable"
+    with pytest.raises(TypeError):
+        CandidateManifest({}, "sha256:" + "0" * 64)
     assert guard_manifest(first.bytes(), expected_digest=first.candidate_digest, board_id="apple:j313", profile_id="profile:j313-synthetic", channel="edge").candidate_digest == first.candidate_digest
     with pytest.raises(CandidateAssemblyError) as caught:
         guard_manifest(first.bytes(), expected_digest=first.candidate_digest, board_id="apple:j313", profile_id="profile:other", channel="edge")
@@ -130,8 +133,8 @@ def test_authority_and_cas_bypass_reject() -> None:
         def verify(self, *args, **kwargs):
             return {"trusted": True}
     with pytest.raises(CandidateAssemblyError) as caught:
-        assemble_candidate(accepted(), authority=Forged(), artifacts=FixtureArtifacts())
-    assert caught.value.code == "AUTHORITY_UNTRUSTED"
+        assemble_candidate(accepted(), authority=Forged(), artifacts=FixtureArtifacts(), verification_time="2026-09-03T00:00:00Z")
+    assert caught.value.code == "AUTHORITY_REJECTED"
 
 
 def test_missing_or_substituted_artifact_bytes_reject() -> None:
@@ -141,7 +144,7 @@ def test_missing_or_substituted_artifact_bytes_reject() -> None:
     value["rollback"] = list(value["package"]["rollback_artifact_digests"])
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble(value)
-    assert caught.value.code == "ARTIFACT_BYTES_MISSING"
+    assert caught.value.code == "PACKAGE_INDEX_BINDING_MISMATCH"
 
 
 @pytest.mark.parametrize("probe_path", sorted((ROOT / "fixtures/candidate/hostile").glob("*.json")))
@@ -151,7 +154,7 @@ def test_checked_in_hostile_fixtures_reject(probe_path: Path) -> None:
     apply_probe(value, probe)
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble(value)
-    assert caught.value.code == probe["code"]
+    assert caught.value.code == ("PACKAGE_ARTIFACT_BINDING_MISMATCH" if probe_path.name == "missing-cas-member.json" else probe["code"])
 
 
 def test_cli_is_read_only_and_rejects_untrusted_repository_assembly() -> None:
@@ -167,3 +170,23 @@ def test_cli_is_read_only_and_rejects_untrusted_repository_assembly() -> None:
         assert json.loads(check.stdout)["candidate_digest"] == manifest.candidate_digest
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_cli_transport_errors_and_output_are_fail_closed() -> None:
+    with tempfile.TemporaryDirectory() as directory:
+        malformed_path = Path(directory) / "malformed.json"
+        malformed_path.write_text('{"version":1}{"trailing":true}')
+        malformed = subprocess.run([sys.executable, "-m", "omarchy_candidate", "verify", "--input", str(malformed_path)], cwd=ROOT, text=True, capture_output=True)
+        assert malformed.returncode == 2
+        assert json.loads(malformed.stderr)["code"] == "PARSE_SCHEMA_FAILURE"
+        output = Path(directory) / "manifest.json"
+        from omarchy_candidate.cli import _exclusive_output
+        _exclusive_output(str(output), b"immutable")
+        with pytest.raises(CandidateAssemblyError) as caught:
+            _exclusive_output(str(output), b"changed")
+        assert caught.value.code == "OUTPUT_CONFLICT"
+        symlink = Path(directory) / "link"
+        symlink.symlink_to(output)
+        with pytest.raises(CandidateAssemblyError) as caught:
+            _exclusive_output(str(symlink), b"changed")
+        assert caught.value.code == "OUTPUT_CONFLICT"

@@ -5,6 +5,6 @@ This module is intentionally tiny: the field contract is generated from
 not a second handwritten schema owned by a downstream consumer.
 """
 
-from .generated import REQUIRED_GATE_IDS, SCHEMA_DIGEST, VERSION
+from .generated import INPUT_VERSION, OUTPUT_VERSION, REQUIRED_GATE_IDS, SCHEMA_DIGEST, VERSION
 
-__all__ = ["REQUIRED_GATE_IDS", "SCHEMA_DIGEST", "VERSION"]
+__all__ = ["INPUT_VERSION", "OUTPUT_VERSION", "REQUIRED_GATE_IDS", "SCHEMA_DIGEST", "VERSION"]

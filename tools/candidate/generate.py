@@ -17,7 +17,7 @@ def main() -> int:
     data = SCHEMA.read_bytes()
     json.loads(data)
     digest = "sha256:" + hashlib.sha256(data).hexdigest()
-    lines = ['"""Generated F-05 binding; regenerate with tools/candidate/generate.py."""', "", f"SCHEMA_DIGEST = {digest!r}", "VERSION = 'candidate-assembly/v1'", "REQUIRED_GATE_IDS = ("]
+    lines = ['"""Generated F-05 binding; regenerate with tools/candidate/generate.py."""', "", f"SCHEMA_DIGEST = {digest!r}", "INPUT_VERSION = 'candidate-assembly-input/v1'", "OUTPUT_VERSION = 'candidate-manifest/v1'", "VERSION = INPUT_VERSION", "REQUIRED_GATE_IDS = ("]
     lines.extend(f"    {gate!r}," for gate in GATES)
     lines.append(")")
     OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
