@@ -3,8 +3,10 @@ from __future__ import annotations
 import copy
 import json
 import socket
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -163,6 +165,27 @@ class IntakeDatasetTests(unittest.TestCase):
         with self.assertRaisesRegex(IntakeValidationError, "SNAPSHOT_PATH_INVALID"):
             validate_dataset(value, root=ROOT)
 
+    def test_snapshot_rejects_symlinked_components(self):
+        value = dataset()
+        with tempfile.TemporaryDirectory() as directory:
+            temp_root = Path(directory)
+            shutil.copytree(ROOT / "data/intake", temp_root / "data/intake")
+            source_root = temp_root / "data/intake/sources"
+            outside = temp_root / "outside-sources"
+            source_root.rename(outside)
+            source_root.symlink_to(outside, target_is_directory=True)
+            with self.assertRaisesRegex(IntakeValidationError, "SNAPSHOT_PATH_INVALID"):
+                validate_dataset(value, root=temp_root)
+        value = dataset()
+        with tempfile.TemporaryDirectory() as directory:
+            temp_root = Path(directory)
+            shutil.copytree(ROOT / "data/intake", temp_root / "data/intake")
+            nested = temp_root / "data/intake/sources/nested"
+            nested.symlink_to(temp_root / "data/intake/sources", target_is_directory=True)
+            value["sources"][0]["snapshot_path"] = "data/intake/sources/nested/apple-air-m1-model.json"
+            with self.assertRaisesRegex(IntakeValidationError, "SNAPSHOT_PATH_INVALID"):
+                validate_dataset(value, root=temp_root)
+
     def test_resolved_contradiction_requires_authority_replacement_edge(self):
         value = dataset()
         record = value["records"][0]
@@ -182,6 +205,29 @@ class IntakeDatasetTests(unittest.TestCase):
             "prior_record_revision": None,
         }]
         with self.assertRaisesRegex(IntakeValidationError, "SUPERSESSION_INVALID"):
+            validate_dataset(value, root=ROOT)
+
+    def test_contradiction_predecessor_has_one_replacement(self):
+        value = dataset()
+        record = value["records"][0]
+        record["contradiction_refs"] = ["identity-open", "identity-r2", "identity-r3"]
+        common = {
+            "record_id": record["record_id"],
+            "claim_refs": ["board-identity", "graphics"],
+            "kind": "firmware",
+            "description": "synthetic contradiction transition",
+            "source_refs": ["apple-air-m1-model", "apple-air-m1-specs", "linux-t8103-j313"],
+            "opened_at": "2026-09-03T00:00:00Z",
+            "resolution_claim_refs": [],
+            "prior_record_digest": None,
+            "prior_record_revision": None,
+        }
+        value["contradictions"] = [
+            dict(common, contradiction_id="identity-open", status="open", supersedes=None),
+            dict(common, contradiction_id="identity-r2", status="superseded", supersedes="identity-open"),
+            dict(common, contradiction_id="identity-r3", status="superseded", supersedes="identity-open"),
+        ]
+        with self.assertRaisesRegex(IntakeValidationError, "SUPERSESSION_MULTIPLE"):
             validate_dataset(value, root=ROOT)
 
     def test_cli_is_deterministic_and_offline(self):

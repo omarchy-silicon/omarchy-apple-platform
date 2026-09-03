@@ -134,15 +134,30 @@ def _relative_snapshot(root: Path, value: Any, path: str) -> Path:
         _fail("SNAPSHOT_PATH_INVALID", path, "snapshot path must be a normalized relative path")
     if raw.parts[:3] != ("data", "intake", "sources") or len(raw.parts) <= 3:
         _fail("SNAPSHOT_PATH_INVALID", path, "snapshot path must be below data/intake/sources")
+    # Inspect every existing component without following links. This closes
+    # both a symlinked source root and a symlink hidden in a nested snapshot
+    # path before realpath containment is evaluated.
+    current = root
+    for index, part in enumerate(raw.parts):
+        current = current / part
+        try:
+            info = current.lstat()
+        except OSError:
+            _fail("SNAPSHOT_MISSING", path, "checked-in source snapshot is missing")
+        if stat.S_ISLNK(info.st_mode):
+            _fail("SNAPSHOT_PATH_INVALID", path, "source snapshot path components may not be symlinks")
+        if index < len(raw.parts) - 1 and not stat.S_ISDIR(info.st_mode):
+            _fail("SNAPSHOT_MISSING", path, "snapshot path parent is not a directory")
+    source_info = source_root.lstat()
+    if not stat.S_ISDIR(source_info.st_mode):
+        _fail("SNAPSHOT_PATH_INVALID", path, "designated source root must be a real directory")
     candidate_raw = root / raw
-    if candidate_raw.is_symlink():
-        _fail("SNAPSHOT_PATH_INVALID", path, "source snapshots may not be symlinks")
     candidate = candidate_raw.resolve()
     try:
         candidate.relative_to(source_root.resolve())
     except ValueError:
         _fail("SNAPSHOT_PATH_INVALID", path, "snapshot escapes source directory")
-    if not stat.S_ISREG(candidate.stat().st_mode):
+    if not stat.S_ISREG(current.lstat().st_mode):
         _fail("SNAPSHOT_MISSING", path, "checked-in source snapshot is missing")
     return candidate
 
@@ -503,6 +518,7 @@ def _validate_contradictions(dataset: dict[str, Any], records: dict[str, dict[st
             conflict_claims = set(conflicts[record_id])
             if not any(conflict_claims.issubset(set(item["claim_refs"])) for item in contradictions.values() if item["record_id"] == record_id):
                 _fail("CONFLICTING_CLAIMS", f"$.records[{record_id}].claims", "conflicting normalized claims require an explicit contradiction record")
+    incoming: dict[str, str] = {}
     for contradiction_id, contradiction in contradictions.items():
         if contradiction["status"] in {"superseded", "resolved-by-authority"}:
             superseded = contradiction["supersedes"]
@@ -512,6 +528,10 @@ def _validate_contradictions(dataset: dict[str, Any], records: dict[str, dict[st
                 _fail("SUPERSESSION_INVALID", f"$.contradictions[{contradiction_id}].supersedes", "supersession must point to an existing earlier contradiction")
             if contradictions[superseded]["status"] != "open":
                 _fail("SUPERSESSION_INVALID", f"$.contradictions[{contradiction_id}].supersedes", "only an open contradiction may be superseded")
+            previous = incoming.get(superseded)
+            if previous is not None:
+                _fail("SUPERSESSION_MULTIPLE", f"$.contradictions[{contradiction_id}].supersedes", f"predecessor already has replacement {previous}")
+            incoming[superseded] = contradiction_id
         if contradiction["status"] == "resolved-by-authority":
             path = f"$.contradictions[{contradiction_id}]"
             record = records[contradiction["record_id"]]
