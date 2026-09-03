@@ -1,0 +1,77 @@
+name: PROGRAM integrity
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  program-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package and test tools
+        run: python -m pip install -e . pytest==8.3.5
+      - name: Focused hostile PROGRAM tests
+        run: python -m pytest -q tests/test_program_integrity.py
+      - name: Extract trusted merge-base PROGRAM and lock
+        id: trusted-baseline
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "missing trusted merge-base commit" >&2
+            exit 2
+          fi
+          git cat-file -e "$BASE_SHA^{commit}"
+          mkdir -p "$RUNNER_TEMP/program-baseline"
+          git show "$BASE_SHA:PROGRAM.md" > "$RUNNER_TEMP/program-baseline/PROGRAM.md"
+          if git cat-file -e "$BASE_SHA:data/program/program-integrity.lock.json"; then
+            git show "$BASE_SHA:data/program/program-integrity.lock.json" > "$RUNNER_TEMP/program-baseline/program-integrity.lock.json"
+            echo "lock_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "lock_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "program=$RUNNER_TEMP/program-baseline/PROGRAM.md" >> "$GITHUB_OUTPUT"
+          echo "lock=$RUNNER_TEMP/program-baseline/program-integrity.lock.json" >> "$GITHUB_OUTPUT"
+      - name: PROGRAM validator and immutable-history drift
+        if: steps.trusted-baseline.outputs.lock_exists == 'true'
+        run: |
+          omarchy-program --program PROGRAM.md --lock data/program/program-integrity.lock.json --baseline-program "${{ steps.trusted-baseline.outputs.program }}" --baseline-lock "${{ steps.trusted-baseline.outputs.lock }}"
+          PYTHONPATH=src python tools/program/drift.py --program PROGRAM.md --lock data/program/program-integrity.lock.json --baseline-program "${{ steps.trusted-baseline.outputs.program }}" --baseline-lock "${{ steps.trusted-baseline.outputs.lock }}"
+      - name: PROGRAM bootstrap validator and immutable-history drift
+        if: steps.trusted-baseline.outputs.lock_exists == 'false'
+        run: |
+          cmp "${{ steps.trusted-baseline.outputs.program }}" PROGRAM.md
+          omarchy-program --program PROGRAM.md --lock data/program/program-integrity.lock.json
+          PYTHONPATH=src python tools/program/drift.py --program PROGRAM.md --lock data/program/program-integrity.lock.json
+      - name: Deterministic lock generator
+        run: |
+          PYTHONPATH=src python tools/program/generate.py --program PROGRAM.md > /tmp/program-lock-a.json
+          PYTHONPATH=src python tools/program/generate.py --program PROGRAM.md > /tmp/program-lock-b.json
+          cmp /tmp/program-lock-a.json /tmp/program-lock-b.json
+          cmp /tmp/program-lock-a.json data/program/program-integrity.lock.json
+      - name: Full Python regression
+        run: python -m pytest -q
+      - name: Isolated wheel and CLI smoke
+        run: |
+          python -m pip wheel --no-deps -w /tmp/omarchy-program-wheel .
+          python -m venv /tmp/omarchy-program-venv
+          /tmp/omarchy-program-venv/bin/pip install /tmp/omarchy-program-wheel/*.whl
+          cd /tmp
+          /tmp/omarchy-program-venv/bin/omarchy-program --program "$GITHUB_WORKSPACE/PROGRAM.md" --lock "$GITHUB_WORKSPACE/data/program/program-integrity.lock.json"
+      - name: Diff, conflict, and secret hygiene
+        run: |
+          git diff --check
+          ! rg -n '^(<<<<<<<|=======|>>>>>>>)( |$)' . --glob '!*.lock'
+          ! rg -n '(^|[[:space:]])(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|BEGIN (RSA|OPENSSH|EC|ED25519) PRIVATE KEY)' . --glob '!*.lock'

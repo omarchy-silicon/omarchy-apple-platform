@@ -1,0 +1,752 @@
+{
+  "expected_slice_count": 52,
+  "expected_status_counts": {
+    "DONE": 2,
+    "HUMAN-ONLY BLOCKED": 6,
+    "IN PROGRESS": 6,
+    "TODO": 38
+  },
+  "progress_rows": [
+    {
+      "sha256": "70d5b3f7f1a1536d3272a2a96259811418623b9bf69d874a5a57db5aaf3673e0"
+    },
+    {
+      "sha256": "1b5a0b74e32815c1882895abfa374d30425409506d81c60855cd4bb1fe577c5f"
+    },
+    {
+      "sha256": "086e87603299fbae03103c894f8249edd15015d3652433a2dfabb0dc10a56bfc"
+    },
+    {
+      "sha256": "888f65466d5f50e053fa70515401df259e03e64474d6933377821c1b0906486a"
+    },
+    {
+      "sha256": "ddecd0c2b406c017f65b762373a572d890012e16d0a0a1b730fb0f5910443a0f"
+    },
+    {
+      "sha256": "8f3140a1b31ec40d047b54f5ce72e422e54819b8af312abc8d1884a0f5c67082"
+    },
+    {
+      "sha256": "7856d27cc4cc53d668dd06ba34bf50f3cc4a4131769cb3b086954dfc096ab490"
+    },
+    {
+      "sha256": "cfb651734e0ff2d34dd5933f91f90e308492e417984b85f2488bacfeb5fb9fa3"
+    },
+    {
+      "sha256": "00b92b1ab0dff6e8de88ff7ae8d0c2f429626cf877867aa70e89491845fc25fd"
+    },
+    {
+      "sha256": "3cd4d8b2012a349b739afc964d6daf13525b50b8b8ba6db0503566cc69078be2"
+    },
+    {
+      "sha256": "123839803b3583a79d7fbc0b3d143c0deac4c8dc06042c36b6a21addd06ca0b3"
+    },
+    {
+      "sha256": "7a222c5ae6a934d79668e1f06f82b5d8fd09e87b133d30315e49bc9ccca3d637"
+    },
+    {
+      "sha256": "fa04261ec828e0c3c934908323903673d5fa24e183c913eca2369bf1c5237cbe"
+    },
+    {
+      "sha256": "3603f355438c95197fde354497a4e3831e8a2b8e89ab54b9c63f88997878776e"
+    },
+    {
+      "sha256": "b127e51b11759e1671c9dc64be1d7f9a789e87234739253f73e34291636b0fff"
+    },
+    {
+      "sha256": "c8b140976b56b0fa79f40f99b2dc3ea1aaee3f1916d0d933a63e2ff4b62fb287"
+    },
+    {
+      "sha256": "22317f046f3a93345994667701545db76879c77624f437d358d683fca874fb11"
+    },
+    {
+      "sha256": "c9fc87c1aaf2fe92b8b5c91839f244e5513127f4083ea01b4d0739f1296e32c0"
+    },
+    {
+      "sha256": "dd1d65a1cca45bac528bfd9ca75c075c0aaf39329add29c4efd639e4a2aae82f"
+    },
+    {
+      "sha256": "b9d1b46ce4d84497e3742a680521f6a413d3a135c9055f7bedefefb93d865ae2"
+    },
+    {
+      "sha256": "ee15115d500ede1453177f96ef7774c7b06f3b04f136643f3526b49c2f65c8eb"
+    },
+    {
+      "sha256": "670a6d323ec27529c2fa5a14a0ad3b1618395c3975d1af76ca437439bfdd8dfe"
+    },
+    {
+      "sha256": "fbbb86487e63b1b09f8ece46b791fe693e2c2325f928bdbd84afcb9d8af9dbb5"
+    },
+    {
+      "sha256": "c850477feacf2a014ab73c46c5e0b2461079ff0bff76f49473da4ef020bf722b"
+    },
+    {
+      "sha256": "cb05ddfc69bd16badb6fb78cf4ec7f47b4a1b9f1d8a2fd36cd72284b15dbac11"
+    },
+    {
+      "sha256": "5e6cbf66b77235209d0eeba9db9b8aa6d853099b361993fdd3b8c86a9e5209a7"
+    },
+    {
+      "sha256": "53d61c6d2418c53786844a38904c343ccd6c287472421057f72d3971cedad586"
+    },
+    {
+      "sha256": "6b22a06d9836f87eea534d07b2420c9057c6ad69390f7e6b0ae21b49f75c85ba"
+    },
+    {
+      "sha256": "fe1b251d2fe4588cc157e27ac86269cd1405eb13f465aa6519f52b921194fbb4"
+    },
+    {
+      "sha256": "d529e81f0f34494c2852e33bea8d5c359eb7ffa4d6fdb44d4b0da79f42aea6c5"
+    },
+    {
+      "sha256": "ba0443e10645040849e46d55cf2747a6abbeeb26fc2a5416ebaca9d456ec0c30"
+    },
+    {
+      "sha256": "6ac5a73c47b047a799229250a10282bd39c3df4f502f4f49c047dff37f5fb468"
+    },
+    {
+      "sha256": "abff2b9ecc2aa783940fb345dbdfdca8c8215a8a60d9c8f49050e7b764187000"
+    },
+    {
+      "sha256": "2e7cac945442d2b3d7b6186e6bd4482f7bccc8f8d562018f70b777075139c296"
+    },
+    {
+      "sha256": "7ded1dbd56ccf0dd6a61f683cb636b7f0b1623b1ad5398b088f8da53c113b0ab"
+    },
+    {
+      "sha256": "30d68cba4ddfc884f8e798a2e409067834a7832b6a2fb7453890664900ee3b06"
+    },
+    {
+      "sha256": "42beea20f27de6faf6d879843f7188e411853bccd3efea841c5a8d88ec08a726"
+    },
+    {
+      "sha256": "d3541bc662badd0421e6177fa63271f5a1e0ba7743182df13aadc821bb3338ef"
+    },
+    {
+      "sha256": "4c65abbf730fc059a15517046cd9938133ca271fe0795a2340fa8599014fea7c"
+    },
+    {
+      "sha256": "188fb9e60dd591e029fab5ec93fec7ec8e5c0e3b852b2548ebb421127c8ef090"
+    },
+    {
+      "sha256": "0a85bb6c174826f146ad19200f9e59a1eea7f1448f73129b23071e42d40d0058"
+    },
+    {
+      "sha256": "a11e22ed256e73e0cb7eb9d61597daf6198952055bfebc1470f7f3066caebe5d"
+    },
+    {
+      "sha256": "61df81eb1e2e9ab803f164123e12b815882be6f00664dd955e9339e564529512"
+    }
+  ],
+  "slice_structure": [
+    {
+      "deliverable": "Create owned organization and seven repositories",
+      "depends_on": [],
+      "id": "F-00",
+      "repository": "organization"
+    },
+    {
+      "deliverable": "Establish canonical program, acceptance contract, decisions, and progress log",
+      "depends_on": [
+        "F-00"
+      ],
+      "id": "F-01",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Design and implement canonical schema package for board registry, platform manifest, installer plan, qualification record, and boot health",
+      "depends_on": [
+        "F-01"
+      ],
+      "id": "F-02",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Establish signed metadata trust root, key roles, expiry, rotation, and offline recovery",
+      "depends_on": [
+        "F-02"
+      ],
+      "id": "F-03",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Establish reproducible builder definitions, SBOM/provenance, channel promotion, and immutable artifact storage",
+      "depends_on": [
+        "F-02"
+      ],
+      "id": "F-04",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Build candidate assembly, hostile fixtures, generated consumer bindings, and cross-repository compatibility validator",
+      "depends_on": [
+        "F-03",
+        "F-04",
+        "F-06",
+        "Q-00",
+        "Q-01"
+      ],
+      "id": "F-05",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Implement license/notice inventory, corresponding-source offers, redistribution decisions, fork provenance, policy enforcement, and release compliance bundle",
+      "depends_on": [
+        "F-01"
+      ],
+      "id": "F-06",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Implement the sole stable-promotion terminal that recomputes the complete required-slice, product-integration parity, candidate, qualification, legal, rollback, and public-ledger closure before copying an immutable candidate digest",
+      "depends_on": [
+        "F-05",
+        "P-03",
+        "P-05",
+        "I-09",
+        "B-04",
+        "Q-04",
+        "Q-05",
+        "Q-06",
+        "Q-07",
+        "Q-08"
+      ],
+      "id": "F-07",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Consume generated board registry and implement fail-closed pre-mutation admission",
+      "depends_on": [
+        "F-02",
+        "Q-00"
+      ],
+      "id": "P-01",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Replace warning-success behavior with typed required/optional capability outcomes",
+      "depends_on": [
+        "P-01"
+      ],
+      "id": "P-02",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Complete command/application ARM parity census and tracked porting queue",
+      "depends_on": [
+        "F-01"
+      ],
+      "id": "P-03",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Implement platform diagnostics and support-bundle export with privacy redaction",
+      "depends_on": [
+        "F-02"
+      ],
+      "id": "P-04",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Integrate atomic platform update/rollback UX and remove independent version selection",
+      "depends_on": [
+        "F-05"
+      ],
+      "id": "P-05",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Remove legacy ext4/Btrfs/LUKS conversion commands and packages from the clean-install dependency graph and prove the installer cannot invoke them",
+      "depends_on": [
+        "P-02"
+      ],
+      "id": "P-06",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Retire legacy in-place conversion or implement it as a separately approved journaled migration with preserved recovery root and crash-safe boot commit",
+      "depends_on": [
+        "P-05",
+        "P-06"
+      ],
+      "id": "P-07",
+      "repository": "omarchy-mac"
+    },
+    {
+      "deliverable": "Threat model and design the typed installer transaction/state machine, destructive boundary, and restart semantics",
+      "depends_on": [
+        "F-01"
+      ],
+      "id": "I-01",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Build a signed/notarized native app and equivalent CLI with pinned immutable metadata and resumable pre-mutation artifact acquisition",
+      "depends_on": [
+        "I-01",
+        "F-03",
+        "F-06"
+      ],
+      "id": "I-02",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Implement pure read-only board/disk/APFS inventory, fail-closed admission, stable target identities, exact plan generation, and final consent",
+      "depends_on": [
+        "F-02",
+        "Q-00",
+        "I-01",
+        "I-07"
+      ],
+      "id": "I-03",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Implement versioned journaled Apple platform provisioning, idempotent resume, and safe macOS return",
+      "depends_on": [
+        "I-02",
+        "I-03",
+        "I-07"
+      ],
+      "id": "I-04",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Build the Omarchy ARM live/install image handoff with identity and artifact revalidation",
+      "depends_on": [
+        "F-04",
+        "F-05",
+        "I-04"
+      ],
+      "id": "I-05",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Implement exact-identity uninstall, rollback, recovery image, and DFU escalation runbook",
+      "depends_on": [
+        "I-04",
+        "I-05"
+      ],
+      "id": "I-06",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Implement distinct FileVault, Data-lock, administrator, machine-owner, Linux-encryption, paired-RecoveryOS, and 1TR states with Apple-owned credential handling",
+      "depends_on": [
+        "I-01"
+      ],
+      "id": "I-07",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Implement accessible and localized native UX, persisted reboot/Recovery guidance, progress, privacy consent, and redacted support export",
+      "depends_on": [
+        "I-01",
+        "I-07",
+        "P-04"
+      ],
+      "id": "I-08",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Pass pure-planner, restart, fault-injection, disk-selection, uninstall, privacy, accessibility, localization, clean-path dependency, and disposable-hardware acceptance suites",
+      "depends_on": [
+        "Q-00",
+        "I-02",
+        "I-03",
+        "I-04",
+        "I-05",
+        "I-06",
+        "I-07",
+        "I-08",
+        "P-06",
+        "P-07"
+      ],
+      "id": "I-09",
+      "repository": "omarchy-mac-installer"
+    },
+    {
+      "deliverable": "Human owner defines reproducible build, artifact, firmware-schema, and debug contracts",
+      "depends_on": [
+        "F-02",
+        "F-04",
+        "human m1n1 owner"
+      ],
+      "id": "B-01",
+      "repository": "m1n1-omarchy"
+    },
+    {
+      "deliverable": "Human owner packages qualified M1/M2 stage-1 and stage-2 bundles",
+      "depends_on": [
+        "B-01",
+        "human m1n1 owner"
+      ],
+      "id": "B-02",
+      "repository": "m1n1-omarchy"
+    },
+    {
+      "deliverable": "Define reproducible Apple U-Boot and UEFI/slot contracts",
+      "depends_on": [
+        "F-02",
+        "F-04",
+        "F-06"
+      ],
+      "id": "B-03",
+      "repository": "u-boot-omarchy"
+    },
+    {
+      "deliverable": "Implement versioned boot-slot selection, success marking, and fallback",
+      "depends_on": [
+        "B-03"
+      ],
+      "id": "B-04",
+      "repository": "u-boot-omarchy"
+    },
+    {
+      "deliverable": "Define downstream kernel/DT configuration, patch-queue, ABI, and build contracts",
+      "depends_on": [
+        "F-02",
+        "F-04",
+        "F-06"
+      ],
+      "id": "K-01",
+      "repository": "linux-omarchy"
+    },
+    {
+      "deliverable": "Produce a qualified M1/M2 reference kernel/DT package set",
+      "depends_on": [
+        "K-01"
+      ],
+      "id": "K-02",
+      "repository": "linux-omarchy"
+    },
+    {
+      "deliverable": "M3 base/Pro/Max/Ultra subsystem bring-up and board qualification",
+      "depends_on": [
+        "K-02"
+      ],
+      "id": "K-03",
+      "repository": "linux-omarchy"
+    },
+    {
+      "deliverable": "M4 base/Pro/Max subsystem bring-up and board qualification",
+      "depends_on": [
+        "K-03"
+      ],
+      "id": "K-04",
+      "repository": "linux-omarchy"
+    },
+    {
+      "deliverable": "A18 Pro and M5 family subsystem bring-up and board qualification",
+      "depends_on": [
+        "K-04"
+      ],
+      "id": "K-05",
+      "repository": "linux-omarchy"
+    },
+    {
+      "deliverable": "M6 intake and subsystem bring-up",
+      "depends_on": [
+        "shipping hardware",
+        "K-05"
+      ],
+      "id": "K-06",
+      "repository": "linux-omarchy"
+    },
+    {
+      "deliverable": "Human owner packages qualified M3 stage-1 and stage-2 bundles",
+      "depends_on": [
+        "B-01",
+        "K-03",
+        "human m1n1 owner"
+      ],
+      "id": "B-05",
+      "repository": "m1n1-omarchy"
+    },
+    {
+      "deliverable": "Human owner packages qualified M4 stage-1 and stage-2 bundles",
+      "depends_on": [
+        "B-01",
+        "K-04",
+        "human m1n1 owner"
+      ],
+      "id": "B-06",
+      "repository": "m1n1-omarchy"
+    },
+    {
+      "deliverable": "Human owner packages qualified A18 Pro and M5-family stage-1 and stage-2 bundles",
+      "depends_on": [
+        "B-01",
+        "K-05",
+        "human m1n1 owner"
+      ],
+      "id": "B-07",
+      "repository": "m1n1-omarchy"
+    },
+    {
+      "deliverable": "Human owner packages qualified M6 stage-1 and stage-2 bundles",
+      "depends_on": [
+        "shipping hardware",
+        "B-01",
+        "K-06",
+        "human m1n1 owner"
+      ],
+      "id": "B-08",
+      "repository": "m1n1-omarchy"
+    },
+    {
+      "deliverable": "Establish authoritative mirror sync, downstream patch queue, reproducible build, and conformance contract",
+      "depends_on": [
+        "F-02",
+        "F-04",
+        "F-06"
+      ],
+      "id": "G-01",
+      "repository": "mesa-omarchy"
+    },
+    {
+      "deliverable": "Qualify M1/M2 graphics reference tuple",
+      "depends_on": [
+        "G-01",
+        "K-02"
+      ],
+      "id": "G-02",
+      "repository": "mesa-omarchy"
+    },
+    {
+      "deliverable": "Implement and qualify M3 graphics/display dependencies",
+      "depends_on": [
+        "G-02",
+        "K-03"
+      ],
+      "id": "G-03",
+      "repository": "mesa-omarchy"
+    },
+    {
+      "deliverable": "Implement and qualify M4 graphics/display dependencies",
+      "depends_on": [
+        "G-03",
+        "K-04"
+      ],
+      "id": "G-04",
+      "repository": "mesa-omarchy"
+    },
+    {
+      "deliverable": "Implement and qualify A18/M5/M6 graphics dependencies",
+      "depends_on": [
+        "G-04",
+        "K-05"
+      ],
+      "id": "G-05",
+      "repository": "mesa-omarchy"
+    },
+    {
+      "deliverable": "Produce a cited, immutable, digest-addressed Apple Silicon intake dataset and contradiction ledger from authoritative sources",
+      "depends_on": [
+        "F-02"
+      ],
+      "id": "Q-00",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Define board inventory, capability criteria, and qualification-record schema",
+      "depends_on": [
+        "F-02",
+        "Q-00"
+      ],
+      "id": "Q-01",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Build lab controller, evidence ingestion, redaction, and public ledger generation",
+      "depends_on": [
+        "Q-01"
+      ],
+      "id": "Q-02",
+      "repository": "omarchy-apple-platform"
+    },
+    {
+      "deliverable": "Acquire, inventory, fixture, and recovery-certify two independent units of every materially distinct Apple Silicon board/profile",
+      "depends_on": [
+        "Q-00",
+        "Q-01"
+      ],
+      "id": "Q-03",
+      "repository": "hardware lab"
+    },
+    {
+      "deliverable": "Certify M1/M2 reference and every M1/M2 board",
+      "depends_on": [
+        "B-02",
+        "B-04",
+        "K-02",
+        "G-02",
+        "I-09",
+        "Q-02",
+        "Q-03"
+      ],
+      "id": "Q-04",
+      "repository": "hardware lab"
+    },
+    {
+      "deliverable": "Certify M3 boards",
+      "depends_on": [
+        "B-04",
+        "B-05",
+        "K-03",
+        "G-03",
+        "I-09",
+        "Q-02",
+        "Q-03"
+      ],
+      "id": "Q-05",
+      "repository": "hardware lab"
+    },
+    {
+      "deliverable": "Certify M4 boards",
+      "depends_on": [
+        "B-04",
+        "B-06",
+        "K-04",
+        "G-04",
+        "I-09",
+        "Q-02",
+        "Q-03"
+      ],
+      "id": "Q-06",
+      "repository": "hardware lab"
+    },
+    {
+      "deliverable": "Certify A18 Pro and M5 boards",
+      "depends_on": [
+        "B-04",
+        "B-07",
+        "K-05",
+        "G-05",
+        "I-09",
+        "Q-02",
+        "Q-03"
+      ],
+      "id": "Q-07",
+      "repository": "hardware lab"
+    },
+    {
+      "deliverable": "Certify M6 boards",
+      "depends_on": [
+        "B-04",
+        "B-08",
+        "K-06",
+        "G-05",
+        "I-09",
+        "Q-02",
+        "Q-03"
+      ],
+      "id": "Q-08",
+      "repository": "hardware lab"
+    }
+  ],
+  "status_by_id": {
+    "B-01": "HUMAN-ONLY BLOCKED",
+    "B-02": "HUMAN-ONLY BLOCKED",
+    "B-03": "TODO",
+    "B-04": "TODO",
+    "B-05": "HUMAN-ONLY BLOCKED",
+    "B-06": "HUMAN-ONLY BLOCKED",
+    "B-07": "HUMAN-ONLY BLOCKED",
+    "B-08": "HUMAN-ONLY BLOCKED",
+    "F-00": "DONE",
+    "F-01": "DONE",
+    "F-02": "IN PROGRESS",
+    "F-03": "IN PROGRESS",
+    "F-04": "IN PROGRESS",
+    "F-05": "TODO",
+    "F-06": "IN PROGRESS",
+    "F-07": "TODO",
+    "G-01": "TODO",
+    "G-02": "TODO",
+    "G-03": "TODO",
+    "G-04": "TODO",
+    "G-05": "TODO",
+    "I-01": "TODO",
+    "I-02": "TODO",
+    "I-03": "TODO",
+    "I-04": "TODO",
+    "I-05": "TODO",
+    "I-06": "TODO",
+    "I-07": "TODO",
+    "I-08": "TODO",
+    "I-09": "TODO",
+    "K-01": "TODO",
+    "K-02": "TODO",
+    "K-03": "TODO",
+    "K-04": "TODO",
+    "K-05": "TODO",
+    "K-06": "TODO",
+    "P-01": "TODO",
+    "P-02": "TODO",
+    "P-03": "IN PROGRESS",
+    "P-04": "TODO",
+    "P-05": "TODO",
+    "P-06": "TODO",
+    "P-07": "TODO",
+    "Q-00": "IN PROGRESS",
+    "Q-01": "TODO",
+    "Q-02": "TODO",
+    "Q-03": "TODO",
+    "Q-04": "TODO",
+    "Q-05": "TODO",
+    "Q-06": "TODO",
+    "Q-07": "TODO",
+    "Q-08": "TODO"
+  },
+  "status_evidence": {
+    "F-00": [
+      0
+    ],
+    "F-01": [
+      37
+    ],
+    "F-02": [
+      15,
+      18,
+      19,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      35,
+      38,
+      39
+    ],
+    "F-03": [
+      12,
+      40,
+      42
+    ],
+    "F-04": [
+      42
+    ],
+    "F-06": [
+      11,
+      20,
+      26,
+      27,
+      28,
+      31,
+      33,
+      40
+    ],
+    "P-03": [
+      21,
+      32,
+      33,
+      41
+    ],
+    "Q-00": [
+      17,
+      42
+    ]
+  },
+  "version": 1
+}
