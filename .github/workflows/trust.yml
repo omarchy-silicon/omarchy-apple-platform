@@ -1,0 +1,41 @@
+name: F-03 trust root
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  trust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned package and test tools
+        run: python -m pip install -e . pytest==8.3.5
+      - name: F-03 focused and existing tests
+        run: python -m pytest -q tests/test_trust_root.py tests/test_foundation.py tests/test_conformance.py tests/test_release_compliance.py
+      - name: Trust policy and fixture drift
+        run: PYTHONPATH=src python tools/trust/drift.py
+      - name: Read-only CLI anchor hold
+        run: |
+          set +e
+          omarchy-platform trust verify --root-bundle policy/trust/root-anchors.json --document fixtures/accepted/board-registry-v1.json --replay-state fixtures/trust/empty-replay.json 2> /tmp/trust-error
+          code=$?
+          set -e
+          test "$code" = 2
+          grep -q 'TRUST_ANCHORS_UNPROVISIONED' /tmp/trust-error
+      - name: Build and install wheel outside checkout
+        run: |
+          python -m pip wheel --no-deps -w /tmp/omarchy-f03-wheel .
+          wheel=$(find /tmp/omarchy-f03-wheel -name '*.whl' -print -quit)
+          test -n "$wheel"
+          python -m venv /tmp/omarchy-f03-wheel-venv
+          /tmp/omarchy-f03-wheel-venv/bin/pip install "$wheel"
+          (cd /tmp && /tmp/omarchy-f03-wheel-venv/bin/python -c 'import omarchy_trust; from importlib import resources; print(resources.files("omarchy_trust").joinpath("resources/root-anchors.json").read_text())')
+      - name: Diff, conflict, and secret hygiene
+        run: |
+          git diff --check
+          ! rg -n '^(<<<<<<<|=======|>>>>>>>)' --glob '!*.lock' .
+          ! rg -n 'BEGIN (RSA|OPENSSH|EC|ED25519) PRIVATE KEY|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}' --glob '!*.lock' .

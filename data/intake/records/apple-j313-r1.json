@@ -1,0 +1,87 @@
+{
+  "record_id": "apple:j313",
+  "record_revision": "r1",
+  "supersedes_record_digest": null,
+  "supersedes_record_revision": null,
+  "marketing_product": "MacBook Air (M1, 2020)",
+  "marketing_year": 2020,
+  "apple_model_identifiers": ["MacBookAir10,1"],
+  "apple_board_selectors": ["j313"],
+  "device_tree_compatibles": ["apple,arm-platform", "apple,j313", "apple,t8103"],
+  "soc_identities": ["t8103"],
+  "lifecycle": "shipping",
+  "evidence_tier": "source-identity",
+  "claims": [
+    {
+      "claim_id": "board-identity",
+      "claim_type": "board-identity",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {
+        "apple_model_identifier": "MacBookAir10,1",
+        "apple_board_selector": "j313",
+        "device_tree_compatible": "apple,j313"
+      },
+      "source_refs": ["apple-air-m1-model", "apple-air-m1-specs", "linux-t8103-j313"],
+      "evidence": [
+        {"source_id": "apple-air-m1-model", "content_digest": "sha256:63d038678bb5a93e88805805451b32434699cb4c085e016617a48fb2df666652", "locator": {"section": "MacBook Air (M1, 2020)", "lines": [1, 1]}, "assertion": "MacBookAir10,1"},
+        {"source_id": "apple-air-m1-specs", "content_digest": "sha256:16c9c01534f11ef14ecadbeb566c7e8e3a81ca4e100efeb9c013e8c1f02d5602", "locator": {"section": "Chip", "lines": [1, 1]}, "assertion": "MacBook Air (M1, 2020)"},
+        {"source_id": "linux-t8103-j313", "content_digest": "sha256:92ed8574d2c85c99328cedefba85534c9da1c40468e157912283b51fc300ae9e", "locator": {"section": "compatible and model", "lines": [1, 1]}, "assertion": "apple,j313"}
+      ],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    },
+    {
+      "claim_id": "device-tree",
+      "claim_type": "device-tree-capability",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {
+        "compatible": "apple,j313",
+        "source_path": "arch/arm64/boot/dts/apple/t8103-j313.dts",
+        "state": "implemented"
+      },
+      "source_refs": ["linux-t8103-j313"],
+      "evidence": [
+        {"source_id": "linux-t8103-j313", "content_digest": "sha256:92ed8574d2c85c99328cedefba85534c9da1c40468e157912283b51fc300ae9e", "locator": {"section": "compatible and model", "lines": [1, 1]}, "assertion": "arch/arm64/boot/dts/apple/t8103-j313.dts"}
+      ],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    },
+    {
+      "claim_id": "graphics",
+      "claim_type": "graphics-capability",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {"accelerator": "Apple M1 GPU", "state": "documented"},
+      "source_refs": ["apple-air-m1-specs"],
+      "evidence": [
+        {"source_id": "apple-air-m1-specs", "content_digest": "sha256:16c9c01534f11ef14ecadbeb566c7e8e3a81ca4e100efeb9c013e8c1f02d5602", "locator": {"section": "Chip", "lines": [1, 1]}, "assertion": "Apple M1"}
+      ],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    },
+    {
+      "claim_id": "soc-identity",
+      "claim_type": "soc-identity",
+      "subject": "apple:j313",
+      "state": "confirmed",
+      "normalized_value": {"soc_id": "t8103", "display_name": "Apple M1"},
+      "source_refs": ["apple-air-m1-specs", "linux-t8103-j313"],
+      "evidence": [
+        {"source_id": "apple-air-m1-specs", "content_digest": "sha256:16c9c01534f11ef14ecadbeb566c7e8e3a81ca4e100efeb9c013e8c1f02d5602", "locator": {"section": "Chip", "lines": [1, 1]}, "assertion": "Apple M1"},
+        {"source_id": "linux-t8103-j313", "content_digest": "sha256:92ed8574d2c85c99328cedefba85534c9da1c40468e157912283b51fc300ae9e", "locator": {"section": "compatible and model", "lines": [1, 1]}, "assertion": "t8103"}
+      ],
+      "observed_at": "2026-09-03T00:00:00Z",
+      "residual_reason": null
+    }
+  ],
+  "source_refs": ["apple-air-m1-model", "apple-air-m1-specs", "linux-t8103-j313"],
+  "contradiction_refs": [],
+  "unknowns": [
+    {"field": "boot-capability", "reason": "Boot behavior is outside this source-identity intake record."},
+    {"field": "firmware-schema", "reason": "No immutable firmware-schema source is included in the bounded intake release."},
+    {"field": "kernel-capability", "reason": "No Omarchy kernel qualification evidence is included."},
+    {"field": "physical-qualification", "reason": "Q-01 physical qualification has not been performed."}
+  ]
+}

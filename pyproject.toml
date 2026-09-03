@@ -5,18 +5,27 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "omarchy-platform-contracts"
 version = "1.0.0"
-description = "Bounded F-02 platform schema implementation foundation"
+description = "Fail-closed Omarchy platform contracts and Q-00 intake dataset"
 requires-python = ">=3.12,<3.14"
 dependencies = [
+  "cryptography==44.0.2",
   "jsonschema==4.26.0",
   "rfc8785==0.1.4",
 ]
 
 [project.scripts]
-omarchy-platform = "omarchy_platform.cli:main"
+omarchy-platform = "omarchy_trust.platform_cli:main"
+omarchy-trust = "omarchy_trust.cli:main"
+omarchy-intake = "omarchy_intake.cli:main"
+omarchy-build = "omarchy_build.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+omarchy_trust = ["resources/*.json"]
+omarchy_intake = ["resources/*.json"]
+omarchy_build = ["schemas/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

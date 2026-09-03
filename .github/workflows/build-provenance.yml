@@ -1,0 +1,41 @@
+name: F-04 build provenance
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  build-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package and test tools
+        run: python -m pip install -e . pytest
+      - name: F-04 tests and hostile probes
+        env:
+          OMARCHY_BUILD_NETWORK: denied
+        run: python -m pytest -q tests/test_build_provenance.py
+      - name: Schema and fixture drift
+        run: |
+          PYTHONPATH=src python tools/build/drift.py
+          PYTHONPATH=src python tools/build/generate.py > /tmp/f04-fixture-inventory.json
+      - name: Full regression
+        run: python -m pytest -q
+      - name: Build and install wheel from unrelated cwd
+        run: |
+          python -m pip wheel --no-deps -w /tmp/omarchy-f04-wheel .
+          python -m venv /tmp/omarchy-f04-wheel-venv
+          /tmp/omarchy-f04-wheel-venv/bin/python -m pip install --find-links /tmp/omarchy-f04-wheel omarchy-platform-contracts
+          cd /tmp
+          /tmp/omarchy-f04-wheel-venv/bin/omarchy-build lock check --builder "$GITHUB_WORKSPACE/builders/fixture-a/definition.json" --recipe "$GITHUB_WORKSPACE/fixtures/build/recipe.json" --source-lock "$GITHUB_WORKSPACE/fixtures/build/source-lock.json"
+      - name: Diff, conflict, and secret hygiene
+        run: |
+          git diff --check
+          ! rg -n '^(<<<<<<<|=======|>>>>>>>)( |$)' . --glob '!*.lock'
+          ! rg -n '(^|[[:space:]])(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)' . --glob '!*.lock'

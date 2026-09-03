@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/policy/trust/trust-bundle/v1",
+  "title": "F-03 trust-root policy envelope shape",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "sequence", "repository", "channel", "issued_at", "expires_at", "roles", "keys", "delegations", "revocations", "freeze", "rollback", "signatures"],
+  "properties": {
+    "format": {"const": "omarchy-trust-root/v1"},
+    "version": {"const": "v1"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "repository": {"type": "string"},
+    "channel": {"enum": ["edge", "rc", "stable", "*"]},
+    "issued_at": {"type": "string"},
+    "expires_at": {"type": "string"},
+    "roles": {"type": "array", "minItems": 7, "maxItems": 7},
+    "keys": {"type": "array", "maxItems": 64, "items": {"type": "object", "required": ["key_id", "public_key", "role", "custody", "repository", "channel", "path_prefix", "not_before", "not_after"]}},
+    "delegations": {"type": "array", "maxItems": 128},
+    "revocations": {"type": "array", "maxItems": 256},
+    "freeze": {"type": "array", "maxItems": 256},
+    "rollback": {"type": "array", "maxItems": 256},
+    "signatures": {"type": "array", "minItems": 1, "maxItems": 16},
+    "rotation": {"type": "object", "additionalProperties": false, "required": ["from_sequence", "to_sequence", "old_root_key_ids", "new_root_key_ids", "new_root_keys", "acknowledgement"], "properties": {"from_sequence": {"type": "integer", "minimum": 1}, "to_sequence": {"type": "integer", "minimum": 2}, "old_root_key_ids": {"type": "array"}, "new_root_key_ids": {"type": "array"}, "new_root_keys": {"type": "array"}, "acknowledgement": {"type": "object", "additionalProperties": false, "required": ["format", "from_sequence", "to_sequence", "new_root_key_ids", "signatures"]}}}
+  }
+}
