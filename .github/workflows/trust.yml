@@ -32,7 +32,7 @@ jobs:
           wheel=$(find /tmp/omarchy-f03-wheel -name '*.whl' -print -quit)
           test -n "$wheel"
           python -m venv /tmp/omarchy-f03-wheel-venv
-          /tmp/omarchy-f03-wheel-venv/bin/pip install --no-deps "$wheel"
+          /tmp/omarchy-f03-wheel-venv/bin/pip install "$wheel"
           (cd /tmp && /tmp/omarchy-f03-wheel-venv/bin/python -c 'import omarchy_trust; from importlib import resources; print(resources.files("omarchy_trust").joinpath("resources/root-anchors.json").read_text())')
       - name: Diff, conflict, and secret hygiene
         run: |
