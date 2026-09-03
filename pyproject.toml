@@ -18,6 +18,7 @@ omarchy-platform = "omarchy_trust.platform_cli:main"
 omarchy-trust = "omarchy_trust.cli:main"
 omarchy-intake = "omarchy_intake.cli:main"
 omarchy-build = "omarchy_build.cli:main"
+omarchy-program = "omarchy_program.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
