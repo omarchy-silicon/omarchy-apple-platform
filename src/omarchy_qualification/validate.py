@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -42,6 +42,7 @@ _CAPS = frozenset({
 _MODALITIES = frozenset({"automated", "human-observed", "automated-and-human"})
 _STATUSES = frozenset({"pass", "fail", "unknown"})
 _MAX_INPUT_BYTES = 1_048_576
+_MAX_FIRMWARE_AGE_DAYS = 180
 
 
 def _fail(code: str, path: str, message: str) -> None:
@@ -160,6 +161,8 @@ def validate_inventory(value: Any) -> None:
         board = _closed(board, {"board_id", "selector", "profile_ids", "capabilities"}, path)
         _str(board["board_id"], f"{path}.board_id", _BOARD)
         _str(board["selector"], f"{path}.selector", _SELECTOR)
+        if board["selector"] != board["board_id"].removeprefix("apple:"):
+            _fail("BOARD_SELECTOR_MISMATCH", f"{path}.selector", "selector must equal the canonical board-id suffix")
         _sorted_unique(board["profile_ids"], f"{path}.profile_ids", lambda x: x)
         for j, profile in enumerate(board["profile_ids"]):
             _str(profile, f"{path}.profile_ids[{j}]", _PROFILE)
@@ -238,13 +241,15 @@ def _evidence(record: dict[str, Any], physical_units: dict[str, dict[str, Any]])
     return result
 
 
-def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: bool = True) -> None:
+def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: bool = True, verification_time: str | None = None) -> None:
     validate_inventory(inventory)
     _schema_validate(record, "qualification-record-q01-v1.schema.json")
     fields = {"schema", "schema_set_digest", "record_id", "board_id", "board_selector", "profile_id", "intake_dataset_digest", "intake_record_id", "intake_record_digest", "f02_schema_set_digest", "manifest_id", "manifest_digest", "firmware_baseline", "physical_units", "capabilities", "evidence", "tool_versions", "redaction", "residuals", "issued_at", "validated_at", "outcome", "admission"}
     record = _closed(record, fields, "$")
     if record["schema"] != "qualification-record/q01-v1":
         _fail("SCHEMA_INVALID", "$.schema", "unexpected Q-01 record schema")
+    if (record["outcome"] == "FULL" or record["admission"] == "QUALIFIED") and verification_time is None:
+        _fail("VERIFICATION_TIME_REQUIRED", "$.verification_time", "FULL or QUALIFIED validation requires an explicit verification time")
     _digest(record["schema_set_digest"], "$.schema_set_digest")
     if record["schema_set_digest"] != q01_schema_set_digest():
         _fail("SCHEMA_DIGEST_MISMATCH", "$.schema_set_digest", "record schema digest is stale")
@@ -359,14 +364,18 @@ def validate_record(record: Any, inventory: dict[str, Any], *, check_intake: boo
             _fail("SCHEMA_INVALID", f"$.residuals[{index}].state", "invalid residual state")
     _timestamp(record["issued_at"], "$.issued_at")
     _timestamp(record["validated_at"], "$.validated_at")
+    if verification_time is not None:
+        _timestamp(verification_time, "$.verification_time")
+    if verification_time is not None and record["validated_at"] > verification_time:
+        _fail("VERIFICATION_TIME_ORDER", "$.validated_at", "record validation cannot occur after verification time")
 
 
-def validate_record_file(record_path: str | Path, inventory_path: str | Path, *, intake_manifest: str | Path | None = None, manifest: str | Path | None = None) -> dict[str, Any]:
+def validate_record_file(record_path: str | Path, inventory_path: str | Path, *, intake_manifest: str | Path | None = None, manifest: str | Path | None = None, verification_time: str | None = None) -> dict[str, Any]:
     inventory = load_inventory(inventory_path)
     record = _read_json(record_path)
     if manifest is None and (record.get("outcome") == "FULL" or record.get("admission") == "QUALIFIED"):
         _fail("MANIFEST_REQUIRED", "$.manifest", "FULL or QUALIFIED records require an authoritative F-02 platform manifest")
-    validate_record(record, inventory)
+    validate_record(record, inventory, verification_time=verification_time)
     if intake_manifest is None:
         candidate = Path(inventory_path).resolve().parents[2] / "data/intake/manifest.json"
         if candidate.is_file():
@@ -404,6 +413,16 @@ def validate_record_file(record_path: str | Path, inventory_path: str | Path, *,
         except SchemaError as error:
             _fail("MANIFEST_INVALID", "$.manifest", f"F-02 platform manifest did not validate: {error.code}")
         payload = checked_manifest.get("payload", checked_manifest)
+        if (record["outcome"] == "FULL" or record["admission"] == "QUALIFIED") and manifest_value.get("format") != "omarchy-signed/v1":
+            _fail("MANIFEST_SIGNATURE_REQUIRED", "$.manifest.format", "qualified records require the signed F-02 manifest envelope")
+        if verification_time is not None and (record["outcome"] == "FULL" or record["admission"] == "QUALIFIED"):
+            issued = datetime.fromisoformat(payload["issued_at"].removesuffix("Z") + "+00:00")
+            expires = datetime.fromisoformat(payload["expires_at"].removesuffix("Z") + "+00:00")
+            checked_at = datetime.fromisoformat(verification_time.removesuffix("Z") + "+00:00")
+            if checked_at < issued:
+                _fail("MANIFEST_NOT_YET_VALID", "$.manifest.issued_at", "manifest is not valid at verification time")
+            if checked_at >= expires:
+                _fail("MANIFEST_EXPIRED", "$.manifest.expires_at", "manifest is expired at verification time")
         if payload.get("schema_set_digest") != F02_SCHEMA_SET_DIGEST:
             _fail("F02_SCHEMA_MISMATCH", "$.manifest.schema_set_digest", "manifest is not bound to the current F-02 schema authority")
         if payload.get("document_id") != record["manifest_id"]:
@@ -430,4 +449,14 @@ def validate_record_file(record_path: str | Path, inventory_path: str | Path, *,
             artifact = next((item for item in payload.get("artifacts", []) if item.get("artifact_id") == artifact_id), None)
             if firmware_component.get("source_digest") != baseline["build"] or baseline["firmware_id"] != "firmware-bundle" or not artifact or artifact.get("version") != baseline["version"]:
                 _fail("FIRMWARE_BASELINE_MISMATCH", "$.firmware_baseline", "firmware baseline does not match the manifest firmware artifact")
+            captured = datetime.fromisoformat(baseline["captured_at"].removesuffix("Z") + "+00:00")
+            issued = datetime.fromisoformat(payload["issued_at"].removesuffix("Z") + "+00:00")
+            expires = datetime.fromisoformat(payload["expires_at"].removesuffix("Z") + "+00:00")
+            checked_at = datetime.fromisoformat(verification_time.removesuffix("Z") + "+00:00")
+            if captured < issued or captured >= expires:
+                _fail("FIRMWARE_BASELINE_WINDOW", "$.firmware_baseline.captured_at", "firmware baseline is outside manifest validity window")
+            if captured > checked_at:
+                _fail("FIRMWARE_BASELINE_FUTURE", "$.firmware_baseline.captured_at", "firmware baseline is after verification time")
+            if checked_at - captured > timedelta(days=_MAX_FIRMWARE_AGE_DAYS):
+                _fail("FIRMWARE_BASELINE_STALE", "$.firmware_baseline.captured_at", "firmware baseline exceeds the closed freshness window")
     return {"decision": "ACCEPT", "record_id": record["record_id"], "outcome": record["outcome"], "admission": record["admission"], "record_digest": digest_bytes(canonical_bytes(record))}

@@ -7,7 +7,7 @@ import pytest
 
 from omarchy_qualification.canonical import digest_bytes
 from omarchy_qualification.errors import QualificationValidationError
-from omarchy_qualification.validate import load_inventory, validate_record, validate_record_file
+from omarchy_qualification.validate import load_inventory, validate_inventory, validate_record, validate_record_file
 
 ROOT = Path(__file__).parents[1]
 INVENTORY = ROOT / "data/qualification/inventory.json"
@@ -109,3 +109,59 @@ def test_physical_identity_duplicates_rejected():
     second = {**unit, "unit_id": "unit:b"}
     record["physical_units"] = [unit, second]
     rejects(record, "DUPLICATE_PHYSICAL_IDENTITY", inventory)
+
+
+def test_inventory_rejects_alias_or_family_selector():
+    inventory, _ = values()
+    inventory["boards"][0]["selector"] = "m1"
+    with pytest.raises(QualificationValidationError, match="SCHEMA_INVALID"):
+        validate_inventory(inventory)
+
+
+def test_full_requires_explicit_verification_time():
+    inventory, record = values()
+    record["outcome"] = "FULL"
+    record["admission"] = "NOT_QUALIFIED"
+    with pytest.raises(QualificationValidationError, match="VERIFICATION_TIME_REQUIRED"):
+        validate_record(record, inventory)
+
+
+def _full_fixture():
+    inventory, record = values()
+    manifest = json.loads((ROOT / "fixtures/accepted/platform-manifest-v1.json").read_text())
+    for criterion in inventory["boards"][0]["capabilities"]:
+        criterion["applicability"] = "applicable"
+    record.update(outcome="FULL", admission="QUALIFIED", residuals=[], validated_at="2026-01-04T00:00:00Z", manifest_id="fixture-platform-manifest")
+    record["redaction"]["residuals"] = []
+    record["physical_units"] = [{"unit_id": f"unit:{i}", "identity_digest": "sha256:" + str(i) * 64, "board_id": "apple:j313", "profile_id": "profile:j313-macbookair10-1", "inventory_tag": f"tag:{i}", "serial_pseudonym": f"serial:{i}"} for i in (1, 2)]
+    record["capabilities"] = []
+    record["evidence"] = []
+    for criterion in inventory["boards"][0]["capabilities"]:
+        cid = criterion["capability_id"]
+        payload = cid.encode()
+        evidence_id = f"evidence:{cid}"
+        record["capabilities"].append({"capability_id": cid, "applicability": "applicable", "status": "pass", "evidence_ids": [evidence_id], "threshold_met": True})
+        record["evidence"].append({"evidence_id": evidence_id, "bytes_b64": base64.b64encode(payload).decode(), "content_digest": digest_bytes(payload), "modality": "automated-and-human", "physical": True, "unit_ids": ["unit:1", "unit:2"], "observed_at": "2026-01-02T00:00:00Z", "tool_version": "tool-1", "redaction_ref": None})
+    manifest["payload"]["board_targets"] = ["apple:j313"]
+    manifest["payload"]["board_identities"][0].update(board_id="apple:j313", linux_compatible="apple,j313")
+    manifest["payload"]["qualification_bindings"][0].update(board_id="apple:j313", qualification_record_id=record["record_id"])
+    from omarchy_platform.canonical import payload_digest
+    record["manifest_digest"] = payload_digest(manifest["payload"])
+    record["firmware_baseline"] = {"firmware_id": "firmware-bundle", "version": "1.0.0", "build": manifest["payload"]["components"]["firmware_bundle"]["source_digest"], "captured_at": "2026-01-02T00:00:00Z"}
+    return inventory, record, manifest
+
+
+def test_manifest_expiry_and_stale_firmware_rejected(tmp_path):
+    inventory, record, manifest = _full_fixture()
+    manifest["payload"]["expires_at"] = "2026-01-03T00:00:00Z"
+    from omarchy_platform.canonical import payload_digest
+    record["manifest_digest"] = payload_digest(manifest["payload"])
+    record_path, inventory_path, manifest_path = tmp_path / "record.json", tmp_path / "inventory.json", tmp_path / "manifest.json"
+    inventory_path.write_text(json.dumps(inventory)); record_path.write_text(json.dumps(record)); manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(QualificationValidationError, match="MANIFEST_EXPIRED"):
+        validate_record_file(record_path, inventory_path, manifest=manifest_path, intake_manifest=ROOT / "data/intake/manifest.json", verification_time="2026-01-04T00:00:00Z")
+    inventory, record, manifest = _full_fixture()
+    record["firmware_baseline"]["captured_at"] = "2020-01-02T00:00:00Z"
+    record_path.write_text(json.dumps(record)); manifest_path.write_text(json.dumps(manifest)); inventory_path.write_text(json.dumps(inventory))
+    with pytest.raises(QualificationValidationError, match="FIRMWARE_BASELINE_WINDOW"):
+        validate_record_file(record_path, inventory_path, manifest=manifest_path, intake_manifest=ROOT / "data/intake/manifest.json", verification_time="2026-01-04T00:00:00Z")

@@ -28,6 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("--inventory", required=True)
     validate.add_argument("--intake")
     validate.add_argument("--manifest")
+    validate.add_argument("--verification-time")
     digest = sub.add_parser("digest")
     digest.add_argument("--record", required=True)
     digest.add_argument("--inventory", required=True)
@@ -40,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 _emit({"decision": "ACCEPT", "inventory_id": inventory["inventory_id"], "boards": len(inventory["boards"])})
         elif args.command == "validate":
-            result = validate_record_file(args.record, args.inventory, intake_manifest=args.intake, manifest=args.manifest)
+            result = validate_record_file(args.record, args.inventory, intake_manifest=args.intake, manifest=args.manifest, verification_time=args.verification_time)
             _emit(result)
         else:
             result = validate_record_file(args.record, args.inventory)
