@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
+from pathlib import Path
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -27,7 +29,7 @@ _ARTIFACT = (
 _NOTICE = ("version", "id", "text", "digest")
 _OFFER = ("version", "status", "location", "digest", "expires_at")
 _DECISION = ("version", "decision_id", "evidence_digest", "decided_at", "expires_at")
-_PROVENANCE = ("version", "builder", "recipe_digest", "source_digest", "environment_digest")
+_PROVENANCE = ("version", "builder", "toolchain", "recipe_digest", "source_digest", "environment_digest", "toolchain_digest")
 _SBOM = ("version", "format", "digest", "uri")
 _CLOCK = lambda: datetime.now(timezone.utc)
 
@@ -101,7 +103,7 @@ def _target(value: Any, path: str) -> dict[str, Any]:
     return target
 
 
-def _immutable_uri(value: Any, path: str) -> str:
+def _immutable_uri(value: Any, path: str, expected_digests: tuple[str, ...]) -> str:
     uri = _string(value, path)
     try:
         parsed = urlsplit(uri)
@@ -118,8 +120,12 @@ def _immutable_uri(value: Any, path: str) -> str:
     segments = parsed.path[1:].split("/")
     if not segments or any(segment in ("", ".", "..") for segment in segments):
         _fail("MUTABLE_SOURCE_URI", path, "empty, dot, and traversal path segments are forbidden")
-    if not re.search(r"sha256:[0-9a-f]{64}", segments[-1]):
-        _fail("MUTABLE_SOURCE_URI", path, "final URI path segment must contain a pinned digest")
+    filename = segments[-1]
+    match = re.fullmatch(r"([0-9a-f]{64})(?:\.(?:tar\.gz|tgz|zip|json))?", filename)
+    if not match or match.group(1) != expected_digests[-1].removeprefix("sha256:"):
+        _fail("MUTABLE_SOURCE_URI", path, "final URI filename must be the exact lowercase digest token")
+    if len(expected_digests) > 1 and (len(segments) < 2 or segments[-2] != expected_digests[0].removeprefix("sha256:")):
+        _fail("MUTABLE_SOURCE_URI", path, "dedicated source digest path segment is not exact")
     return uri
 
 
@@ -137,7 +143,32 @@ def _check_ref(ref: Any, expected: dict[str, Any], path: str) -> None:
         _fail("TARGET_BINDING_MISMATCH", path, "candidate, manifest, and schema-set references must match exactly")
 
 
-def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set: dict, now: datetime) -> None:
+def _provenance_lock() -> list[dict[str, Any]]:
+    path = Path(__file__).resolve().parents[2] / "policy/release/provenance-lock.json"
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, ValueError, TypeError):
+        _fail("PROVENANCE_AUTHORITY_MISSING", "$.policy.provenance", "repository provenance authority is unavailable")
+    if not isinstance(value, dict) or set(value) != {"version", "artifacts"} or value.get("version") != "f06-provenance-lock/v1" or not isinstance(value.get("artifacts"), list):
+        _fail("PROVENANCE_AUTHORITY_INVALID", "$.policy.provenance", "provenance authority is not the closed version")
+    records = value["artifacts"]
+    keys = {"artifact_id", "source_digest", "recipe_digest", "environment_digest", "builder", "toolchain", "toolchain_digest"}
+    ids = []
+    for index, record in enumerate(records):
+        if not isinstance(record, dict) or set(record) != keys:
+            _fail("PROVENANCE_AUTHORITY_INVALID", f"$.policy.provenance.artifacts[{index}]", "provenance authority record is open or incomplete")
+        _string(record["artifact_id"], f"$.policy.provenance.artifacts[{index}].artifact_id", identifier=True)
+        ids.append(record["artifact_id"])
+        for field in ("source_digest", "recipe_digest", "environment_digest", "toolchain_digest"):
+            _digest(record[field], f"$.policy.provenance.artifacts[{index}].{field}")
+        _string(record["builder"], f"$.policy.provenance.artifacts[{index}].builder", identifier=True)
+        _string(record["toolchain"], f"$.policy.provenance.artifacts[{index}].toolchain", identifier=True)
+    if ids != sorted(ids) or len(ids) != len(set(ids)):
+        _fail("PROVENANCE_AUTHORITY_INVALID", "$.policy.provenance.artifacts", "provenance authority IDs must be unique and sorted")
+    return records
+
+
+def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set: dict, now: datetime, authority: dict[str, dict[str, Any]]) -> None:
     a = _object(item, path, _ARTIFACT)
     _string(a["artifact_id"], f"{path}.artifact_id", identifier=True)
     _string(a["component_id"], f"{path}.component_id", identifier=True)
@@ -145,10 +176,8 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
     _digest(a["source_digest"], f"{path}.source_digest")
     _digest(a["upstream_digest"], f"{path}.upstream_digest", required=False)
     _digest(a["fork_digest"], f"{path}.fork_digest", required=False)
-    source_uri = _immutable_uri(a["source_uri"], f"{path}.source_uri")
+    source_uri = _immutable_uri(a["source_uri"], f"{path}.source_uri", (a["source_digest"], a["content_digest"]))
     final_segment = urlsplit(source_uri).path.rsplit("/", 1)[-1]
-    if a["source_digest"] not in final_segment or a["content_digest"] not in final_segment:
-        _fail("DIGEST_MISMATCH", f"{path}.source_uri", "final URI path segment must bind exact source and content digests")
     if a["artifact_class"] not in vocabulary()["artifact_classes"]:
         _fail("UNKNOWN_ARTIFACT_CLASS", f"{path}.artifact_class", "artifact class is outside policy vocabulary")
     if a["spdx_expression"] not in vocabulary()["spdx_expressions"]:
@@ -187,10 +216,9 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
         _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.source_offer.version", "unsupported source-offer version")
     if offer["status"] not in vocabulary()["source_offer_status"] or offer["status"] != "offered":
         _fail("SOURCE_OFFER_MISSING", f"{path}.source_offer.status", "redistributed artifacts require offered source")
-    offer_location = _immutable_uri(offer["location"], f"{path}.source_offer.location")
+    offer_location = _immutable_uri(offer["location"], f"{path}.source_offer.location", (a["source_digest"], a["content_digest"]))
     _digest(offer["digest"], f"{path}.source_offer.digest")
-    offer_final = urlsplit(offer_location).path.rsplit("/", 1)[-1]
-    if offer["digest"] != a["source_digest"] or offer["location"] != a["source_uri"] or a["content_digest"] not in offer_final or a["source_digest"] not in offer_final:
+    if offer["digest"] != a["source_digest"] or offer["location"] != a["source_uri"]:
         _fail("DIGEST_MISMATCH", f"{path}.source_offer", "source offer must match source identity")
     expiry = _timestamp(offer["expires_at"], f"{path}.source_offer.expires_at")
     if expiry <= now:
@@ -220,18 +248,23 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
         _fail("OWNER_DECISION_EXPIRED", f"{path}.owner_decision.expires_at", "owner/legal decision is expired")
     if not isinstance(a["generated"], bool):
         _fail("INCOMPLETE_INVENTORY", f"{path}.generated", "generated must be boolean")
+    provenance = a["build_provenance"]
+    if not isinstance(provenance, dict):
+        _fail("PROVENANCE_MISSING", f"{path}.build_provenance", "every artifact requires locked build provenance")
+    provenance = _object(provenance, f"{path}.build_provenance", _PROVENANCE)
+    if provenance["version"] != vocabulary()["provenance_version"]:
+        _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.build_provenance.version", "unsupported provenance version")
+    _string(provenance["builder"], f"{path}.build_provenance.builder", identifier=True)
+    _string(provenance["toolchain"], f"{path}.build_provenance.toolchain", identifier=True)
+    for field in ("recipe_digest", "source_digest", "environment_digest", "toolchain_digest"):
+        _digest(provenance[field], f"{path}.build_provenance.{field}")
+    locked = authority.get(a["artifact_id"])
+    if locked is None:
+        _fail("PROVENANCE_AUTHORITY_MISSING", f"{path}.artifact_id", "artifact is absent from repository provenance authority")
+    for field in ("builder", "toolchain", "recipe_digest", "source_digest", "environment_digest", "toolchain_digest"):
+        if provenance[field] != locked[field]:
+            _fail("PROVENANCE_LOCK_MISMATCH", f"{path}.build_provenance.{field}", "provenance differs from repository-owned authority")
     if a["generated"]:
-        provenance = a["build_provenance"]
-        if not isinstance(provenance, dict):
-            _fail("PROVENANCE_MISSING", f"{path}.build_provenance", "generated artifacts require build provenance")
-        provenance = _object(provenance, f"{path}.build_provenance", _PROVENANCE)
-        if provenance["version"] != vocabulary()["provenance_version"]:
-            _fail("UNSUPPORTED_RECORD_VERSION", f"{path}.build_provenance.version", "unsupported provenance version")
-        _string(provenance["builder"], f"{path}.build_provenance.builder", identifier=True)
-        for field in ("recipe_digest", "source_digest", "environment_digest"):
-            _digest(provenance[field], f"{path}.build_provenance.{field}")
-        if provenance["source_digest"] != a["source_digest"]:
-            _fail("DIGEST_MISMATCH", f"{path}.build_provenance.source_digest", "provenance source digest must match artifact source")
         sbom = a["sbom_ref"]
         if not isinstance(sbom, dict):
             _fail("SBOM_MISSING", f"{path}.sbom_ref", "generated artifacts require an SBOM reference")
@@ -241,12 +274,10 @@ def _artifact(item: Any, path: str, candidate: dict, manifest: dict, schema_set:
         if sbom["format"] not in vocabulary()["sbom_formats"]:
             _fail("UNKNOWN_SBOM_FORMAT", f"{path}.sbom_ref.format", "SBOM format is outside vocabulary")
         _digest(sbom["digest"], f"{path}.sbom_ref.digest")
-        _immutable_uri(sbom["uri"], f"{path}.sbom_ref.uri")
-        if sbom["digest"] not in urlsplit(sbom["uri"]).path.rsplit("/", 1)[-1]:
-            _fail("DIGEST_MISMATCH", f"{path}.sbom_ref.uri", "SBOM URI must bind its digest")
+        _immutable_uri(sbom["uri"], f"{path}.sbom_ref.uri", (sbom["digest"],))
     else:
-        if a["build_provenance"] is not None or a["sbom_ref"] is not None:
-            _fail("INVALID_PROVENANCE", f"{path}.build_provenance", "non-generated artifacts must use null provenance/SBOM")
+        if a["sbom_ref"] is not None:
+            _fail("INVALID_PROVENANCE", f"{path}.sbom_ref", "non-generated artifacts must use null SBOM")
     _check_ref(a["candidate_ref"], candidate, f"{path}.candidate_ref")
     _check_ref(a["manifest_ref"], manifest, f"{path}.manifest_ref")
     _check_ref(a["schema_set_ref"], schema_set, f"{path}.schema_set_ref")
@@ -289,6 +320,7 @@ def validate(bundle: Any) -> dict[str, Any]:
     if policy["digest"] != expected_policy:
         _fail("POLICY_DIGEST_MISMATCH", "$.policy.digest", "policy digest does not match closed vocabulary")
     candidate, manifest, schema_set = (_target(top[key], f"$.{key}") for key in ("candidate", "manifest", "schema_set"))
+    authority = {record["artifact_id"]: record for record in _provenance_lock()}
     artifacts = top["artifacts"]
     if not isinstance(artifacts, list) or not artifacts:
         _fail("INCOMPLETE_INVENTORY", "$.artifacts", "at least one artifact is required")
@@ -298,7 +330,7 @@ def validate(bundle: Any) -> dict[str, Any]:
         if not isinstance(item, dict):
             _fail("INCOMPLETE_INVENTORY", f"$.artifacts[{index}]", "artifact object required")
         components.append(item.get("component_id"))
-        _artifact(item, f"$.artifacts[{index}]", candidate, manifest, schema_set, now)
+        _artifact(item, f"$.artifacts[{index}]", candidate, manifest, schema_set, now, authority)
     if any(not isinstance(component, str) for component in components):
         _fail("INCOMPLETE_INVENTORY", "$.artifacts", "component IDs are required")
     if len(set(components)) != len(components):

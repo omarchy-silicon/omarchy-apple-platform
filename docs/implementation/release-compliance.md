@@ -18,7 +18,9 @@ closed key set and every list is deterministically sorted by its identifier.
 match the bundle references exactly. A digest is a non-null lowercase `sha256:`
 value with 64 hexadecimal characters. Source URIs are immutable HTTPS URIs
 with lowercase DNS, no userinfo/port/query/fragment, no dot or empty segments,
-and a final path segment containing the exact source and content digests.
+and exact digest-token path segments. Artifact/source URLs use a dedicated
+source-digest segment followed by a digest-only content filename with a closed
+archive extension; SBOM URLs use the same digest-only filename rule.
 
 Each artifact contains exactly: `artifact_id`, `component_id`,
 `content_digest`, `source_digest`, `upstream_digest`, `fork_digest`,
@@ -38,10 +40,13 @@ copyright/NOTICE text, and a source offer. `prohibited`, `unknown`, and
 `direct-fetch-only` all reject a release bundle. Source-offer-required classes
 must provide an immutable URI, digest, and future expiry.
 
-Generated artifacts require a non-empty build provenance object and SBOM
-reference. Firmware and asset classes additionally require the corresponding
-policy classification. All identifiers are non-empty ASCII strings, unique,
-and sorted. Empty or incomplete bundles reject rather than defaulting.
+Every artifact requires a closed build-provenance record whose builder,
+toolchain, and digest refs exactly match `policy/release/provenance-lock.json`;
+the lock is repository-owned and cannot be replaced by a bundle field. Generated
+artifacts additionally require a closed SBOM reference. Firmware and asset
+classes additionally require the corresponding policy classification. All
+identifiers are non-empty ASCII strings, unique, and sorted. Empty or
+incomplete bundles reject rather than defaulting.
 
 ## Evaluation and attestation
 
@@ -53,6 +58,12 @@ bytes containing the exact inventory, policy, candidate, manifest, and
 schema-set digests plus `signed: false`, `trusted: false`, `clock_trusted: false`,
 and `promotable: false`. It is an evidence projection only. Production uses an
 internal UTC clock; only the private test adapter can replace it.
+
+The candidate consumer guard accepts only a closure-private
+`VerifiedComplianceAttestation` produced by a future F-03 signature/trust
+constructor. F-06 has no constructor and intentionally rejects all raw JSON,
+all forged booleans, and the generated unsigned attestation; it is not a
+promotion terminal. F-07 remains the sole promotion terminal.
 
 The module CLI is `PYTHONPATH=src python -m omarchy_release_compliance` with
 `validate`, `evaluate`, and `attest` subcommands. It reads one JSON document

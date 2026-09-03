@@ -36,7 +36,7 @@ def main() -> int:
     policy = json.loads(policy_path.read_text())
     manifest = json.loads(manifest_path.read_text())
     failures: list[str] = []
-    if set(manifest) != {"version", "accepted", "accepted_sha256", "policy_sha256", "generated_sha256", "hostile"}:
+    if set(manifest) != {"version", "accepted", "accepted_sha256", "policy_sha256", "provenance_lock_sha256", "generated_sha256", "hostile"}:
         failures.append("fixture manifest has an open top-level schema")
     if manifest.get("version") != "f06-fixtures/v1":
         failures.append("unsupported fixture manifest version")
@@ -46,6 +46,10 @@ def main() -> int:
     accepted_path = ROOT / "fixtures/compliance" / manifest.get("accepted", "")
     if manifest.get("policy_sha256") != policy_hash:
         failures.append("policy hash drift")
+    lock_path = ROOT / "policy/release/provenance-lock.json"
+    lock_hash = "sha256:" + hashlib.sha256(canonical_bytes(json.loads(lock_path.read_text()))).hexdigest() if lock_path.exists() else None
+    if manifest.get("provenance_lock_sha256") != lock_hash:
+        failures.append("provenance lock hash drift")
     if not accepted_path.exists() or manifest.get("accepted_sha256") != "sha256:" + hashlib.sha256(canonical_bytes(json.loads(accepted_path.read_text()))).hexdigest():
         failures.append("accepted fixture hash drift")
     hostile_dir = ROOT / "fixtures/compliance/hostile"

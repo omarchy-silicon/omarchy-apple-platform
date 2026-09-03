@@ -1,11 +1,12 @@
 {
   "accepted": "accepted.json",
-  "accepted_sha256": "sha256:a018765796ae3ce88550994c39bb6814ffd35b4c9d679a5b638bb27c9b844d33",
+  "accepted_sha256": "sha256:02d17298bbc349f9c52dd07f489b67273d6b06e3bf97d694e02a288e998dd3f9",
   "generated_sha256": {
-    "NOTICE.txt": "sha256:6226f17bde3b8b7af3abe6320d9c678b83c4c4a0bc75e5592b51730ade3f815e",
-    "attestation.json": "sha256:83b48b2299a1b74c4beaf5df380e9ef37030157f010a5029f87aa66ac2734f19",
-    "source-offers.json": "sha256:a97c1a73a690fea360a9dc36f55f541796866d39216ab78536530427afde25d2"
+    "NOTICE.txt": "sha256:c93b53c7247e014ca8b80569251709837579b16e3f3df1dca08338de039fe434",
+    "attestation.json": "sha256:5646e7812a11c276f81d05364d2d39d50a543e612e34fbb7a835498217cb8987",
+    "source-offers.json": "sha256:72119e31b47864473f8e21e4f330637d15953243f637ea8a045637bc1241886b"
   },
+  "provenance_lock_sha256": "sha256:2738fd7e9d267079ede1ef16cab9c394779ab99ddd29512456475c8c6bb4bc8c",
   "hostile": [
     {
       "code": "TARGET_BINDING_MISMATCH",

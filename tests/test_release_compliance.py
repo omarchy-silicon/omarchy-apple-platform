@@ -182,6 +182,47 @@ def test_strict_immutable_uri_guards(field: str, value: str) -> None:
     assert evaluate(bundle)["code"] in {"MUTABLE_SOURCE_URI", "DIGEST_MISMATCH"}
 
 
+def test_digest_suffix_and_case_lookalikes_fail_every_uri_record() -> None:
+    bundle = accepted()
+    source = bundle["artifacts"][0]["source_uri"]
+    source_parts = source.split("/")
+    source_parts[-2] += "0"
+    bundle["artifacts"][0]["source_uri"] = "/".join(source_parts)
+    assert evaluate(bundle)["code"] == "MUTABLE_SOURCE_URI"
+    bundle = accepted()
+    source = bundle["artifacts"][0]["source_uri"]
+    source_parts = source.split("/")
+    source_parts[-1] = source_parts[-1].replace("a" * 64, "a" * 64 + "0")
+    bundle["artifacts"][0]["source_uri"] = "/".join(source_parts)
+    assert evaluate(bundle)["code"] == "MUTABLE_SOURCE_URI"
+    bundle = accepted()
+    source = bundle["artifacts"][0]["source_offer"]["location"]
+    source_parts = source.split("/")
+    source_parts[-2] += "0"
+    bundle["artifacts"][0]["source_offer"]["location"] = "/".join(source_parts)
+    assert evaluate(bundle)["code"] == "MUTABLE_SOURCE_URI"
+    bundle = accepted()
+    sbom = bundle["artifacts"][1]["sbom_ref"]["uri"]
+    bundle["artifacts"][1]["sbom_ref"]["uri"] = sbom.replace("e" * 64, "e" * 64 + "0")
+    assert evaluate(bundle)["code"] == "MUTABLE_SOURCE_URI"
+
+
+def test_provenance_lock_tamper_rejects_even_valid_syntax() -> None:
+    import shutil
+    with tempfile.TemporaryDirectory() as directory:
+        copied = Path(directory) / "repo"
+        shutil.copytree(ROOT, copied)
+        lock_path = copied / "policy/release/provenance-lock.json"
+        lock = json.loads(lock_path.read_text())
+        lock["artifacts"][0]["recipe_digest"] = "sha256:" + "0" * 64
+        lock_path.write_text(json.dumps(lock))
+        run = subprocess.run(
+            [sys.executable, "-c", "import json; from omarchy_release_compliance import evaluate; print(evaluate(json.load(open('fixtures/compliance/accepted.json'))))"],
+            cwd=copied, env={**dict(__import__("os").environ), "PYTHONPATH": "src"}, text=True, capture_output=True,
+        )
+        assert "PROVENANCE_LOCK_MISMATCH" in run.stdout
+
+
 def test_nested_record_closure() -> None:
     for field, value, code in (
         ("artifacts[0].copyright_notice[0].extra", True, "UNKNOWN_FIELD"),
@@ -205,29 +246,20 @@ def test_consumer_guard_rejects_unsigned_generated_attestation() -> None:
     expected = {key: result[key] for key in ("inventory_digest", "policy_digest", "candidate_digest", "manifest_digest", "schema_set_digest", "bundle_digest")}
     with pytest.raises(ComplianceError) as caught:
         guard_attestation(attest(bundle), expected)
-    assert caught.value.code == "ATTESTATION_NON_PROMOTABLE"
+    assert caught.value.code == "ATTESTATION_TYPE_REQUIRED"
 
 
-@pytest.mark.parametrize(
-    ("field", "value", "code"),
-    [
-        ("signed", False, "ATTESTATION_UNSIGNED"),
-        ("trusted", False, "ATTESTATION_UNTRUSTED"),
-        ("decision", "reject", "ATTESTATION_NOT_ALLOW"),
-        ("inventory_digest", "sha256:" + "0" * 64, "ATTESTATION_DIGEST_MISMATCH"),
-        ("valid_until", "2020-01-01T00:00:00Z", "ATTESTATION_STALE"),
-    ],
-)
-def test_consumer_guard_rejects_each_promotion_exploit(field: str, value: object, code: str) -> None:
+@pytest.mark.parametrize("field", ["signed", "trusted", "promotable", "decision", "valid_until", "inventory_digest"])
+def test_consumer_guard_rejects_forged_all_true_and_future_valid(field: str) -> None:
     bundle = accepted()
     result = evaluate(bundle)
     expected = {key: result[key] for key in ("inventory_digest", "policy_digest", "candidate_digest", "manifest_digest", "schema_set_digest", "bundle_digest")}
     projection = json.loads(attest(bundle))
     projection.update({"signed": True, "trusted": True, "promotable": True, "clock_trusted": True})
-    projection[field] = value
+    projection[field] = True if field in {"signed", "trusted", "promotable"} else ("allow" if field == "decision" else ("2099-01-01T00:00:00Z" if field == "valid_until" else "sha256:" + "0" * 64))
     with pytest.raises(ComplianceError) as caught:
         guard_attestation(projection, expected)
-    assert caught.value.code == code
+    assert caught.value.code == "ATTESTATION_TYPE_REQUIRED"
 
 
 def test_consumer_guard_rejects_missing_and_open_attestation() -> None:
@@ -238,7 +270,7 @@ def test_consumer_guard_rejects_missing_and_open_attestation() -> None:
     projection.pop("bundle_digest")
     with pytest.raises(ComplianceError) as caught:
         guard_attestation(projection, expected)
-    assert caught.value.code == "ATTESTATION_MISSING_OR_OPEN"
+    assert caught.value.code == "ATTESTATION_TYPE_REQUIRED"
 
 
 def test_drift_tamper_payload_and_manifest_cannot_rewrite_oracle() -> None:
@@ -254,5 +286,18 @@ def test_drift_tamper_payload_and_manifest_cannot_rewrite_oracle() -> None:
         manifest = json.loads(manifest_path.read_text())
         next(entry for entry in manifest["hostile"] if entry["name"] == "incomplete")["code"] = "OK"
         manifest_path.write_text(json.dumps(manifest))
+        run = subprocess.run([sys.executable, "tools/compliance/drift.py"], cwd=copied, text=True, capture_output=True)
+        assert run.returncode != 0
+
+
+def test_drift_pins_provenance_authority_hash() -> None:
+    import shutil
+    with tempfile.TemporaryDirectory() as directory:
+        copied = Path(directory) / "repo"
+        shutil.copytree(ROOT, copied)
+        lock_path = copied / "policy/release/provenance-lock.json"
+        lock = json.loads(lock_path.read_text())
+        lock["artifacts"][0]["builder"] = "attacker"
+        lock_path.write_text(json.dumps(lock))
         run = subprocess.run([sys.executable, "tools/compliance/drift.py"], cwd=copied, text=True, capture_output=True)
         assert run.returncode != 0

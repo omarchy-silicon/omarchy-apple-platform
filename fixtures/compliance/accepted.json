@@ -27,7 +27,7 @@
       "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
       "upstream_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
       "fork_digest": null,
-      "source_uri": "https://example.invalid/omarchy-base-v1.0.0-sha256:4444444444444444444444444444444444444444444444444444444444444444-content-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.tar.gz",
+      "source_uri": "https://example.invalid/source/4444444444444444444444444444444444444444444444444444444444444444/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.tar.gz",
       "artifact_class": "system",
       "spdx_expression": "MIT",
       "copyright_notice": [
@@ -36,7 +36,7 @@
       "source_offer": {
         "version": "source-offer/v1",
         "status": "offered",
-        "location": "https://example.invalid/omarchy-base-v1.0.0-sha256:4444444444444444444444444444444444444444444444444444444444444444-content-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.tar.gz",
+        "location": "https://example.invalid/source/4444444444444444444444444444444444444444444444444444444444444444/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.tar.gz",
         "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
         "expires_at": "2030-01-01T00:00:00Z"
       },
@@ -51,7 +51,15 @@
       "firmware_policy": "not-applicable",
       "asset_policy": "not-applicable",
       "generated": false,
-      "build_provenance": null,
+      "build_provenance": {
+        "version": "build-provenance/v1",
+        "builder": "omarchy-ci",
+        "toolchain": "omarchy-toolchain-v1",
+        "recipe_digest": "sha256:abababababababababababababababababababababababababababababababab",
+        "source_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "environment_digest": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "toolchain_digest": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef"
+      },
       "sbom_ref": null,
       "candidate_ref": {
         "id": "omarchy-silicon",
@@ -76,7 +84,7 @@
       "source_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
       "upstream_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
       "fork_digest": null,
-      "source_uri": "https://example.invalid/omarchy-launcher-v2.0.0-sha256:7777777777777777777777777777777777777777777777777777777777777777-content-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.tar.gz",
+      "source_uri": "https://example.invalid/source/7777777777777777777777777777777777777777777777777777777777777777/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.tar.gz",
       "artifact_class": "generated",
       "spdx_expression": "Apache-2.0",
       "copyright_notice": [
@@ -85,7 +93,7 @@
       "source_offer": {
         "version": "source-offer/v1",
         "status": "offered",
-        "location": "https://example.invalid/omarchy-launcher-v2.0.0-sha256:7777777777777777777777777777777777777777777777777777777777777777-content-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.tar.gz",
+        "location": "https://example.invalid/source/7777777777777777777777777777777777777777777777777777777777777777/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.tar.gz",
         "digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
         "expires_at": "2030-01-01T00:00:00Z"
       },
@@ -103,15 +111,17 @@
       "build_provenance": {
         "version": "build-provenance/v1",
         "builder": "omarchy-ci",
+        "toolchain": "omarchy-toolchain-v1",
         "recipe_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         ,"source_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
         ,"environment_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        ,"toolchain_digest": "sha256:fefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe"
       },
       "sbom_ref": {
         "version": "sbom-ref/v1",
         "format": "spdx-json",
         "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "uri": "https://example.invalid/sbom-v1-sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json"
+        "uri": "https://example.invalid/sbom/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json"
       },
       "candidate_ref": {
         "id": "omarchy-silicon",
