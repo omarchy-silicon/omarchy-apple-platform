@@ -93,10 +93,11 @@
       "maxLength": 128,
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
     },
-    "bounded_string": {
+    "tool_version": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 512
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+\\-]{0,127}$"
     },
     "firmware": {
       "type": "object",
@@ -210,16 +211,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "artifact_id",
         "component_id",
         "content_digest",
         "sbom_digest",
         "provenance_digest"
       ],
       "properties": {
-        "artifact_id": {
-          "$ref": "#/$defs/id"
-        },
         "component_id": {
           "$ref": "#/$defs/id"
         },
@@ -271,10 +268,12 @@
           "$ref": "#/$defs/package_index"
         },
         "artifacts": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
             "$ref": "#/$defs/artifact"
           }
         },
@@ -587,7 +586,7 @@
             "$ref": "#/$defs/id"
           },
           "additionalProperties": {
-            "$ref": "#/$defs/bounded_string"
+            "$ref": "#/$defs/tool_version"
           }
         }
       }

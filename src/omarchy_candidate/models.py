@@ -8,6 +8,7 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol
 import re
+from datetime import datetime, timezone
 
 from omarchy_platform.canonical import canonical_bytes
 from omarchy_platform.strictjson import parse
@@ -17,6 +18,8 @@ from .generated import INPUT_VERSION, OUTPUT_VERSION, REQUIRED_GATE_IDS, VERSION
 
 _DIGEST = "sha256:"
 _ID_RE = re.compile(r"^[a-z][a-z0-9._:-]{0,127}$")
+_UTC_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?Z$")
+_TOOL_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+\-]{0,127}$")
 
 
 def digest_bytes(value: bytes) -> str:
@@ -94,6 +97,25 @@ def _id(value: Any, path: str) -> str:
     return result
 
 
+def _utc_time(value: Any, path: str) -> datetime:
+    if not isinstance(value, str) or not _UTC_RE.fullmatch(value):
+        _fail("INVALID_TIMESTAMP", path, "UTC timestamp with explicit Z offset required")
+    try:
+        checked = datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+    except ValueError:
+        _fail("INVALID_TIMESTAMP", path, "invalid UTC timestamp")
+    if checked.tzinfo != timezone.utc:
+        _fail("INVALID_TIMESTAMP", path, "UTC timestamp required")
+    return checked
+
+
+def _tool_version(value: Any, path: str) -> str:
+    result = _string(value, path)
+    if not _TOOL_VERSION_RE.fullmatch(result):
+        _fail("INVALID_TOOL_VERSION", path, "bounded ASCII tool-version token required")
+    return result
+
+
 _CAPABILITY_TOKEN = object()
 
 
@@ -130,7 +152,7 @@ class _AuthorityCapability:
         _string(self.profile_id, "$.profile_id")
         if self.channel not in {"edge", "rc", "stable"}:
             _fail("INVALID_TRUST_RECEIPT", "$.channel", "unknown channel")
-        _string(self.expires_at, "$.expires_at")
+        _utc_time(self.expires_at, "$.expires_at")
         _string(self.replay_id, "$.replay_id")
 
 
@@ -208,17 +230,19 @@ class CandidateAssemblyInput:
         if package["tuple_id"] != platform["tuple_id"] or package["abi_version"] != platform["abi_version"]:
             _fail("TUPLE_ABI_MISMATCH", "$.package", "package tuple and ABI differ from platform manifest")
         artifacts = package["artifacts"]
-        if not isinstance(artifacts, list) or not artifacts:
+        if not isinstance(artifacts, dict) or not artifacts:
             _fail("MISSING_ARTIFACT", "$.package.artifacts", "at least one package artifact is required")
         checked_artifacts = []
-        for index, item in enumerate(artifacts):
-            path = f"$.package.artifacts[{index}]"
-            item = _closed(item, ("artifact_id", "component_id", "content_digest", "sbom_digest", "provenance_digest"), path)
-            for field in ("artifact_id", "component_id"):
-                _id(item[field], f"{path}.{field}")
+        artifact_keys = tuple(sorted(artifacts))
+        for artifact_key in artifact_keys:
+            item = artifacts[artifact_key]
+            path = f"$.package.artifacts.{artifact_key}"
+            item = _closed(item, ("component_id", "content_digest", "sbom_digest", "provenance_digest"), path)
+            _id(artifact_key, f"{path} (key)")
+            _id(item["component_id"], f"{path}.component_id")
             for field in ("content_digest", "sbom_digest", "provenance_digest"):
                 _digest(item[field], f"{path}.{field}")
-            checked_artifacts.append(item)
+            checked_artifacts.append({"artifact_id": artifact_key, **item})
         ids = _sorted([item["artifact_id"] for item in checked_artifacts], "$.package.artifacts")
         _sorted([item["component_id"] for item in checked_artifacts], "$.package.component_ids")
         if tuple(platform["artifact_ids"]) != ids:
@@ -272,10 +296,10 @@ class CandidateAssemblyInput:
         versions = source["tool_versions"]
         if not isinstance(versions, dict) or not versions:
             _fail("TOOL_VERSION_MISSING", "$.source.tool_versions", "tool versions are required")
-        if list(versions) != sorted(versions) or len(versions) != len(set(versions)):
-            _fail("UNSORTED_IDS", "$.source.tool_versions", "tool version keys must be unique and sorted")
+        if len(versions) != len(set(versions)):
+            _fail("DUPLICATE_ID", "$.source.tool_versions", "tool version keys must be unique")
         for key, version in versions.items():
-            _id(key, "$.source.tool_versions"); _string(version, f"$.source.tool_versions.{key}")
+            _id(key, "$.source.tool_versions"); _tool_version(version, f"$.source.tool_versions.{key}")
         if len(versions) > 128:
             _fail("TOOL_VERSION_MISSING", "$.source.tool_versions", "tool versions exceed the bounded property limit")
         return cls(candidate_id, channel, board_id, profile_id, firmware, platform, intake, qualification, package, compliance, tuple(gate_rows), top_rollback_tuple, source)

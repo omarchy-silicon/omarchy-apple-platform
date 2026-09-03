@@ -15,6 +15,7 @@ import pytest
 from omarchy_candidate import CandidateAssemblyError, CandidateManifest, assemble_candidate, digest_value, guard_manifest
 from omarchy_candidate.models import _AuthorityCapability, _CAPABILITY_TOKEN, digest_bytes
 from omarchy_platform.canonical import canonical_bytes
+from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).parents[1]
 
@@ -163,6 +164,17 @@ def test_top_level_rollback_is_independent_and_bound() -> None:
     assert caught.value.code == "ROLLBACK_BINDING_MISMATCH"
 
 
+def test_artifact_map_rejects_redundant_or_mismatched_identity() -> None:
+    value = accepted()
+    value["package"]["artifacts"]["artifact:kernel"]["artifact_id"] = "artifact:other"
+    schema = json.loads((ROOT / "schemas/candidate-assembly/v1/candidate-assembly.json").read_text())
+    with pytest.raises(Exception):
+        Draft202012Validator(schema).validate(value)
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble(value)
+    assert caught.value.code == "UNKNOWN_FIELD"
+
+
 @pytest.mark.parametrize("path", ["firmware.version", "source.tool_versions.schema", "required_gates[0].evidence_digest"])
 def test_authority_only_accepts_exact_firmware_source_and_gate_projections(path: str) -> None:
     value = accepted()
@@ -171,6 +183,20 @@ def test_authority_only_accepts_exact_firmware_source_and_gate_projections(path:
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble(value)
     assert caught.value.code == "AUTHORITY_REJECTED"
+
+
+def test_timestamp_contract_rejects_date_only_and_forged_expiry() -> None:
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble_candidate(accepted(), authority=FixtureAuthority(), artifacts=FixtureArtifacts(), verification_time="2026-09-03")
+    assert caught.value.code == "INVALID_VERIFICATION_TIME"
+    receipt = _AuthorityCapability("firmware", "firmware-bundle", digest_value("omarchy-candidate-firmware/v1", accepted()["firmware"]), "apple:j313", "profile:j313-synthetic", "edge", "2099-01-01T00:00:00Z", "forged", digest_bytes(canonical_bytes(accepted()["firmware"])), accepted()["platform"]["schema_set_digest"], _token=_CAPABILITY_TOKEN)
+    object.__setattr__(receipt, "expires_at", 123)
+    class ForgedAuthority(FixtureAuthority):
+        def verify_canonical(self, *args, **kwargs):
+            return receipt
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble_candidate(accepted(), authority=ForgedAuthority(), artifacts=FixtureArtifacts(), verification_time="2026-09-03T00:00:00Z")
+    assert caught.value.code in {"INVALID_TIMESTAMP", "AUTHORITY_UNTRUSTED"}
 
 
 def test_authority_and_cas_bypass_reject() -> None:
@@ -190,8 +216,8 @@ def test_authority_and_cas_bypass_reject() -> None:
 
 def test_missing_or_substituted_artifact_bytes_reject() -> None:
     value = accepted()
-    value["package"]["artifacts"][0]["content_digest"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    value["package"]["rollback_artifact_digests"] = [value["package"]["artifacts"][0]["content_digest"]]
+    value["package"]["artifacts"]["artifact:kernel"]["content_digest"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    value["package"]["rollback_artifact_digests"] = [value["package"]["artifacts"]["artifact:kernel"]["content_digest"]]
     value["rollback"] = list(value["package"]["rollback_artifact_digests"])
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble(value)

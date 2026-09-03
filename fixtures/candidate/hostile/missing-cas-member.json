@@ -1,1 +1,1 @@
-{"mutation":"set","path":"package.artifacts[0].content_digest","value":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","code":"ARTIFACT_BYTES_MISSING"}
+{"mutation":"set","path":"package.artifacts.artifact:kernel.content_digest","value":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","code":"ARTIFACT_BYTES_MISSING"}
