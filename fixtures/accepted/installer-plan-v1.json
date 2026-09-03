@@ -4,7 +4,59 @@
   "payload_version": "v1",
   "domain": "omarchy-installer-plan",
   "context": "installer-plan-proposal",
-  "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135",
-  "payload": {"schema": "installer-plan/v1", "schema_set_digest": "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135", "document_id": "fixture-installer-plan", "issuer": "fixture-issuer", "issued_at": "2026-01-01T00:00:00Z", "expires_at": "2030-01-01T00:00:00Z"},
-  "signatures": [{"key_id": "key-fixture", "signer_role": "installer-planner", "algorithm": "ed25519", "signature_format": "raw-ed25519/v1", "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}]
+  "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5",
+  "payload": {
+    "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5",
+    "issuer": "fixture-issuer",
+    "issued_at": "2026-01-01T00:00:00Z",
+    "expires_at": "2030-01-01T00:00:00Z",
+    "schema": "installer-plan/v1",
+    "document_id": "fixture-installer-plan",
+    "selection": {
+      "board_id": "apple:j274",
+      "board_registry_digest": "sha256:099f8b82aa48ed399f823394c2f9314e198cbc8715d5f4f4d13838c93175be42",
+      "manifest_id": "fixture-platform-manifest",
+      "manifest_digest": "sha256:56b1b640dd4cd54357b3a4094df7c81d5191e5c1a45d07012ab2d97add3b8d5a",
+      "schema_set_digest": "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5"
+    },
+    "artifacts": [
+      {
+        "artifact_id": "artifact:boot",
+        "content_digest": "sha256:4509beb0ab401d71fa4a5cd94a55c9a74f13332776ae4019c5bfc4c2005157ff"
+      },
+      {
+        "artifact_id": "artifact:dtb",
+        "content_digest": "sha256:e7ce15bb0946707f3145d94c16c6946cef9b92b157527c1a64c2c8903fdbe86f"
+      },
+      {
+        "artifact_id": "artifact:firmware",
+        "content_digest": "sha256:c3bf47ea1f4a4a605470313cacb3a44f4a461f68c6faeab07e737610cb5ac835"
+      },
+      {
+        "artifact_id": "artifact:kernel",
+        "content_digest": "sha256:6923dd1bc0460082c5d55a831908c24a282860b7f1cd6c2b79cf1bc8857c639c"
+      },
+      {
+        "artifact_id": "artifact:mesa",
+        "content_digest": "sha256:73e29454bd930074942b1784b43dc4a57a669751871b38c92f2c7293e06a9720"
+      }
+    ],
+    "mutations": [
+      {
+        "sequence": 0,
+        "operation": "write/v1",
+        "target_id": "volume:fixture",
+        "expected_digest": "sha256:62d7a6b1211d627650e2bf0c869b69b564e2cd74290ae1dd78ae4b5e20b0cfe7"
+      }
+    ]
+  },
+  "signatures": [
+    {
+      "key_id": "key:fixture",
+      "signer_role": "installer-planner",
+      "algorithm": "ed25519",
+      "signature_format": "raw-ed25519/v1",
+      "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ]
 }

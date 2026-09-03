@@ -1,10 +1,77 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/boot-success-mark/v1/boot-success-mark.schema.json",
-  "title": "F-02 boot-success-mark/v1 payload foundation",
+  "title": "F-02 boot-success-mark/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "boot-success-mark/v1"}}}
-  ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+    {
+      "$ref": "../../common/v1/common.schema.json#/$defs/payload"
+    },
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "board_id",
+        "manifest_id",
+        "manifest_digest",
+        "slot_id",
+        "lineage_id",
+        "core_digest",
+        "marker_id"
+      ],
+      "properties": {
+        "schema": {
+          "const": "boot-success-mark/v1"
+        },
+        "board_id": {
+          "type": "string",
+          "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "manifest_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "manifest_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "slot_id": {
+          "enum": [
+            "slot-a",
+            "slot-b",
+            "recovery"
+          ]
+        },
+        "lineage_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "core_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "marker_id": {
+          "type": "string",
+          "pattern": "^marker:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
 }

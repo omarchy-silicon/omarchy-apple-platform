@@ -50,4 +50,4 @@ TYPE_CONTEXT = {
     "dtb-mutation-envelope/v1": ("omarchy-dtb-authority", "dtb-mutation-authorization", "dtb-authority"),
 }
 
-SCHEMA_SET_DIGEST = "sha256:fc6d08a1dbb70e99007a8cd3f6836f55b2af9db521057985f807857fd4f67135"
+SCHEMA_SET_DIGEST = "sha256:6a86e3589984e4544de0e5b231d442de172b9caeba897b689293e4b9828c76f5"

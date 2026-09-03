@@ -1,10 +1,77 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json",
-  "title": "F-02 dtb-mutation-envelope/v1 payload foundation",
+  "title": "F-02 dtb-mutation-envelope/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "dtb-mutation-envelope/v1"}}}
-  ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+    {
+      "$ref": "../../common/v1/common.schema.json#/$defs/payload"
+    },
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "board_id",
+        "manifest_id",
+        "manifest_digest",
+        "source_digest",
+        "pre_mutation_digest",
+        "post_mutation_digest",
+        "operation"
+      ],
+      "properties": {
+        "schema": {
+          "const": "dtb-mutation-envelope/v1"
+        },
+        "board_id": {
+          "type": "string",
+          "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "manifest_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "manifest_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "source_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "pre_mutation_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "post_mutation_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "operation": {
+          "enum": [
+            "inspect/v1",
+            "write/v1",
+            "replace/v1",
+            "remove/v1",
+            "rollback/v1"
+          ]
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
 }

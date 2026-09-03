@@ -1,10 +1,148 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/qualification-record/v1/qualification-record.schema.json",
-  "title": "F-02 qualification-record/v1 payload foundation",
+  "title": "F-02 qualification-record/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "qualification-record/v1"}}}
+    {
+      "$ref": "../../common/v1/common.schema.json#/$defs/payload"
+    },
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "board_id",
+        "manifest_id",
+        "manifest_digest",
+        "qualification_profile_id",
+        "checks",
+        "evidence",
+        "outcome"
+      ],
+      "properties": {
+        "schema": {
+          "const": "qualification-record/v1"
+        },
+        "board_id": {
+          "type": "string",
+          "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "manifest_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "manifest_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "qualification_profile_id": {
+          "type": "string",
+          "pattern": "^profile:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/check"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "outcome": {
+          "enum": [
+            "pass",
+            "fail",
+            "blocked"
+          ]
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
   ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "required",
+        "status",
+        "evidence_ids"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^check:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "not-run",
+            "blocked"
+          ]
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^evidence:[a-z0-9][a-z0-9._:-]{0,127}$"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "content_digest",
+        "physical",
+        "locator"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "pattern": "^evidence:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "content_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "physical": {
+          "type": "boolean"
+        },
+        "locator": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{1,256}$"
+        }
+      }
+    }
+  }
 }

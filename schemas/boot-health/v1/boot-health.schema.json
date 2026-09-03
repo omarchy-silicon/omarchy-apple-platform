@@ -1,10 +1,145 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://omarchy.local/schemas/boot-health/v1/boot-health.schema.json",
-  "title": "F-02 boot-health/v1 payload foundation",
+  "title": "F-02 boot-health/v1 payload",
   "allOf": [
-    {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
-    {"properties": {"schema": {"const": "boot-health/v1"}}}
+    {
+      "$ref": "../../common/v1/common.schema.json#/$defs/payload"
+    },
+    {
+      "type": "object",
+      "required": [
+        "schema",
+        "schema_set_digest",
+        "document_id",
+        "issuer",
+        "issued_at",
+        "expires_at",
+        "board_id",
+        "manifest_id",
+        "manifest_digest",
+        "profile_id",
+        "profile_digest",
+        "lineage_id",
+        "source_generation",
+        "slot",
+        "checks",
+        "checks_digest",
+        "success"
+      ],
+      "properties": {
+        "schema": {
+          "const": "boot-health/v1"
+        },
+        "board_id": {
+          "type": "string",
+          "pattern": "^apple:[a-z0-9][a-z0-9-]{0,63}$"
+        },
+        "manifest_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "manifest_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "profile_id": {
+          "type": "string",
+          "pattern": "^profile:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "profile_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "lineage_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "slot": {
+          "$ref": "#/$defs/slot"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/check"
+          }
+        },
+        "checks_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "schema_set_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        },
+        "document_id": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/documentId"
+        },
+        "issuer": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/issuer"
+        },
+        "issued_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        },
+        "expires_at": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/timestamp"
+        }
+      },
+      "additionalProperties": false
+    }
   ],
-  "description": "Only the closed common payload is executable in this foundation; type-specific semantic validation is not implemented."
+  "$defs": {
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot_id",
+        "generation",
+        "boot_artifact_digest"
+      ],
+      "properties": {
+        "slot_id": {
+          "enum": [
+            "slot-a",
+            "slot-b",
+            "recovery"
+          ]
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "boot_artifact_digest": {
+          "$ref": "../../common/v1/common.schema.json#/$defs/digest"
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "status"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^check:[a-z0-9][a-z0-9._:-]{0,127}$"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "not-run",
+            "unknown"
+          ]
+        }
+      }
+    }
+  }
 }
