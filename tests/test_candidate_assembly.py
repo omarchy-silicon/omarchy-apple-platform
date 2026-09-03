@@ -12,8 +12,9 @@ import tempfile
 
 import pytest
 
-from omarchy_candidate import CandidateAssemblyError, CandidateManifest, assemble_candidate, guard_manifest
+from omarchy_candidate import CandidateAssemblyError, CandidateManifest, assemble_candidate, digest_value, guard_manifest
 from omarchy_candidate.models import _AuthorityCapability, _CAPABILITY_TOKEN, digest_bytes
+from omarchy_platform.canonical import canonical_bytes
 
 ROOT = Path(__file__).parents[1]
 
@@ -28,12 +29,31 @@ class FixtureAuthority:
             raise ValueError("synthetic state mismatch")
 
     def verify_canonical(self, kind, source_bytes, *, digest, board_id, profile_id, channel, schema_set_digest, verification_time, subject):
+        fixture = accepted()
+        if kind.startswith("gate:"):
+            gate_id = kind.removeprefix("gate:")
+            record = next(gate for gate in fixture["required_gates"] if gate["gate_id"] == gate_id)
+            expected_digest = digest_value("omarchy-candidate-gate/v1", record)
+        elif kind == "firmware":
+            record, expected_digest = fixture["firmware"], digest_value("omarchy-candidate-firmware/v1", fixture["firmware"])
+        elif kind == "source":
+            record, expected_digest = fixture["source"], digest_value("omarchy-candidate-source/v1", fixture["source"])
+        else:
+            record = {"platform": fixture["platform"], "intake": fixture["intake"], "qualification": fixture["qualification"], "package": fixture["package"], "compliance": fixture["compliance"]}[kind]
+            expected_digest = {"platform": fixture["platform"]["manifest_digest"], "intake": fixture["intake"]["dataset_digest"], "qualification": fixture["qualification"]["record_digest"], "package": fixture["package"]["index_digest"], "compliance": fixture["compliance"]["attestation_digest"]}[kind]
+        if source_bytes != canonical_bytes(record) or digest != expected_digest:
+            raise ValueError("fixture authority only authorizes the canonical accepted projection")
         return _AuthorityCapability(kind, subject, digest, board_id, profile_id, channel, "2099-01-01T00:00:00Z", f"replay:{kind}", digest_bytes(source_bytes), schema_set_digest, _token=_CAPABILITY_TOKEN)
 
 
 class FixtureArtifacts:
     def verify(self, digest, kind):
-        return True
+        fixture = accepted()
+        if kind.startswith("gate:"):
+            gate_id = kind.removeprefix("gate:")
+            gate = next((gate for gate in fixture["required_gates"] if gate["gate_id"] == gate_id), None)
+            return gate is not None and digest == gate["evidence_digest"]
+        return digest in {"sha256:" + ("b" * 64), "sha256:" + ("c" * 64), "sha256:" + ("1" * 64), "sha256:" + ("2" * 64)}
 
     def read(self, digest):
         expected = digest_bytes((ROOT / "fixtures/candidate/artifact.bin").read_bytes())
@@ -130,6 +150,29 @@ def test_missing_and_extra_gate_and_duplicate_order_reject() -> None:
     assert caught.value.code == "GATE_CENSUS_INVALID"
 
 
+def test_top_level_rollback_is_independent_and_bound() -> None:
+    value = accepted()
+    value["rollback"] = []
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble(value)
+    assert caught.value.code == "ROLLBACK_SET_MISSING"
+    value = accepted()
+    value["rollback"] = ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble(value)
+    assert caught.value.code == "ROLLBACK_BINDING_MISMATCH"
+
+
+@pytest.mark.parametrize("path", ["firmware.version", "source.tool_versions.schema", "required_gates[0].evidence_digest"])
+def test_authority_only_accepts_exact_firmware_source_and_gate_projections(path: str) -> None:
+    value = accepted()
+    replacement = "1.0.1" if path == "firmware.version" else ("candidate-assembly-v2" if path == "source.tool_versions.schema" else "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    set_path(value, path, replacement)
+    with pytest.raises(CandidateAssemblyError) as caught:
+        assemble(value)
+    assert caught.value.code == "AUTHORITY_REJECTED"
+
+
 def test_authority_and_cas_bypass_reject() -> None:
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble_candidate(accepted(), artifacts=FixtureArtifacts())
@@ -152,7 +195,7 @@ def test_missing_or_substituted_artifact_bytes_reject() -> None:
     value["rollback"] = list(value["package"]["rollback_artifact_digests"])
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble(value)
-    assert caught.value.code == "PACKAGE_INDEX_BINDING_MISMATCH"
+    assert caught.value.code == "AUTHORITY_REJECTED"
 
 
 @pytest.mark.parametrize("probe_path", sorted((ROOT / "fixtures/candidate/hostile").glob("*.json")))
@@ -162,7 +205,7 @@ def test_checked_in_hostile_fixtures_reject(probe_path: Path) -> None:
     apply_probe(value, probe)
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble(value)
-    assert caught.value.code == ("PACKAGE_ARTIFACT_BINDING_MISMATCH" if probe_path.name == "missing-cas-member.json" else probe["code"])
+    assert caught.value.code == ("AUTHORITY_REJECTED" if probe_path.name == "missing-cas-member.json" else probe["code"])
 
 
 def test_cli_is_read_only_and_rejects_untrusted_repository_assembly() -> None:

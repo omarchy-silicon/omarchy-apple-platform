@@ -43,13 +43,16 @@ def assemble_candidate(
     except ValueError as error:
         raise CandidateAssemblyError("INVALID_VERIFICATION_TIME", "$.verification_time", "UTC verification timestamp required") from error
 
-    checks = (
+    checks = [
+        ("firmware", assembly.firmware, digest_value("omarchy-candidate-firmware/v1", assembly.firmware), assembly.firmware["firmware_id"]),
         ("platform", assembly.platform, assembly.platform["manifest_digest"], assembly.platform["manifest_id"]),
         ("intake", assembly.intake, assembly.intake["dataset_digest"], assembly.intake["record_id"]),
         ("qualification", assembly.qualification, assembly.qualification["record_digest"], assembly.qualification["record_id"]),
         ("package", assembly.package, assembly.package["index_digest"], assembly.package["release_id"]),
         ("compliance", assembly.compliance, assembly.compliance["attestation_digest"], "compliance:" + assembly.compliance["attestation_digest"]),
-    )
+    ]
+    checks.extend(("gate:" + gate["gate_id"], gate, digest_value("omarchy-candidate-gate/v1", gate), gate["gate_id"]) for gate in assembly.required_gates)
+    checks.append(("source", assembly.source, digest_value("omarchy-candidate-source/v1", assembly.source), assembly.candidate_id))
     state_validator = getattr(authority, "validate_state", None)
     if not callable(state_validator):
         raise CandidateAssemblyError("STATE_VALIDATOR_REQUIRED", "$.authority", "Q-00/Q-01 state validator is required")
@@ -79,6 +82,15 @@ def assemble_candidate(
         if not receipt.expires_at.endswith("Z") or expiry <= checked_time:
             raise CandidateAssemblyError("AUTHORITY_EXPIRED", f"$.{kind}.expires_at", "authority is expired at verification time")
         receipts[kind] = receipt
+
+    for gate in assembly.required_gates:
+        evidence_digest = gate["evidence_digest"]
+        try:
+            verified = metadata_verifier(evidence_digest, "gate:" + gate["gate_id"])
+        except Exception as error:
+            raise CandidateAssemblyError("GATE_EVIDENCE_MISSING", "$.required_gates", "required gate evidence is absent from the authoritative CAS") from error
+        if verified is not True:
+            raise CandidateAssemblyError("GATE_EVIDENCE_INVALID", "$.required_gates", "required gate evidence failed authoritative verification")
 
     try:
         index = PackageIndex.from_dict(assembly.package["index"])

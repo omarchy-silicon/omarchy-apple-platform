@@ -91,6 +91,33 @@ def main() -> int:
             except Exception:
                 continue
             return fail(f"hostile fixture unexpectedly validated: {hostile.name}")
+        probes = {
+            "empty-id": lambda value: value.__setitem__("candidate_id", ""),
+            "oversize-string": lambda value: value.__setitem__("candidate_id", "x" * 513),
+            "uppercase-id": lambda value: value.__setitem__("candidate_id", "Candidate:synthetic"),
+            "short-commit": lambda value: value["source"].__setitem__("commit", "abcdef0"),
+            "empty-gates": lambda value: value.__setitem__("required_gates", []),
+            "duplicate-gates": lambda value: value["required_gates"].__setitem__(1, dict(value["required_gates"][0])),
+            "empty-artifact-ids": lambda value: value["platform"].__setitem__("artifact_ids", []),
+            "duplicate-artifact-ids": lambda value: value["platform"].__setitem__("artifact_ids", ["artifact:kernel", "artifact:kernel"]),
+            "empty-rollback": lambda value: value.__setitem__("rollback", []),
+            "unknown-nested": lambda value: value["firmware"].__setitem__("unexpected", "reject"),
+        }
+        for name, mutate in probes.items():
+            candidate = json.loads(json.dumps(fixture))
+            mutate(candidate)
+            schema_rejected = False
+            model_rejected = False
+            try:
+                Draft202012Validator(schema).validate(candidate)
+            except Exception:
+                schema_rejected = True
+            try:
+                CandidateAssemblyInput.from_dict(candidate)
+            except Exception:
+                model_rejected = True
+            if not schema_rejected or not model_rejected:
+                return fail(f"hostile schema/model equivalence probe bypassed: {name}")
     except Exception as error:
         return fail(f"fixture/model drift: {type(error).__name__}")
     print(f"F05 DRIFT: PASS schema={actual} gates={len(REQUIRED_GATE_IDS)} input={INPUT_VERSION} output={OUTPUT_VERSION}")

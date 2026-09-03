@@ -7,6 +7,7 @@ from copy import deepcopy
 from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol
+import re
 
 from omarchy_platform.canonical import canonical_bytes
 from omarchy_platform.strictjson import parse
@@ -15,6 +16,7 @@ from .errors import CandidateAssemblyError
 from .generated import INPUT_VERSION, OUTPUT_VERSION, REQUIRED_GATE_IDS, VERSION
 
 _DIGEST = "sha256:"
+_ID_RE = re.compile(r"^[a-z][a-z0-9._:-]{0,127}$")
 
 
 def digest_bytes(value: bytes) -> str:
@@ -72,15 +74,24 @@ def _string(value: Any, path: str) -> str:
 def _digest(value: Any, path: str) -> str:
     if not isinstance(value, str) or len(value) != 71 or not value.startswith(_DIGEST) or any(char not in "0123456789abcdef" for char in value[7:]):
         _fail("INVALID_DIGEST", path, "lowercase sha256 digest required")
+    if value == _DIGEST + "0" * 64:
+        _fail("INVALID_DIGEST", path, "sentinel digest is not accepted")
     return value
 
 
 def _sorted(values: list[str], path: str) -> tuple[str, ...]:
-    if any(not isinstance(value, str) for value in values) or len(values) != len(set(values)):
+    if not isinstance(values, list) or any(not isinstance(value, str) for value in values) or len(values) != len(set(values)):
         _fail("DUPLICATE_ID", path, "IDs must be unique")
     if values != sorted(values):
         _fail("UNSORTED_IDS", path, "IDs must be sorted")
     return tuple(values)
+
+
+def _id(value: Any, path: str) -> str:
+    result = _string(value, path)
+    if not _ID_RE.fullmatch(result):
+        _fail("INVALID_ID", path, "lowercase bounded identifier required")
+    return result
 
 
 _CAPABILITY_TOKEN = object()
@@ -130,6 +141,8 @@ class CandidateAuthority(Protocol):
 
 
 class ArtifactReader(Protocol):
+    def verify(self, digest: str, kind: str) -> bool: ...
+
     def read(self, digest: str) -> bytes: ...
 
 
@@ -160,32 +173,34 @@ class CandidateAssemblyInput:
         value = _closed(value, cls.FIELDS, "$")
         if value["version"] != INPUT_VERSION:
             _fail("UNSUPPORTED_VERSION", "$.version", f"{INPUT_VERSION} required")
-        candidate_id = _string(value["candidate_id"], "$.candidate_id")
-        channel = _string(value["channel"], "$.channel")
+        candidate_id = _id(value["candidate_id"], "$.candidate_id")
+        channel = _id(value["channel"], "$.channel")
         if channel not in {"edge", "rc", "stable"}:
             _fail("UNKNOWN_CHANNEL", "$.channel", "channel is outside the closed vocabulary")
-        board_id, profile_id = _string(value["board_id"], "$.board_id"), _string(value["profile_id"], "$.profile_id")
+        board_id, profile_id = _id(value["board_id"], "$.board_id"), _id(value["profile_id"], "$.profile_id")
         firmware = _closed(value["firmware"], ("firmware_id", "version", "build_digest"), "$.firmware")
         for field in ("firmware_id",):
-            _string(firmware[field], f"$.firmware.{field}")
+            _id(firmware[field], f"$.firmware.{field}")
         if not isinstance(firmware["version"], str) or not __import__("re").fullmatch(r"(?:0|[1-9][0-9]{0,4})\.(?:0|[1-9][0-9]{0,4})\.(?:0|[1-9][0-9]{0,4})", firmware["version"]):
             _fail("INVALID_FIRMWARE_VERSION", "$.firmware.version", "F-02-compatible semantic version required")
         _digest(firmware["build_digest"], "$.firmware.build_digest")
         platform = _closed(value["platform"], ("manifest_id", "manifest_digest", "schema_set_digest", "tuple_id", "abi_version", "artifact_ids"), "$.platform")
         for field in ("manifest_id", "tuple_id", "abi_version"):
-            _string(platform[field], f"$.platform.{field}")
+            _id(platform[field], f"$.platform.{field}")
         for field in ("manifest_digest", "schema_set_digest"):
             _digest(platform[field], f"$.platform.{field}")
-        _sorted(platform["artifact_ids"], "$.platform.artifact_ids")
+        platform_artifacts = _sorted(platform["artifact_ids"], "$.platform.artifact_ids")
+        if not platform_artifacts:
+            _fail("MISSING_ARTIFACT", "$.platform.artifact_ids", "at least one artifact ID is required")
         intake = _closed(value["intake"], ("dataset_digest", "record_id", "record_digest"), "$.intake")
-        _digest(intake["dataset_digest"], "$.intake.dataset_digest"); _string(intake["record_id"], "$.intake.record_id"); _digest(intake["record_digest"], "$.intake.record_digest")
+        _digest(intake["dataset_digest"], "$.intake.dataset_digest"); _id(intake["record_id"], "$.intake.record_id"); _digest(intake["record_digest"], "$.intake.record_digest")
         qualification = _closed(value["qualification"], ("inventory_digest", "record_id", "record_digest", "outcome", "admission"), "$.qualification")
-        _digest(qualification["inventory_digest"], "$.qualification.inventory_digest"); _string(qualification["record_id"], "$.qualification.record_id"); _digest(qualification["record_digest"], "$.qualification.record_digest")
+        _digest(qualification["inventory_digest"], "$.qualification.inventory_digest"); _id(qualification["record_id"], "$.qualification.record_id"); _digest(qualification["record_digest"], "$.qualification.record_digest")
         if qualification["outcome"] != "FULL" or qualification["admission"] != "QUALIFIED":
             _fail("QUALIFICATION_REQUIRED", "$.qualification", "only FULL/QUALIFIED records can enter a candidate")
         package = _closed(value["package"], ("release_id", "index_digest", "artifact_set_digest", "schema_set_digest", "tuple_id", "abi_version", "index", "artifacts", "rollback_artifact_digests"), "$.package")
         for field in ("release_id", "tuple_id", "abi_version"):
-            _string(package[field], f"$.package.{field}")
+            _id(package[field], f"$.package.{field}")
         for field in ("index_digest", "artifact_set_digest", "schema_set_digest"):
             _digest(package[field], f"$.package.{field}")
         if package["schema_set_digest"] != platform["schema_set_digest"]:
@@ -200,7 +215,7 @@ class CandidateAssemblyInput:
             path = f"$.package.artifacts[{index}]"
             item = _closed(item, ("artifact_id", "component_id", "content_digest", "sbom_digest", "provenance_digest"), path)
             for field in ("artifact_id", "component_id"):
-                _string(item[field], f"{path}.{field}")
+                _id(item[field], f"{path}.{field}")
             for field in ("content_digest", "sbom_digest", "provenance_digest"):
                 _digest(item[field], f"{path}.{field}")
             checked_artifacts.append(item)
@@ -208,7 +223,12 @@ class CandidateAssemblyInput:
         _sorted([item["component_id"] for item in checked_artifacts], "$.package.component_ids")
         if tuple(platform["artifact_ids"]) != ids:
             _fail("ARTIFACT_SET_MISMATCH", "$.package.artifacts", "platform artifact set differs from package artifact set")
-        rollback = _sorted(package["rollback_artifact_digests"], "$.package.rollback_artifact_digests")
+        package_rollback = package["rollback_artifact_digests"]
+        if not isinstance(package_rollback, list):
+            _fail("ROLLBACK_SET_MISSING", "$.package.rollback_artifact_digests", "rollback set is required")
+        for index, digest in enumerate(package_rollback):
+            _digest(digest, f"$.package.rollback_artifact_digests[{index}]")
+        rollback = _sorted(package_rollback, "$.package.rollback_artifact_digests")
         if not rollback:
             _fail("ROLLBACK_SET_MISSING", "$.package.rollback_artifact_digests", "rollback set is required")
         compliance = _closed(value["compliance"], ("attestation_digest", "decision"), "$.compliance")
@@ -222,7 +242,7 @@ class CandidateAssemblyInput:
         for index, gate in enumerate(gates):
             path = f"$.required_gates[{index}]"
             gate = _closed(gate, ("gate_id", "status", "evidence_digest"), path)
-            _string(gate["gate_id"], f"{path}.gate_id"); _digest(gate["evidence_digest"], f"{path}.evidence_digest")
+            _id(gate["gate_id"], f"{path}.gate_id"); _digest(gate["evidence_digest"], f"{path}.evidence_digest")
             if gate["status"] != "pass":
                 _fail("GATE_NOT_PASSED", f"{path}.status", "required gates cannot be warning-success")
             gate_rows.append(gate)
@@ -237,6 +257,14 @@ class CandidateAssemblyInput:
             if extra:
                 _fail("GATE_EXTRA", "$.required_gates", extra[0])
             _fail("GATE_CENSUS_INVALID", "$.required_gates", "gate IDs must be ordered exactly")
+        top_rollback = value["rollback"]
+        if not isinstance(top_rollback, list):
+            _fail("ROLLBACK_SET_MISSING", "$.rollback", "rollback set is required")
+        for index, digest in enumerate(top_rollback):
+            _digest(digest, f"$.rollback[{index}]")
+        top_rollback_tuple = _sorted(top_rollback, "$.rollback")
+        if not top_rollback_tuple:
+            _fail("ROLLBACK_SET_MISSING", "$.rollback", "rollback set is required")
         source = _closed(value["source"], ("commit", "tool_versions"), "$.source")
         _string(source["commit"], "$.source.commit")
         if len(source["commit"]) != 40 or any(char not in "0123456789abcdef" for char in source["commit"]):
@@ -247,8 +275,10 @@ class CandidateAssemblyInput:
         if list(versions) != sorted(versions) or len(versions) != len(set(versions)):
             _fail("UNSORTED_IDS", "$.source.tool_versions", "tool version keys must be unique and sorted")
         for key, version in versions.items():
-            _string(key, "$.source.tool_versions"); _string(version, f"$.source.tool_versions.{key}")
-        return cls(candidate_id, channel, board_id, profile_id, firmware, platform, intake, qualification, package, compliance, tuple(gate_rows), rollback, source)
+            _id(key, "$.source.tool_versions"); _string(version, f"$.source.tool_versions.{key}")
+        if len(versions) > 128:
+            _fail("TOOL_VERSION_MISSING", "$.source.tool_versions", "tool versions exceed the bounded property limit")
+        return cls(candidate_id, channel, board_id, profile_id, firmware, platform, intake, qualification, package, compliance, tuple(gate_rows), top_rollback_tuple, source)
 
     def body(self) -> dict[str, Any]:
         return {"version": INPUT_VERSION, "candidate_id": self.candidate_id, "channel": self.channel, "board_id": self.board_id, "profile_id": self.profile_id, "firmware": self.firmware, "platform": self.platform, "intake": self.intake, "qualification": self.qualification, "package": self.package, "compliance": self.compliance, "required_gates": list(self.required_gates), "rollback": list(self.rollback), "source": self.source}
