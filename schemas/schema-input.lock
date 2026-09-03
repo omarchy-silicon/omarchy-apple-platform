@@ -1,0 +1,44 @@
+{
+  "lock_schema": "schema-input-lock/v1",
+  "schema_set_id": "platform-schema-set/v1",
+  "schema_entries": [
+    {"schema_id": "common/v1", "schema_version": "v1", "source_path": "schemas/common/v1/common.schema.json", "source_digest": "sha256:39c731a054d520a9bb970caa6abe551b46ef4df4a65f66d10eec1b42103209b4", "reference_digests": []},
+    {"schema_id": "vocabularies/v1", "schema_version": "v1", "source_path": "schemas/common/v1/vocabularies.schema.json", "source_digest": "sha256:37bb231134f8a3bdfcc03b671a0449a34022d298984f2c1988e76d00c98e709f", "reference_digests": []},
+    {"schema_id": "signed-document/v1", "schema_version": "v1", "source_path": "schemas/signed-document/v1/signed-document.schema.json", "source_digest": "sha256:6e72c841cbe7cbd735108e787527af6b766823380e6e858755cdf0b3a1aad825", "reference_digests": []},
+    {"schema_id": "board-registry/v1", "schema_version": "v1", "source_path": "schemas/board-registry/v1/board-registry.schema.json", "source_digest": "sha256:6fb3c3e43eb707e2062a891da58066ce61a8d46d96015b0498c3806a740bfff0", "reference_digests": []},
+    {"schema_id": "platform-manifest/v1", "schema_version": "v1", "source_path": "schemas/platform-manifest/v1/platform-manifest.schema.json", "source_digest": "sha256:6dddf96f4f37affd9c993fa11310249bcdc1898e15e6399dd21de8341f4198ce", "reference_digests": []},
+    {"schema_id": "installer-plan/v1", "schema_version": "v1", "source_path": "schemas/installer-plan/v1/installer-plan.schema.json", "source_digest": "sha256:18259bf04493d946e53a92571c5e019aaeae1c51a53e8bd22d886bea3e457cf4", "reference_digests": []},
+    {"schema_id": "qualification-record/v1", "schema_version": "v1", "source_path": "schemas/qualification-record/v1/qualification-record.schema.json", "source_digest": "sha256:2282cb56cde2fb59c2a393aa34e66bddc17f1cc8a27bea0884add6d60d2a5fc1", "reference_digests": []},
+    {"schema_id": "boot-health/v1", "schema_version": "v1", "source_path": "schemas/boot-health/v1/boot-health.schema.json", "source_digest": "sha256:8e89f9bc9b64694fea1bb2c45415dbdc4fa14102424569e314a8f26032902ea2", "reference_digests": []},
+    {"schema_id": "owner-approval/v1", "schema_version": "v1", "source_path": "schemas/owner-approval/v1/owner-approval.schema.json", "source_digest": "sha256:8078a957ad02a1044e050e4dd30f9e725b513d3e6a8c12e6f44cb04611beabc8", "reference_digests": []},
+    {"schema_id": "boot-success-mark/v1", "schema_version": "v1", "source_path": "schemas/boot-success-mark/v1/boot-success-mark.schema.json", "source_digest": "sha256:cacdc6faf1d6a8475b1a33d4af2e7822b8b32aa0308f582e935af76e140cea28", "reference_digests": []},
+    {"schema_id": "dtb-mutation-envelope/v1", "schema_version": "v1", "source_path": "schemas/dtb-mutation-envelope/v1/dtb-mutation-envelope.schema.json", "source_digest": "sha256:6a91796799643720012feccb3681c4b9f57b10922cc210d56ee7f880f9d07f6c", "reference_digests": []}
+  ],
+  "vocabulary": {
+    "vocabulary_id": "authenticated-payload-vocabulary/v1",
+    "vocabulary_digest": "sha256:d1767617afc35f15f50cd1a79963f074f4788aef651a4dbb9c2346a1f355b3f9",
+    "payload_types": ["board-registry/v1", "platform-manifest/v1", "installer-plan/v1", "qualification-record/v1", "boot-health/v1", "owner-approval/v1", "boot-success-mark/v1", "dtb-mutation-envelope/v1"],
+    "primary_types": ["board-registry/v1", "platform-manifest/v1", "installer-plan/v1", "qualification-record/v1", "boot-health/v1"],
+    "auxiliary_types": ["owner-approval/v1", "boot-success-mark/v1", "dtb-mutation-envelope/v1"]
+  },
+  "canonicalization": {
+    "standard": "RFC8785",
+    "implementation_id": "omarchy-jcs/v1",
+    "implementation_version": "1.0.0",
+    "implementation_source_digest": "sha256:PLACEHOLDER_JCS_SOURCE_DIGEST",
+    "number_policy": "reject-negative-zero-and-nonfinite/v1"
+  },
+  "limits": {
+    "max_input_bytes": 1048576,
+    "max_depth": 32,
+    "max_object_properties": 128,
+    "max_array_length": 1024,
+    "max_string_bytes": 4096,
+    "max_total_string_bytes": 262144,
+    "max_integer_magnitude": 9223372036854775807,
+    "complete_marker_max_bytes": 4096
+  },
+  "generator_inputs": [],
+  "parser_inputs": [],
+  "toolchain_inputs": []
+}

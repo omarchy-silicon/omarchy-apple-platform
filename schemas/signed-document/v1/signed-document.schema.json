@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/schemas/signed-document/v1/signed-document.schema.json",
+  "title": "F-02 signed envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "payload_type", "payload_version", "domain", "context", "schema_set_digest", "payload", "signatures"],
+  "properties": {
+    "format": {"const": "omarchy-signed/v1"},
+    "payload_type": {"type": "string"}, "payload_version": {"const": "v1"},
+    "domain": {"type": "string"}, "context": {"type": "string"},
+    "schema_set_digest": {"$ref": "../../common/v1/common.schema.json#/$defs/digest"},
+    "payload": {"$ref": "../../common/v1/common.schema.json#/$defs/payload"},
+    "signatures": {"type": "array", "minItems": 1, "maxItems": 128, "items": {"$ref": "#/$defs/signature"}}
+  },
+  "$defs": {
+    "signature": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key_id", "signer_role", "algorithm", "signature_format", "signature"],
+      "properties": {
+        "key_id": {"type": "string"}, "signer_role": {"type": "string"},
+        "algorithm": {"const": "ed25519"}, "signature_format": {"const": "raw-ed25519/v1"},
+        "signature": {"type": "string", "pattern": "^[A-Za-z0-9_-]{86}$"}
+      }
+    }
+  }
+}

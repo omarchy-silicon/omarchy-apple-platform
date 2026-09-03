@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://omarchy.local/schemas/vocabularies/v1/vocabularies.schema.json",
+  "title": "F-02 closed authenticated payload vocabulary",
+  "type": "array",
+  "prefixItems": [
+    {"const": "board-registry/v1"}, {"const": "platform-manifest/v1"},
+    {"const": "installer-plan/v1"}, {"const": "qualification-record/v1"},
+    {"const": "boot-health/v1"}, {"const": "owner-approval/v1"},
+    {"const": "boot-success-mark/v1"}, {"const": "dtb-mutation-envelope/v1"}
+  ],
+  "minItems": 8,
+  "maxItems": 8,
+  "items": false
+}

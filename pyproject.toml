@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omarchy-platform-contracts"
+version = "1.0.0"
+description = "Bounded F-02 platform schema implementation foundation"
+requires-python = ">=3.12,<3.14"
+
+[project.scripts]
+omarchy-platform = "omarchy_platform.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
