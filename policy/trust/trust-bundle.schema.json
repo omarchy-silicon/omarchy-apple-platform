@@ -20,6 +20,6 @@
     "freeze": {"type": "array", "maxItems": 256},
     "rollback": {"type": "array", "maxItems": 256},
     "signatures": {"type": "array", "minItems": 1, "maxItems": 16},
-    "rotation": {"type": "object", "additionalProperties": false, "required": ["from_sequence", "to_sequence", "old_root_key_ids", "new_root_key_ids"]}
+    "rotation": {"type": "object", "additionalProperties": false, "required": ["from_sequence", "to_sequence", "old_root_key_ids", "new_root_key_ids", "new_root_keys", "acknowledgement"], "properties": {"from_sequence": {"type": "integer", "minimum": 1}, "to_sequence": {"type": "integer", "minimum": 2}, "old_root_key_ids": {"type": "array"}, "new_root_key_ids": {"type": "array"}, "new_root_keys": {"type": "array"}, "acknowledgement": {"type": "object", "additionalProperties": false, "required": ["format", "from_sequence", "to_sequence", "new_root_key_ids", "signatures"]}}}
   }
 }

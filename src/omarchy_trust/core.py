@@ -57,7 +57,9 @@ _REQUIRED_BUNDLE_FIELDS = (
     "format", "version", "sequence", "repository", "channel", "issued_at", "expires_at",
     "roles", "keys", "delegations", "revocations", "freeze", "rollback", "signatures",
 )
-_ROTATION_FIELDS = ("from_sequence", "to_sequence", "old_root_key_ids", "new_root_key_ids")
+_ROTATION_FIELDS = ("from_sequence", "to_sequence", "old_root_key_ids", "new_root_key_ids", "new_root_keys", "acknowledgement")
+_ACK_FIELDS = ("format", "from_sequence", "to_sequence", "new_root_key_ids", "signatures")
+_ROOT_KEY_FIELDS = ("key_id", "public_key")
 _REQUIRED_ROLE_FIELDS = ("role", "threshold", "key_ids", "payload_types")
 _REQUIRED_KEY_FIELDS = ("key_id", "public_key", "role", "custody", "repository", "channel", "path_prefix", "not_before", "not_after")
 _REQUIRED_DELEGATION_FIELDS = ("key_id", "role", "custody", "repository", "channel", "path_prefix")
@@ -65,6 +67,7 @@ _REQUIRED_REVOCATION_FIELDS = ("key_id", "effective_at")
 _REQUIRED_FREEZE_FIELDS = ("scope", "incident_id")
 _REQUIRED_ROLLBACK_FIELDS = ("prior_metadata_digest", "board_id", "channel", "incident_id", "recovery_digest", "expires_at")
 _REQUIRED_SIGNATURE_FIELDS = ("key_id", "algorithm", "signature_format", "signature")
+_MISSING_REPLAY = object()
 
 
 def _fail(code: str, path: str = "$") -> TrustFailure:
@@ -232,6 +235,32 @@ def _validate_bundle(bundle: Mapping[str, Any], now: datetime) -> tuple[dict[str
             ids = _array(rotation[field], "$.rotation." + field, MAX_KEYS)
             if ids != sorted(set(ids)) or any(not _KEY_ID.fullmatch(item) for item in ids):
                 raise _fail("TRUST_ROTATION_INVALID", "$.rotation." + field)
+        new_root_keys = _array(rotation["new_root_keys"], "$.rotation.new_root_keys", MAX_KEYS)
+        if [item.get("key_id") for item in new_root_keys if isinstance(item, dict)] != sorted(set(item.get("key_id") for item in new_root_keys if isinstance(item, dict))):
+            raise _fail("TRUST_ROTATION_INVALID", "$.rotation.new_root_keys")
+        decoded_new_keys: dict[str, bytes] = {}
+        for index, item in enumerate(new_root_keys):
+            path = f"$.rotation.new_root_keys[{index}]"
+            if not isinstance(item, dict):
+                raise _fail("TRUST_ROTATION_INVALID", path)
+            _exact(item, _ROOT_KEY_FIELDS, path)
+            kid = _string(item["key_id"], path + ".key_id", _KEY_ID)
+            public = _b64(item["public_key"], path + ".public_key", 32)
+            if key_id(public) != kid or kid in decoded_new_keys:
+                raise _fail("TRUST_ROTATION_INVALID", path + ".key_id")
+            decoded_new_keys[kid] = public
+        if set(decoded_new_keys) != set(rotation["new_root_key_ids"]):
+            raise _fail("TRUST_ROTATION_INVALID", "$.rotation.new_root_keys")
+        acknowledgement = rotation["acknowledgement"]
+        if not isinstance(acknowledgement, dict):
+            raise _fail("TRUST_ROTATION_INVALID", "$.rotation.acknowledgement")
+        _exact(acknowledgement, _ACK_FIELDS, "$.rotation.acknowledgement")
+        if acknowledgement["format"] != "omarchy-root-ack/v1" or acknowledgement["from_sequence"] != rotation["from_sequence"] or acknowledgement["to_sequence"] != rotation["to_sequence"] or acknowledgement["new_root_key_ids"] != rotation["new_root_key_ids"]:
+            raise _fail("TRUST_ROTATION_INVALID", "$.rotation.acknowledgement")
+        acknowledgement_signatures = _array(acknowledgement["signatures"], "$.rotation.acknowledgement.signatures", MAX_SIGNATURES)
+        ack_ids = [_validate_signature_shape(item, f"$.rotation.acknowledgement.signatures[{index}]") for index, item in enumerate(acknowledgement_signatures)]
+        if ack_ids != sorted(set(ack_ids)):
+            raise _fail("TRUST_ROTATION_INVALID", "$.rotation.acknowledgement.signatures")
     repository = _string(bundle["repository"], "$.repository", _REPOSITORY)
     channel = _string(bundle["channel"], "$.channel", re.compile(r"^(?:edge|rc|stable|\*)$"))
     issued = _timestamp(bundle["issued_at"], "$.issued_at")
@@ -393,6 +422,49 @@ def _load_default_anchors() -> TrustAnchors:
     raise _fail("TRUST_ANCHORS_UNPROVISIONED", "$.anchors")
 
 
+def _rotation_ack_preimage(bundle: Mapping[str, Any]) -> bytes:
+    projection = {key: item for key, item in bundle.items() if key != "signatures"}
+    rotation = dict(projection["rotation"])
+    acknowledgement = dict(rotation["acknowledgement"])
+    acknowledgement.pop("signatures", None)
+    rotation["acknowledgement"] = acknowledgement
+    projection["rotation"] = rotation
+    return b"omarchy-next-root-ack-preimage/v1\x00" + canonical_bytes(projection)
+
+
+def _verify_rotation_ack(bundle: Mapping[str, Any], roles: Mapping[str, Mapping[str, Any]], anchors: TrustAnchors, now: datetime) -> None:
+    if bundle["sequence"] <= 1:
+        return
+    rotation = bundle.get("rotation")
+    if not isinstance(rotation, Mapping):
+        raise _fail("TRUST_ROTATION_INVALID", "$.rotation")
+    old_ids = set(rotation["old_root_key_ids"])
+    new_ids = set(rotation["new_root_key_ids"])
+    if len(old_ids & new_ids) < 2 or not set(anchors.as_mapping()).issubset(old_ids):
+        raise _fail("TRUST_ROTATION_INVALID", "$.rotation")
+    key_bytes = {
+        item["key_id"]: _b64(item["public_key"], "$.rotation.new_root_keys", 32)
+        for item in rotation["new_root_keys"]
+    }
+    acknowledgement = rotation["acknowledgement"]
+    used: set[str] = set()
+    revoked = {
+        item["key_id"]: _parse_time(item["effective_at"], "$.revocations")
+        for item in bundle["revocations"]
+    }
+    preimage = _rotation_ack_preimage(bundle)
+    for index, signature in enumerate(acknowledgement["signatures"]):
+        kid = signature["key_id"]
+        if kid not in new_ids or kid in used or kid not in key_bytes:
+            raise _fail("TRUST_ROTATION_INVALID", f"$.rotation.acknowledgement.signatures[{index}].key_id")
+        if kid in revoked and now >= revoked[kid]:
+            raise _fail("TRUST_REVOKED_KEY", f"$.rotation.acknowledgement.signatures[{index}].key_id")
+        _verify_signature(signature, key_bytes[kid], preimage, f"$.rotation.acknowledgement.signatures[{index}]")
+        used.add(kid)
+    if len(used) < roles["root"]["threshold"]:
+        raise _fail("TRUST_THRESHOLD_UNMET", "$.rotation.acknowledgement.signatures")
+
+
 def _verify_root_bundle(bundle: Mapping[str, Any], anchors: TrustAnchors, now: datetime) -> tuple[dict[str, Any], dict[str, bytes], dict[str, dict[str, Any]], set[str]]:
     if not anchors.provisioned or not anchors.keys:
         raise _fail("TRUST_ANCHORS_UNPROVISIONED", "$.anchors")
@@ -421,10 +493,7 @@ def _verify_root_bundle(bundle: Mapping[str, Any], anchors: TrustAnchors, now: d
         valid += 1
     if valid < roles["root"]["threshold"]:
         raise _fail("TRUST_THRESHOLD_UNMET", "$.signatures")
-    for item in normalized["freeze"]:
-        if item["scope"] == "*" or item["scope"] == f"{normalized['repository']}:{normalized['channel']}":
-            # A root bundle may carry a freeze, but it remains observable and enforced below.
-            continue
+    _verify_rotation_ack(normalized, roles, anchors, now)
     return normalized, key_map, roles, used
 
 
@@ -443,6 +512,17 @@ def _check_rotation(current: Mapping[str, Any], previous: Mapping[str, Any], anc
         raise _fail("TRUST_ROTATION_INVALID", "$.rotation")
     if len(old_ids & new_ids) < 2:
         raise _fail("TRUST_ROTATION_INVALID", "$.rotation")
+
+
+def _coerce_replay_snapshot(value: ReplaySnapshot | Mapping[str, Any] | None) -> ReplaySnapshot:
+    if value is _MISSING_REPLAY or value is None:
+        raise _fail("TRUST_REPLAY_STATE_UNAVAILABLE", "$.replay_state")
+    if isinstance(value, ReplaySnapshot):
+        return value
+    try:
+        return ReplaySnapshot.from_mapping(value)
+    except (AttributeError, TypeError, ValueError):
+        raise _fail("TRUST_REPLAY_STATE_UNAVAILABLE", "$.replay_state") from None
 
 
 def _parse_document(value: bytes | bytearray | memoryview | Mapping[str, Any], payload_type: str, path: str) -> dict[str, Any]:
@@ -466,7 +546,17 @@ def _document_channel(document: Mapping[str, Any], bundle_channel: str, requeste
     payload = document.get("payload")
     if not isinstance(payload, Mapping):
         raise _fail("TRUST_SCHEMA_INVALID", "$.document.payload")
-    value = requested or payload.get("channel") or bundle_channel
+    signed = payload.get("channel")
+    if signed is not None:
+        if not isinstance(signed, str) or (requested is not None and requested != signed):
+            raise _fail("TRUST_CONTEXT_MISMATCH", "$.payload.channel")
+        value = signed
+    else:
+        if bundle_channel == "*" and requested is None:
+            raise _fail("TRUST_CONTEXT_MISMATCH", "$.channel")
+        if requested is not None and bundle_channel != "*" and requested != bundle_channel:
+            raise _fail("TRUST_CONTEXT_MISMATCH", "$.channel")
+        value = requested or bundle_channel
     if value not in {"edge", "rc", "stable"}:
         raise _fail("TRUST_CONTEXT_MISMATCH", "$.payload.channel")
     return value
@@ -533,31 +623,91 @@ def _check_freeze(bundle: Mapping[str, Any], repository: str, channel: str, payl
             raise _fail("TRUST_FROZEN", f"$.freeze[{index}].scope")
 
 
-def verify_artifact_bytes(stream: BinaryIO, expected_digest: str, expected_size: int) -> str:
+def _declared_artifacts(document: Mapping[str, Any]) -> dict[str, str]:
+    """Extract only the closed F-02 artifact members, never paths or guesses."""
+    payload_type = document["payload_type"]
+    payload = document["payload"]
+    declared: dict[str, str] = {}
+    if payload_type in {"platform-manifest/v1", "installer-plan/v1"}:
+        records = payload.get("artifacts", [])
+        for index, record in enumerate(records):
+            if not isinstance(record, Mapping) or "artifact_id" not in record or "content_digest" not in record:
+                raise _fail("TRUST_SCHEMA_INVALID", f"$.payload.artifacts[{index}]")
+            artifact_id = record["artifact_id"]
+            digest = record["content_digest"]
+            if artifact_id in declared:
+                raise _fail("TRUST_SCHEMA_INVALID", f"$.payload.artifacts[{index}].artifact_id")
+            declared[artifact_id] = digest
+    elif payload_type == "dtb-mutation-envelope/v1":
+        digest = payload.get("artifact_digest")
+        if digest is not None:
+            declared[digest] = digest
+    return declared
+
+
+def _verify_declared_artifacts(document: Mapping[str, Any], artifact_streams: Mapping[str, BinaryIO | tuple[BinaryIO, int]] | None) -> None:
+    declared = _declared_artifacts(document)
+    if not declared:
+        if artifact_streams:
+            raise _fail("TRUST_ARTIFACT_MISSING", "$.artifacts")
+        return
+    if artifact_streams is None:
+        raise _fail("TRUST_ARTIFACT_MISSING", "$.artifacts")
+    if set(artifact_streams) != set(declared):
+        raise _fail("TRUST_ARTIFACT_MISSING", "$.artifacts")
+    streams: set[int] = set()
+    for artifact_id in sorted(declared):
+        supplied = artifact_streams[artifact_id]
+        if isinstance(supplied, tuple):
+            if len(supplied) != 2 or not hasattr(supplied[0], "read"):
+                raise _fail("TRUST_ARTIFACT_SIZE", "$.artifacts")
+            stream, expected_size = supplied
+        else:
+            stream, expected_size = supplied, None
+        if not hasattr(stream, "read"):
+            raise _fail("TRUST_ARTIFACT_MISSING", "$.artifacts")
+        identity = id(stream)
+        if identity in streams:
+            raise _fail("TRUST_ARTIFACT_MISSING", "$.artifacts")
+        streams.add(identity)
+        verify_artifact_bytes(stream, declared[artifact_id], expected_size)
+
+
+def verify_artifact_bytes(stream: BinaryIO, expected_digest: str, expected_size: int | None = None) -> str:
     """Verify exact bytes from a bounded caller-owned stream."""
     _digest(expected_digest, "$.artifact.content_digest")
-    if not isinstance(expected_size, int) or isinstance(expected_size, bool) or expected_size < 0 or expected_size > MAX_ARTIFACT_BYTES:
+    if expected_size is not None and (not isinstance(expected_size, int) or isinstance(expected_size, bool) or expected_size < 0 or expected_size > MAX_ARTIFACT_BYTES):
         raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
     digest = hashlib.sha256()
     remaining = expected_size
-    while remaining:
+    total = 0
+    while remaining is None or remaining:
         try:
-            chunk = stream.read(min(1024 * 1024, remaining))
+            chunk = stream.read(min(1024 * 1024, remaining) if remaining is not None else 1024 * 1024)
         except (OSError, ValueError):
             raise _fail("TRUST_IO_LIMIT", "$.artifact") from None
-        if not isinstance(chunk, (bytes, bytearray, memoryview)) or not chunk:
+        if not isinstance(chunk, (bytes, bytearray, memoryview)):
             raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
         chunk_bytes = bytes(chunk)
-        if len(chunk_bytes) > remaining:
+        if not chunk_bytes:
+            if remaining is not None:
+                raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
+            break
+        if remaining is not None and len(chunk_bytes) > remaining:
             raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
         digest.update(chunk_bytes)
-        remaining -= len(chunk_bytes)
-    try:
-        extra = stream.read(1)
-    except (OSError, ValueError):
-        raise _fail("TRUST_IO_LIMIT", "$.artifact") from None
-    if extra not in (b"", bytearray(), memoryview(b"")):
-        raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
+        total += len(chunk_bytes)
+        if total > MAX_ARTIFACT_BYTES:
+            raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
+        if remaining is not None:
+            remaining -= len(chunk_bytes)
+    if expected_size is not None:
+        try:
+            extra = stream.read(1)
+        except (OSError, ValueError):
+            raise _fail("TRUST_IO_LIMIT", "$.artifact") from None
+        if extra not in (b"", bytearray(), memoryview(b"")):
+            raise _fail("TRUST_ARTIFACT_SIZE", "$.artifact.size")
     actual = "sha256:" + digest.hexdigest()
     if actual != expected_digest:
         raise _fail("TRUST_ARTIFACT_DIGEST", "$.artifact.content_digest")
@@ -569,18 +719,20 @@ def verify_document(
     root_bundle: bytes | bytearray | memoryview | Mapping[str, Any],
     *,
     proof: Sequence[bytes | bytearray | memoryview | Mapping[str, Any]] = (),
-    replay_snapshot: ReplaySnapshot | Mapping[str, Any] | None = None,
+    replay_snapshot: ReplaySnapshot | Mapping[str, Any] | None | object = _MISSING_REPLAY,
     repository: str | None = None,
     channel: str | None = None,
     now: datetime | None = None,
     anchors: TrustAnchors | None = None,
     previous_bundle: bytes | bytearray | memoryview | Mapping[str, Any] | None = None,
+    artifact_streams: Mapping[str, BinaryIO | tuple[BinaryIO, int]] | None = None,
 ) -> TrustedTrustContext:
     """Verify one F-02 document plus optional threshold copies."""
     clock = now or datetime.now(timezone.utc)
     if not isinstance(clock, datetime) or clock.tzinfo is None:
         raise _fail("TRUST_CONTEXT_MISMATCH", "$.now")
     clock = clock.astimezone(timezone.utc)
+    snapshot = _coerce_replay_snapshot(replay_snapshot)
     active_anchors = anchors if anchors is not None else _load_default_anchors()
     bundle_value = _value(root_bundle, "$.root_bundle")
     bundle, key_map, roles, _ = _verify_root_bundle(bundle_value, active_anchors, clock)
@@ -591,30 +743,25 @@ def verify_document(
     if payload_type not in AUTHENTICATED_PAYLOAD_TYPES:
         raise _fail("TRUST_SCHEMA_INVALID", "$.document.payload_type")
     requested_repository = repository or bundle["repository"]
-    requested_channel = channel or _document_channel(first_value, bundle["channel"], None)
+    requested_channel = _document_channel(first_value, bundle["channel"], channel)
     all_documents = (document,) + tuple(proof)
     first, signer_ids, threshold = _verify_proof_set(all_documents, payload_type, bundle, key_map, roles, clock, requested_repository, requested_channel)
     _check_freeze(bundle, requested_repository, requested_channel, payload_type)
+    _verify_declared_artifacts(first, artifact_streams)
     payload = first["payload"]
     metadata_digest = domain_digest("omarchy-trusted-metadata/v1", {key: item for key, item in first.items() if key != "signatures"})
     scope = f"{requested_repository}:{requested_channel}:{payload_type}"
     replay_id = domain_digest("omarchy-replay-id/v1", {"scope": scope, "sequence": bundle["sequence"], "metadata_digest": metadata_digest})
     version = payload.get("release_version", payload.get("version", ""))
-    if isinstance(replay_snapshot, ReplaySnapshot):
-        snapshot = replay_snapshot
-    else:
-        try:
-            snapshot = ReplaySnapshot.from_mapping(replay_snapshot)
-        except (AttributeError, TypeError, ValueError):
-            raise _fail("TRUST_REPLAY_STATE_UNAVAILABLE", "$.replay_state") from None
     existing = snapshot.lookup(scope)
     if existing is not None:
-        old_sequence, old_version, old_digest = existing
+        old_sequence, old_version, old_digest, _old_lineage = existing
         if bundle["sequence"] < old_sequence or (bundle["sequence"] == old_sequence and metadata_digest != old_digest):
             raise _fail("TRUST_REPLAY", "$.root_bundle.sequence")
         if bundle["sequence"] > old_sequence and _version(version) < _version(old_version):
             raise _fail("TRUST_ROLLBACK", "$.payload.release_version")
-    proposal = ReplayProposal(scope, bundle["sequence"], version, metadata_digest)
+    lineage_digest = domain_digest("omarchy-replay-lineage/v1", {"scope": scope, "sequence": bundle["sequence"], "metadata_digest": metadata_digest})
+    proposal = ReplayProposal(scope, bundle["sequence"], version, metadata_digest, lineage_digest)
     return TrustedTrustContext(
         accepted_role=ROLE_TO_SIGNER[first["signatures"][0]["signer_role"]],
         key_ids=tuple(sorted(signer_ids)),
@@ -644,7 +791,8 @@ def verify_root_bundle(
     metadata_digest = domain_digest("omarchy-trusted-metadata/v1", {key: item for key, item in bundle.items() if key != "signatures"})
     scope = f"{bundle['repository']}:{bundle['channel']}:root"
     replay_id = domain_digest("omarchy-replay-id/v1", {"scope": scope, "sequence": bundle["sequence"], "metadata_digest": metadata_digest})
-    proposal = ReplayProposal(scope, bundle["sequence"], "v1", metadata_digest)
+    lineage_digest = domain_digest("omarchy-replay-lineage/v1", {"scope": scope, "sequence": bundle["sequence"], "metadata_digest": metadata_digest})
+    proposal = ReplayProposal(scope, bundle["sequence"], "v1", metadata_digest, lineage_digest)
     trust_schema_digest = domain_digest("omarchy-trust-root-schema/v1", {"format": TRUST_FORMAT, "version": "v1"})
     return TrustedTrustContext("root", tuple(sorted(used)), roles["root"]["threshold"], metadata_digest, trust_schema_digest, bundle["channel"], bundle["expires_at"], replay_id, proposal)
 

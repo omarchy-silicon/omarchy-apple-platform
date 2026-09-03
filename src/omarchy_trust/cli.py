@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,18 @@ def _json(path: str) -> Any:
         raise TrustFailure("TRUST_JSON_INVALID", "$", "input is not valid JSON") from None
 
 
+def _artifact_args(values: list[str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for value in values:
+        if value.count("=") != 1:
+            raise TrustFailure("TRUST_SCHEMA_INVALID", "$.artifacts", "trust object shape is invalid")
+        artifact_id, path = value.split("=", 1)
+        if not artifact_id or not path or artifact_id in result:
+            raise TrustFailure("TRUST_ARTIFACT_MISSING", "$.artifacts", "required artifact bytes are missing")
+        result[artifact_id] = path
+    return result
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="omarchy-trust")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -48,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--document", required=True)
     verify.add_argument("--proof", action="append", default=[])
     verify.add_argument("--replay-state", required=True)
+    verify.add_argument("--artifact", action="append", default=[], metavar="ID=FILE")
     verify.add_argument("--repository")
     verify.add_argument("--channel")
     args = parser.parse_args(argv)
@@ -61,14 +75,26 @@ def main(argv: list[str] | None = None) -> int:
             replay_snapshot = ReplaySnapshot.from_mapping(replay)
         except ValueError:
             raise TrustFailure("TRUST_REPLAY_STATE_UNAVAILABLE", "$.replay_state", "replay state is unavailable or divergent") from None
-        context = verify_document(
-            _read(args.document),
-            _read(args.root_bundle),
-            proof=tuple(_read(path) for path in args.proof),
-            replay_snapshot=replay_snapshot,
-            repository=args.repository,
-            channel=args.channel,
-        )
+        artifact_paths = _artifact_args(args.artifact)
+        with ExitStack() as stack:
+            artifact_streams = {}
+            for artifact_id, path in artifact_paths.items():
+                try:
+                    file_path = Path(path)
+                    size = file_path.stat().st_size
+                    stream = stack.enter_context(file_path.open("rb"))
+                    artifact_streams[artifact_id] = (stream, size)
+                except OSError:
+                    raise TrustFailure("TRUST_IO_LIMIT", "$.artifacts", "bounded input read failed") from None
+            context = verify_document(
+                _read(args.document),
+                _read(args.root_bundle),
+                proof=tuple(_read(path) for path in args.proof),
+                replay_snapshot=replay_snapshot,
+                repository=args.repository,
+                channel=args.channel,
+                artifact_streams=artifact_streams,
+            )
         print(json.dumps({"decision": "TRUSTED", **asdict(context)}, sort_keys=True, separators=(",", ":")))
         return 0
     except TrustFailure as error:
