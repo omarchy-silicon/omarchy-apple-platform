@@ -12,7 +12,7 @@ import tempfile
 import pytest
 
 from omarchy_candidate import CandidateAssemblyError, CandidateManifest, assemble_candidate, guard_manifest
-from omarchy_candidate.models import _VerifiedAuthority, digest_bytes
+from omarchy_candidate.models import _AuthorityCapability, _CAPABILITY_TOKEN, digest_bytes
 
 ROOT = Path(__file__).parents[1]
 
@@ -22,11 +22,18 @@ def accepted() -> dict:
 
 
 class FixtureAuthority:
+    def validate_state(self, platform_bytes, intake_bytes, qualification_bytes, *, board_id, profile_id, verification_time):
+        if board_id != "apple:j313" or profile_id != "profile:j313-synthetic":
+            raise ValueError("synthetic state mismatch")
+
     def verify_canonical(self, kind, source_bytes, *, digest, board_id, profile_id, channel, schema_set_digest, verification_time, subject):
-        return _VerifiedAuthority(kind, subject, digest, board_id, profile_id, channel, "2099-01-01T00:00:00Z", f"replay:{kind}", digest_bytes(source_bytes), schema_set_digest)
+        return _AuthorityCapability(kind, subject, digest, board_id, profile_id, channel, "2099-01-01T00:00:00Z", f"replay:{kind}", digest_bytes(source_bytes), schema_set_digest, _token=_CAPABILITY_TOKEN)
 
 
 class FixtureArtifacts:
+    def verify(self, digest, kind):
+        return True
+
     def read(self, digest):
         expected = digest_bytes((ROOT / "fixtures/candidate/artifact.bin").read_bytes())
         if digest != expected:
@@ -134,7 +141,7 @@ def test_authority_and_cas_bypass_reject() -> None:
             return {"trusted": True}
     with pytest.raises(CandidateAssemblyError) as caught:
         assemble_candidate(accepted(), authority=Forged(), artifacts=FixtureArtifacts(), verification_time="2026-09-03T00:00:00Z")
-    assert caught.value.code == "AUTHORITY_REJECTED"
+    assert caught.value.code == "STATE_VALIDATOR_REQUIRED"
 
 
 def test_missing_or_substituted_artifact_bytes_reject() -> None:
@@ -181,12 +188,12 @@ def test_cli_transport_errors_and_output_are_fail_closed() -> None:
         assert json.loads(malformed.stderr)["code"] == "PARSE_SCHEMA_FAILURE"
         output = Path(directory) / "manifest.json"
         from omarchy_candidate.cli import _exclusive_output
-        _exclusive_output(str(output), b"immutable")
+        _exclusive_output(str(output), b"immutable", permitted_root=directory)
         with pytest.raises(CandidateAssemblyError) as caught:
-            _exclusive_output(str(output), b"changed")
+            _exclusive_output(str(output), b"changed", permitted_root=directory)
         assert caught.value.code == "OUTPUT_CONFLICT"
         symlink = Path(directory) / "link"
         symlink.symlink_to(output)
         with pytest.raises(CandidateAssemblyError) as caught:
-            _exclusive_output(str(symlink), b"changed")
+            _exclusive_output(str(symlink), b"changed", permitted_root=directory)
         assert caught.value.code == "OUTPUT_CONFLICT"

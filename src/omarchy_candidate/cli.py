@@ -17,14 +17,24 @@ from .errors import CandidateAssemblyError
 from .models import CandidateManifest
 
 
-def _exclusive_output(path: str, data: bytes) -> None:
+def _exclusive_output(path: str, data: bytes, *, permitted_root: str) -> None:
     if len(data) > 4 * 1024 * 1024:
         raise CandidateAssemblyError("RESOURCE_LIMIT", "$.output", "output byte limit exceeded")
+    root = Path(permitted_root)
+    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+        raise CandidateAssemblyError("OUTPUT_ROOT_INVALID", "$.output_root", "permitted root must be an existing real directory")
     target = Path(path)
     if not target.is_absolute():
         target = Path.cwd() / target
     parent = target.parent
     try:
+        root_lexical, root_real = os.path.abspath(str(root)), os.path.realpath(str(root))
+        target_lexical = os.path.abspath(str(target))
+        root_tmp_alias = (root_lexical == "/tmp" or root_lexical.startswith("/tmp/")) and root_real == "/private" + root_lexical
+        if root_lexical != root_real and not root_tmp_alias:
+            raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output_root", "permitted root realpath differs from lexical path")
+        if os.path.commonpath((target_lexical, root_lexical)) != root_lexical:
+            raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output", "output must remain under permitted root")
         if not parent.exists() or not parent.is_dir() or parent.is_symlink():
             raise CandidateAssemblyError("OUTPUT_PATH_INVALID", "$.output", "output parent must be a real directory")
         lexical_parent = os.path.abspath(str(parent))
@@ -73,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     assemble = sub.add_parser("assemble")
     assemble.add_argument("--input", required=True)
     assemble.add_argument("--output")
+    assemble.add_argument("--output-root")
     verify = sub.add_parser("verify")
     verify.add_argument("--input", required=True)
     args = parser.parse_args(argv)
@@ -84,7 +95,9 @@ def main(argv: list[str] | None = None) -> int:
         manifest = assemble_candidate(_read(args.input))
         output = manifest.bytes() + b"\n"
         if args.output:
-            _exclusive_output(args.output, output)
+            if not args.output_root:
+                raise CandidateAssemblyError("OUTPUT_ROOT_REQUIRED", "$.output_root", "explicit permitted output root is required")
+            _exclusive_output(args.output, output, permitted_root=args.output_root)
         else:
             sys.stdout.buffer.write(output)
         return 0

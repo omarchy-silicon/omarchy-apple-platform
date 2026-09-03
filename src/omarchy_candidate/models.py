@@ -76,8 +76,11 @@ def _sorted(values: list[str], path: str) -> tuple[str, ...]:
     return tuple(values)
 
 
-@dataclass(frozen=True)
-class _VerifiedAuthority:
+_CAPABILITY_TOKEN = object()
+
+
+@dataclass(frozen=True, init=False)
+class _AuthorityCapability:
     """Private result constructed by an F-03/F-06/Q-00/Q-01 adapter."""
 
     authority: str
@@ -90,6 +93,14 @@ class _VerifiedAuthority:
     replay_id: str
     metadata_digest: str
     schema_set_digest: str
+
+    def __init__(self, authority: str, subject: str, digest: str, board_id: str, profile_id: str, channel: str, expires_at: str, replay_id: str, metadata_digest: str, schema_set_digest: str, *, _token: object | None = None):
+        if _token is not _CAPABILITY_TOKEN:
+            raise TypeError("authority capabilities are issued only by an adapter")
+        for name, value in locals().copy().items():
+            if name not in {"self", "_token"}:
+                object.__setattr__(self, name, value)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         _string(self.authority, "$.authority")
@@ -108,7 +119,7 @@ class _VerifiedAuthority:
 class CandidateAuthority(Protocol):
     """Adapters verify exact canonical source bytes and return a private result."""
 
-    def verify_canonical(self, kind: str, source_bytes: bytes, *, digest: str, board_id: str, profile_id: str, channel: str, schema_set_digest: str, verification_time: str, subject: str) -> _VerifiedAuthority: ...
+    def verify_canonical(self, kind: str, source_bytes: bytes, *, digest: str, board_id: str, profile_id: str, channel: str, schema_set_digest: str, verification_time: str, subject: str) -> _AuthorityCapability: ...
 
 
 class ArtifactReader(Protocol):
@@ -269,3 +280,4 @@ class CandidateManifest:
         if expected != candidate_digest:
             _fail("DIGEST_MISMATCH", "$.candidate_digest", "candidate manifest digest does not match canonical body")
         return cls({**checked.body(), "version": OUTPUT_VERSION}, candidate_digest, _token=_MANIFEST_TOKEN)
+    def validate_state(self, platform_bytes: bytes, intake_bytes: bytes, qualification_bytes: bytes, *, board_id: str, profile_id: str, verification_time: str) -> None: ...

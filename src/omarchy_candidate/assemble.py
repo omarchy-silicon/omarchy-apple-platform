@@ -9,7 +9,7 @@ from .errors import CandidateAssemblyError
 from omarchy_platform.canonical import canonical_bytes
 from omarchy_build import PackageIndex, BuildProvenanceError
 
-from .models import ArtifactReader, CandidateAssemblyInput, CandidateAuthority, CandidateManifest, _MANIFEST_TOKEN, _VerifiedAuthority, digest_bytes, digest_value, _freeze
+from .models import ArtifactReader, CandidateAssemblyInput, CandidateAuthority, CandidateManifest, _AuthorityCapability, _MANIFEST_TOKEN, digest_bytes, digest_value, _freeze
 
 
 def assemble_candidate(
@@ -31,6 +31,9 @@ def assemble_candidate(
         raise CandidateAssemblyError("AUTHORITY_REQUIRED", "$.authority", "F-03/F-06/Q-00/Q-01 authority adapters are required")
     if artifacts is None:
         raise CandidateAssemblyError("ARTIFACT_READER_REQUIRED", "$.artifacts", "content-addressed artifact reader is required")
+    metadata_verifier = getattr(artifacts, "verify", None)
+    if not callable(metadata_verifier):
+        raise CandidateAssemblyError("CAS_VERIFIER_REQUIRED", "$.artifacts", "CAS verifier must rehash artifact metadata")
     if verification_time is None:
         raise CandidateAssemblyError("VERIFICATION_TIME_REQUIRED", "$.verification_time", "explicit UTC verification time is required")
     try:
@@ -47,7 +50,16 @@ def assemble_candidate(
         ("package", assembly.package, assembly.package["index_digest"], assembly.package["release_id"]),
         ("compliance", assembly.compliance, assembly.compliance["attestation_digest"], "compliance:" + assembly.compliance["attestation_digest"]),
     )
-    receipts: dict[str, _VerifiedAuthority] = {}
+    state_validator = getattr(authority, "validate_state", None)
+    if not callable(state_validator):
+        raise CandidateAssemblyError("STATE_VALIDATOR_REQUIRED", "$.authority", "Q-00/Q-01 state validator is required")
+    try:
+        state_validator(canonical_bytes(assembly.platform), canonical_bytes(assembly.intake), canonical_bytes(assembly.qualification), board_id=assembly.board_id, profile_id=assembly.profile_id, verification_time=verification_time)
+    except CandidateAssemblyError:
+        raise
+    except Exception as error:
+        raise CandidateAssemblyError("QUALIFICATION_REJECTED", "$.qualification", "Q-00/Q-01 state validation rejected input") from error
+    receipts: dict[str, _AuthorityCapability] = {}
     for kind, record, digest, subject in checks:
         source_bytes = canonical_bytes(record)
         try:
@@ -56,7 +68,7 @@ def assemble_candidate(
             raise
         except Exception as error:  # adapters must not leak provider detail
             raise CandidateAssemblyError("AUTHORITY_REJECTED", f"$.{kind}", "authority rejected the exact input") from error
-        if not isinstance(receipt, _VerifiedAuthority):
+        if not isinstance(receipt, _AuthorityCapability):
             raise CandidateAssemblyError("AUTHORITY_UNTRUSTED", f"$.{kind}", "authority did not return a typed trusted receipt")
         if receipt.digest != digest or receipt.board_id != assembly.board_id or receipt.profile_id != assembly.profile_id or receipt.channel != assembly.channel or receipt.subject != subject or receipt.authority != kind or receipt.schema_set_digest != assembly.platform["schema_set_digest"] or receipt.metadata_digest != digest_bytes(source_bytes):
             raise CandidateAssemblyError("AUTHORITY_BINDING_MISMATCH", f"$.{kind}", "authority receipt is not bound to the exact candidate")
@@ -79,6 +91,13 @@ def assemble_candidate(
         source = indexed.get(item["artifact_id"])
         if source is None or source.content_digest != item["content_digest"] or source.provenance_digest != item["provenance_digest"] or source.sbom_digest != item["sbom_digest"]:
             raise CandidateAssemblyError("PACKAGE_ARTIFACT_BINDING_MISMATCH", "$.package.artifacts", "artifact metadata differs from package index")
+        for kind, digest in (("sbom", source.sbom_digest), ("provenance", source.provenance_digest), *(('build-result', result) for result in source.build_result_digests)):
+            try:
+                verified = metadata_verifier(digest, kind)
+            except Exception as error:
+                raise CandidateAssemblyError("CAS_MEMBER_MISSING", f"$.package.artifacts[{item['artifact_id']}].{kind}", "referenced CAS metadata member is absent") from error
+            if verified is not True:
+                raise CandidateAssemblyError("CAS_DIGEST_MISMATCH", f"$.package.artifacts[{item['artifact_id']}].{kind}", "referenced CAS metadata failed rehash")
     if set(indexed) != {item["artifact_id"] for item in assembly.package["artifacts"]}:
         raise CandidateAssemblyError("ARTIFACT_SET_MISMATCH", "$.package.artifacts", "candidate artifact set differs from package index")
 

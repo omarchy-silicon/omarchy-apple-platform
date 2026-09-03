@@ -6,6 +6,7 @@ from typing import Any
 
 from omarchy_platform.canonical import canonical_bytes
 from omarchy_platform.strictjson import parse
+from omarchy_platform.errors import ParseError
 
 from .errors import CandidateAssemblyError
 from .models import CandidateManifest
@@ -21,6 +22,8 @@ def guard_manifest(manifest_bytes: bytes, *, expected_digest: str, board_id: str
         raise CandidateAssemblyError("NONCANONICAL_MANIFEST", "$.manifest", "manifest bytes are required")
     try:
         value: Any = parse(manifest_bytes)
+    except ParseError as error:
+        raise CandidateAssemblyError(error.code, error.path, error.message) from error
     except (ValueError, TypeError, UnicodeDecodeError) as error:
         raise CandidateAssemblyError("MANIFEST_INVALID", "$.manifest", "manifest bytes are invalid") from error
     if manifest_bytes != canonical_bytes(value):

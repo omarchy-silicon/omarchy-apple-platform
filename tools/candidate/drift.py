@@ -18,8 +18,8 @@ def fail(message: str) -> int:
 
 from jsonschema import Draft202012Validator
 from omarchy_candidate import CandidateAssemblyInput, CandidateManifest, digest_bytes, assemble_candidate  # noqa: E402
-from omarchy_candidate.generated import INPUT_VERSION, OUTPUT_VERSION, REQUIRED_GATE_IDS, SCHEMA_DIGEST, VERSION  # noqa: E402
-from omarchy_candidate.models import _VerifiedAuthority  # noqa: E402
+from omarchy_candidate.generated import INPUT_SCHEMA_DIGEST, INPUT_VERSION, OUTPUT_SCHEMA_DIGEST, OUTPUT_VERSION, REQUIRED_GATE_IDS, SCHEMA_DIGEST, VERSION  # noqa: E402
+from omarchy_candidate.models import _AuthorityCapability, _CAPABILITY_TOKEN  # noqa: E402
 
 
 def main() -> int:
@@ -31,7 +31,14 @@ def main() -> int:
         print("F05 DRIFT: FAIL schema is unreadable")
         return 1
     actual = "sha256:" + hashlib.sha256(data).hexdigest()
-    if actual != SCHEMA_DIGEST:
+    output_path = ROOT / "schemas/candidate-assembly/v1/candidate-manifest.json"
+    try:
+        output_data = output_path.read_bytes()
+        output_schema = json.loads(output_data)
+    except (OSError, ValueError):
+        return fail("output schema is unreadable")
+    output_actual = "sha256:" + hashlib.sha256(output_data).hexdigest()
+    if actual != INPUT_SCHEMA_DIGEST or output_actual != OUTPUT_SCHEMA_DIGEST or SCHEMA_DIGEST != actual:
         print("F05 DRIFT: FAIL generated binding is stale")
         return 1
     if schema.get("additionalProperties") is not False or schema.get("$defs", {}).get("gate", {}).get("additionalProperties") is not False:
@@ -44,13 +51,20 @@ def main() -> int:
     try:
         Draft202012Validator(schema).validate(fixture)
         CandidateAssemblyInput.from_dict(fixture)
-        output_schema = json.loads((ROOT / "schemas/candidate-assembly/v1/candidate-manifest.json").read_text())
+        if output_schema.get("additionalProperties") is not False:
+            return fail("candidate output schema is not closed")
         # The output is checked by the model round-trip; schema validation also
         # confirms the output uses the distinct manifest contract.
         class Authority:
+            def validate_state(self, *args, **kwargs):
+                return None
+
             def verify_canonical(self, kind, source_bytes, **kwargs):
-                return _VerifiedAuthority(kind, kwargs["subject"], kwargs["digest"], kwargs["board_id"], kwargs["profile_id"], kwargs["channel"], "2099-01-01T00:00:00Z", f"drift:{kind}", digest_bytes(source_bytes), kwargs["schema_set_digest"])
+                return _AuthorityCapability(kind, kwargs["subject"], kwargs["digest"], kwargs["board_id"], kwargs["profile_id"], kwargs["channel"], "2099-01-01T00:00:00Z", f"drift:{kind}", digest_bytes(source_bytes), kwargs["schema_set_digest"], _token=_CAPABILITY_TOKEN)
         class Artifacts:
+            def verify(self, digest, kind):
+                return True
+
             def read(self, digest):
                 data = (ROOT / "fixtures/candidate/artifact.bin").read_bytes()
                 if digest != digest_bytes(data):
