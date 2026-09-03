@@ -38,8 +38,8 @@ def require_trusted_context(
     schema_set_digest: str,
     signer_role: str,
     channel: str,
-    expires_at: str,
-    replay_id: str,
+    expires_at: str | None,
+    replay_id: str | None,
 ) -> TrustedTrustContext:
     """Call F-03 and re-check its closed result at the F-04 seam."""
 
@@ -51,6 +51,10 @@ def require_trusted_context(
     expect_string(signer_role, "$.signer_role")
     if channel not in CHANNELS:
         raise TrustRejection("TRUST_METADATA_INVALID", "$.channel", "unknown channel")
+    if not isinstance(expires_at, str) or not expires_at:
+        raise TrustRejection("TRUST_METADATA_INVALID", "$.expires_at", "UTC expiry is required")
+    if not isinstance(replay_id, str) or not replay_id:
+        raise TrustRejection("TRUST_METADATA_INVALID", "$.replay_id", "replay identity is required")
     expect_string(expires_at, "$.expires_at")
     expect_string(replay_id, "$.replay_id")
     try:
@@ -70,6 +74,8 @@ def require_trusted_context(
         raise TrustRejection("TRUST_CONTEXT_INVALID", "$", "F-03 returned a non-closed trust result")
     if result.metadata_digest != metadata_digest(metadata_bytes):
         raise TrustRejection("TRUST_CONTEXT_MISMATCH", "$.metadata_digest", "trusted metadata digest mismatch")
+    if result.accepted_role != signer_role:
+        raise TrustRejection("TRUST_ROLE_REJECTED", "$.accepted_role", "trusted context role differs from requested role")
     if result.schema_set_digest != schema_set_digest or result.channel != channel or result.expires_at != expires_at or result.replay_id != replay_id:
         raise TrustRejection("TRUST_CONTEXT_MISMATCH", "$", "trusted context does not bind requested metadata")
     return result

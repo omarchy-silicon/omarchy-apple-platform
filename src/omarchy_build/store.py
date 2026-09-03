@@ -8,9 +8,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .errors import BuildProvenanceError, StoreError
+from .errors import BuildProvenanceError, StoreError, TrustRejection
 from .models import CHANNELS, PackageIndex, TrustedTrustContext
-from .trust import stable_authorization
+from .operations import promotion_operation_bytes, rollback_operation_bytes
+from .trust import TrustAdapter, require_trusted_context
 from .util import MAX_DOCUMENT_BYTES, MAX_OUTPUT_BYTES, canonical_bytes, digest_bytes, expect_digest, expect_string, read_json
 
 
@@ -134,31 +135,48 @@ class LocalArtifactStore:
             raise StoreError("UNSAFE_PATH", "$.release_id", "channel record path is unsafe")
         return path
 
-    def publish_index(self, index: PackageIndex, *, context: TrustedTrustContext | None = None, signer_role: str = "artifact-release") -> str:
+    def publish_index(
+        self,
+        index: PackageIndex,
+        *,
+        adapter: TrustAdapter | None = None,
+        expires_at: str | None = None,
+        replay_id: str | None = None,
+        signer_role: str | None = None,
+        context: TrustedTrustContext | None = None,
+    ) -> str:
         try:
             index = PackageIndex.from_dict(index.to_dict())
         except Exception as error:
             if isinstance(error, StoreError):
                 raise
             raise StoreError("INDEX_INVALID", "$.index", "package index is not a closed valid record") from error
-        if context is None:
-            raise StoreError("TRUST_ADAPTER_REQUIRED", "$.context", "F-03 authorization is required before channel publication")
-        if index.channel == "stable" and (context is None or not stable_authorization(context)):
-            raise StoreError("STABLE_PROMOTION_REQUIRES_F07", "$.channel", "only F-07 promotion authority may write stable")
-        if context.channel != index.channel or context.metadata_digest != digest_bytes(canonical_bytes(index.to_dict())):
-            raise StoreError("TRUST_CONTEXT_MISMATCH", "$.index_digest", "authorization is not bound to index bytes")
-        if context.accepted_role != signer_role and not (index.channel == "stable" and stable_authorization(context)):
-            raise StoreError("TRUST_ROLE_REJECTED", "$.signer_role", "authorization role does not match index operation")
+        if context is not None:
+            raise TrustRejection("TRUST_ADAPTER_REQUIRED", "$.context", "raw trust contexts cannot authorize publication")
+        if index.channel == "stable":
+            raise StoreError("STABLE_PROMOTION_REQUIRES_F07", "$.channel", "stable publication is not a direct F-04 operation")
+        requested_role = "package-index"
+        if signer_role is not None and signer_role != requested_role:
+            raise TrustRejection("TRUST_ROLE_REJECTED", "$.signer_role", "publication requires the package-index role")
+        index_bytes = canonical_bytes(index.to_dict())
+        require_trusted_context(
+            adapter,
+            index_bytes,
+            schema_set_digest=index.schema_set_digest,
+            signer_role=requested_role,
+            channel=index.channel,
+            expires_at=expires_at,
+            replay_id=replay_id,
+        )
         for artifact in index.artifacts:
             self.read(artifact.content_digest)
         for digest in index.rollback_artifact_digests:
             self.read(digest)
-        index_bytes = canonical_bytes(index.to_dict())
         index_object_digest = self.put(index_bytes)
         record = {"version": "channel-record/v1", "channel": index.channel, "release_id": index.release_id, "index_digest": index_object_digest, "artifact_set_digest": index.artifact_set_digest, "rollback_artifact_digests": list(index.rollback_artifact_digests)}
         record["record_digest"] = digest_bytes(b"omarchy-channel-record/v1\x00" + canonical_bytes(record))
         self._put_channel_record(index.channel, index.release_id, record)
-        return index.index_digest
+        return index_object_digest
 
     def _put_channel_record(self, channel: str, release_id: str, record: dict[str, Any]) -> None:
         path = self._channel_path(channel, release_id, allow_existing_node=True)
@@ -223,26 +241,56 @@ class LocalArtifactStore:
             raise StoreError("CHANNEL_RECORD_INVALID", "$.record_digest", "channel record digest mismatch")
         return record
 
-    def promote(self, source_channel: str, target_channel: str, release_id: str, *, context: TrustedTrustContext | None = None) -> str:
+    def promote(
+        self,
+        source_channel: str,
+        target_channel: str,
+        release_id: str,
+        *,
+        adapter: TrustAdapter | None = None,
+        expires_at: str | None = None,
+        replay_id: str | None = None,
+        signer_role: str | None = None,
+        context: TrustedTrustContext | None = None,
+    ) -> str:
         if source_channel not in CHANNELS or target_channel not in CHANNELS:
             raise StoreError("UNKNOWN_CHANNEL", "$.channel", "channel is outside the closed vocabulary")
-        if context is None:
-            raise StoreError("TRUST_ADAPTER_REQUIRED", "$.context", "F-03 authorization is required before promotion")
-        if target_channel == "stable" and not stable_authorization(context):
-            raise StoreError("STABLE_PROMOTION_REQUIRES_F07", "$.target_channel", "stable promotion is F-07-only")
+        if context is not None:
+            raise TrustRejection("TRUST_ADAPTER_REQUIRED", "$.context", "raw trust contexts cannot authorize promotion")
+        requested_role = "promotion/f07" if target_channel == "stable" else "package-index"
+        if signer_role is not None and signer_role != requested_role:
+            raise TrustRejection("TRUST_ROLE_REJECTED", "$.signer_role", "promotion role is not valid for the target channel")
         source = self.read_channel(source_channel, release_id)
         index_digest = expect_digest(source["index_digest"], "$.index_digest")
+        source_record_digest = expect_digest(source["record_digest"], "$.record_digest")
         index = PackageIndex.from_dict(json.loads(self.read(index_digest)))
-        if index.channel != source_channel or index.release_id != release_id:
+        if index.channel == "stable" or index.release_id != release_id:
             raise StoreError("CHANNEL_BINDING_MISMATCH", "$.index_digest", "source index is not bound to channel record")
+        source_rollback = tuple(source["rollback_artifact_digests"])
+        if source.get("artifact_set_digest") != index.artifact_set_digest or source_rollback != index.rollback_artifact_digests:
+            raise StoreError("CHANNEL_BINDING_MISMATCH", "$.rollback_artifact_digests", "source rollback set is not bound to index")
+        operation_bytes = promotion_operation_bytes(
+            source_channel=source_channel,
+            target_channel=target_channel,
+            release_id=release_id,
+            source_record_digest=source_record_digest,
+            source_index_digest=index_digest,
+            artifact_set_digest=index.artifact_set_digest,
+            rollback_artifact_digests=index.rollback_artifact_digests,
+        )
+        require_trusted_context(
+            adapter,
+            operation_bytes,
+            schema_set_digest=index.schema_set_digest,
+            signer_role=requested_role,
+            channel=target_channel,
+            expires_at=expires_at,
+            replay_id=replay_id,
+        )
         for artifact in index.artifacts:
             self.read(artifact.content_digest)
         for digest in index.rollback_artifact_digests:
             self.read(digest)
-        if context.channel != target_channel:
-            raise StoreError("TRUST_CONTEXT_MISMATCH", "$.target_channel", "promotion authorization channel mismatch")
-        if context.metadata_digest != self._object_metadata_digest(index_digest):
-            raise StoreError("TRUST_CONTEXT_MISMATCH", "$.index_digest", "promotion authorization is not bound to existing index bytes")
         # Promotion copies the existing index and artifact digests. The channel
         # record is the namespace projection; it never rewrites index bytes.
         record = {"version": "channel-record/v1", "channel": target_channel, "release_id": release_id, "index_digest": source["index_digest"], "artifact_set_digest": source["artifact_set_digest"], "rollback_artifact_digests": list(source["rollback_artifact_digests"])}
@@ -255,17 +303,38 @@ class LocalArtifactStore:
 
         return digest_bytes(self.read(digest))
 
-    def rollback(self, channel: str, failed_release_id: str, restore_release_id: str, *, context: TrustedTrustContext | None = None) -> str:
-        if context is None:
-            raise StoreError("TRUST_ADAPTER_REQUIRED", "$.context", "F-03 authorization is required before rollback")
-        if channel == "stable" and not stable_authorization(context):
-            raise StoreError("STABLE_PROMOTION_REQUIRES_F07", "$.channel", "stable rollback is F-07-only")
+    def rollback(
+        self,
+        channel: str,
+        failed_release_id: str,
+        restore_release_id: str,
+        *,
+        adapter: TrustAdapter | None = None,
+        expires_at: str | None = None,
+        replay_id: str | None = None,
+        signer_role: str | None = None,
+        context: TrustedTrustContext | None = None,
+    ) -> str:
+        if context is not None:
+            raise TrustRejection("TRUST_ADAPTER_REQUIRED", "$.context", "raw trust contexts cannot authorize rollback")
+        requested_role = "promotion/f07" if channel == "stable" else "emergency/recovery"
+        if signer_role is not None and signer_role != requested_role:
+            raise TrustRejection("TRUST_ROLE_REJECTED", "$.signer_role", "rollback role is not valid for the requested channel")
         try:
             failed = self.read_channel(channel, failed_release_id)
             restored = self.read_channel(channel, restore_release_id)
             if failed.get("channel") != channel or failed.get("release_id") != failed_release_id or restored.get("channel") != channel or restored.get("release_id") != restore_release_id:
                 raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.channel", "rollback records are not bound to requested channel and release")
-            restore_bytes = self.read(restored["index_digest"])
+            failed_index_digest = expect_digest(failed["index_digest"], "$.failed_index_digest")
+            restore_index_digest = expect_digest(restored["index_digest"], "$.restored_index_digest")
+            failed_record_digest = expect_digest(failed["record_digest"], "$.failed_record_digest")
+            restore_record_digest = expect_digest(restored["record_digest"], "$.restore_record_digest")
+            failed_index = PackageIndex.from_dict(json.loads(self.read(failed_index_digest)))
+            if failed_index.release_id != failed_release_id or failed_index.channel == "stable":
+                raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.failed_index_digest", "failed index is not bound to requested release")
+            if failed.get("artifact_set_digest") != failed_index.artifact_set_digest or tuple(failed.get("rollback_artifact_digests", ())) != failed_index.rollback_artifact_digests:
+                raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.failed_index_digest", "failed rollback set is not bound to index")
+            restore_bytes = self.read(restore_index_digest)
             restore_payload = json.loads(restore_bytes)
             if not isinstance(restore_payload, dict) or "rollback_artifact_digests" not in restore_payload:
                 raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.rollback_artifact_digests", "rollback artifact member is missing")
@@ -284,8 +353,28 @@ class LocalArtifactStore:
             raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.restored_index_digest", "rollback index record is invalid") from error
         if restore_index.channel != channel or restore_index.release_id != restore_release_id:
             raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.restored_index_digest", "rollback index is not bound to requested channel and release")
-        if context.channel != channel or context.metadata_digest != self._object_metadata_digest(restored["index_digest"]):
-            raise StoreError("TRUST_CONTEXT_MISMATCH", "$.restored_index_digest", "rollback authorization is not bound to restored index")
+        if restored.get("artifact_set_digest") != restore_index.artifact_set_digest or tuple(restored.get("rollback_artifact_digests", ())) != restore_index.rollback_artifact_digests:
+            raise StoreError("ROLLBACK_BINDING_MISMATCH", "$.rollback_artifact_digests", "restored rollback set is not bound to index")
+        operation_bytes = rollback_operation_bytes(
+            channel=channel,
+            failed_release_id=failed_release_id,
+            restore_release_id=restore_release_id,
+            failed_record_digest=failed_record_digest,
+            restore_record_digest=restore_record_digest,
+            failed_index_digest=failed_index_digest,
+            restore_index_digest=restore_index_digest,
+            restore_artifact_set_digest=restore_index.artifact_set_digest,
+            rollback_artifact_digests=restore_index.rollback_artifact_digests,
+        )
+        require_trusted_context(
+            adapter,
+            operation_bytes,
+            schema_set_digest=restore_index.schema_set_digest,
+            signer_role=requested_role,
+            channel=channel,
+            expires_at=expires_at,
+            replay_id=replay_id,
+        )
         if not restore_index.rollback_artifact_digests:
             raise StoreError("ROLLBACK_ARTIFACT_MISSING", "$.rollback_artifact_digests", "rollback set is empty")
         for artifact in restore_index.artifacts:
@@ -301,10 +390,10 @@ class LocalArtifactStore:
         # The recovery record is append-only and points only at the retained
         # existing index; no build or fetch is performed here.
         recovery_id = f"rollback-{failed_release_id}-to-{restore_release_id}"
-        recovery = {"version": "rollback-record/v1", "channel": channel, "release_id": recovery_id, "failed_index_digest": failed["index_digest"], "restored_index_digest": restored["index_digest"], "restored_artifact_set_digest": restore_index.artifact_set_digest}
+        recovery = {"version": "rollback-record/v1", "channel": channel, "release_id": recovery_id, "failed_index_digest": failed_index_digest, "restored_index_digest": restore_index_digest, "restored_artifact_set_digest": restore_index.artifact_set_digest}
         recovery["record_digest"] = digest_bytes(b"omarchy-rollback-record/v1\x00" + canonical_bytes(recovery))
         self._put_channel_record(channel, recovery_id, recovery)
-        return restored["index_digest"]
+        return restore_index_digest
 
 
 ArtifactStore = LocalArtifactStore

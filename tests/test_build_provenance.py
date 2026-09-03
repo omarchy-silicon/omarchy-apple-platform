@@ -35,6 +35,30 @@ from omarchy_build.sbom import make_sbom, validate_sbom
 from omarchy_build.util import canonical_bytes, digest_bytes, digest_value, read_json
 
 ROOT = Path(__file__).parents[1]
+EXPIRY = "2099-01-01T00:00:00Z"
+
+
+class FakeTrustAdapter:
+    def __init__(self, *, accepted_role: str | None = None):
+        self.accepted_role = accepted_role
+        self.calls: list[tuple[bytes, dict[str, str]]] = []
+
+    def verify_and_authorize(self, metadata_bytes: bytes, **kwargs):
+        self.calls.append((metadata_bytes, kwargs))
+        return TrustedTrustContext(
+            self.accepted_role or kwargs["signer_role"],
+            ("key:a",),
+            1,
+            digest_bytes(metadata_bytes),
+            kwargs["schema_set_digest"],
+            kwargs["channel"],
+            kwargs["expires_at"],
+            kwargs["replay_id"],
+        )
+
+
+def _auth(replay_id: str = "replay:fixture") -> dict[str, object]:
+    return {"adapter": FakeTrustAdapter(), "expires_at": EXPIRY, "replay_id": replay_id}
 
 
 def _definition(name: str) -> BuilderDefinition:
@@ -189,29 +213,43 @@ def test_unsigned_index_and_stable_bypass_reject() -> None:
     index = _index(left, right)
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
-        with pytest.raises(StoreError) as caught:
+        _seed_artifact(store, left)
+        store.publish_index(index, **_auth())
+        with pytest.raises(TrustRejection) as caught:
             store.publish_index(index)
-        assert caught.value.code == "TRUST_ADAPTER_REQUIRED"
-        with pytest.raises(StoreError) as caught:
+        assert caught.value.code == "TRUST_ADAPTER_UNAVAILABLE"
+        with pytest.raises(TrustRejection) as caught:
             store.promote("edge", "stable", index.release_id)
-        assert caught.value.code == "TRUST_ADAPTER_REQUIRED"
+        assert caught.value.code == "TRUST_ADAPTER_UNAVAILABLE"
+        stable_index = PackageIndex.create(
+            release_id=index.release_id,
+            channel="stable",
+            platform_manifest_id=index.platform_manifest_id,
+            platform_manifest_digest=index.platform_manifest_digest,
+            schema_set_digest_value=index.schema_set_digest,
+            artifacts=index.artifacts,
+            rollback_artifact_digests=index.rollback_artifact_digests,
+        )
+        with pytest.raises(StoreError) as caught:
+            store.publish_index(stable_index, **_auth("replay:direct-stable"))
+        assert caught.value.code == "STABLE_PROMOTION_REQUIRES_F07"
 
 
 def test_promotion_copies_existing_index_digest_and_rollback_does_not_rebuild() -> None:
     _closure, _recipe, left, right = _results()
     index = _index(left, right)
-    context = _context(index, channel="edge")
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
         _seed_artifact(store, left)
-        store.publish_index(index, context=context)
-        rc_context = _context(index, channel="rc")
-        promoted_digest = store.promote("edge", "rc", index.release_id, context=rc_context)
+        published_digest = store.publish_index(index, **_auth())
+        assert published_digest == store.read_channel("edge", index.release_id)["index_digest"]
+        assert store.read(published_digest)
+        promoted_digest = store.promote("edge", "rc", index.release_id, **_auth("replay:rc"))
         assert promoted_digest == store.read_channel("edge", index.release_id)["index_digest"]
+        assert store.read(promoted_digest) == store.read(store.read_channel("edge", index.release_id)["index_digest"])
         assert store.read_channel("rc", index.release_id)["index_digest"] == store.read_channel("edge", index.release_id)["index_digest"]
-        with pytest.raises(StoreError) as caught:
-            store.promote("rc", "stable", index.release_id, context=rc_context)
-        assert caught.value.code == "STABLE_PROMOTION_REQUIRES_F07"
+        stable_digest = store.promote("rc", "stable", index.release_id, **_auth("replay:stable"))
+        assert stable_digest == promoted_digest
 
 
 def test_promotion_never_invokes_a_builder(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -220,13 +258,13 @@ def test_promotion_never_invokes_a_builder(monkeypatch: pytest.MonkeyPatch) -> N
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
         _seed_artifact(store, left)
-        store.publish_index(index, context=_context(index, channel="edge"))
+        store.publish_index(index, **_auth())
 
         def forbidden(*_args, **_kwargs):
             raise AssertionError("promotion rebuilt an artifact")
 
         monkeypatch.setattr(FixtureBuilder, "build", forbidden)
-        store.promote("edge", "rc", index.release_id, context=_context(index, channel="rc"))
+        store.promote("edge", "rc", index.release_id, **_auth("replay:rc"))
 
 
 def test_f07_stable_context_is_required_and_binds_existing_bytes() -> None:
@@ -235,8 +273,8 @@ def test_f07_stable_context_is_required_and_binds_existing_bytes() -> None:
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
         _seed_artifact(store, left)
-        store.publish_index(index, context=_context(index, channel="edge"))
-        store.promote("edge", "stable", index.release_id, context=_context(index, channel="stable", role="promotion/f07"))
+        store.publish_index(index, **_auth())
+        store.promote("edge", "stable", index.release_id, **_auth("replay:stable"))
         assert store.read_channel("stable", index.release_id)["index_digest"] == store.read_channel("edge", index.release_id)["index_digest"]
 
 
@@ -247,10 +285,11 @@ def test_rollback_restores_retained_digest_and_rejects_missing_artifact() -> Non
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
         _seed_artifact(store, left)
-        store.publish_index(old_index, context=_context(old_index, channel="edge"))
-        store.publish_index(failed_index, context=_context(failed_index, channel="edge"))
-        restored = store.rollback("edge", "failed-release", "old-release", context=_context(old_index, channel="edge"))
+        store.publish_index(old_index, **_auth("replay:old"))
+        store.publish_index(failed_index, **_auth("replay:failed"))
+        restored = store.rollback("edge", "failed-release", "old-release", **_auth("replay:rollback"))
         assert restored == store.read_channel("edge", "old-release")["index_digest"]
+        assert store.read(restored)
 
         # Remove the retained object only inside this disposable test store;
         # rollback must fail closed instead of rebuilding or fetching it.
@@ -258,7 +297,7 @@ def test_rollback_restores_retained_digest_and_rejects_missing_artifact() -> Non
         object_path = Path(directory) / "objects" / "sha256" / digest.removeprefix("sha256:")
         object_path.unlink()
         with pytest.raises(StoreError) as caught:
-            store.rollback("edge", "failed-release", "old-release", context=_context(old_index, channel="edge"))
+            store.rollback("edge", "failed-release", "old-release", **_auth("replay:rollback-missing"))
         assert caught.value.code == "ROLLBACK_ARTIFACT_MISSING"
 
 
@@ -278,15 +317,14 @@ def test_rollback_rejects_forged_index_from_another_channel() -> None:
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
         _seed_artifact(store, left)
-        store.publish_index(rc_index, context=_context(rc_index, channel="rc"))
-        store.publish_index(failed_index, context=_context(failed_index, channel="edge"))
+        store.publish_index(rc_index, **_auth("replay:rc"))
+        store.publish_index(failed_index, **_auth("replay:failed"))
         rc_record = store.read_channel("rc", "rc-restore")
         forged = {**rc_record, "channel": "edge", "release_id": "edge-restore"}
         forged["record_digest"] = digest_bytes(b"omarchy-channel-record/v1\x00" + canonical_bytes({key: value for key, value in forged.items() if key != "record_digest"}))
         store._put_channel_record("edge", "edge-restore", forged)
-        context = TrustedTrustContext("artifact-release", ("key:a",), 1, digest_bytes(canonical_bytes(rc_index.to_dict())), rc_index.schema_set_digest, "edge", "2099-01-01T00:00:00Z", "replay:edge")
         with pytest.raises(StoreError) as caught:
-            store.rollback("edge", "edge-failed", "edge-restore", context=context)
+            store.rollback("edge", "edge-failed", "edge-restore", **_auth("replay:edge"))
         assert caught.value.code == "ROLLBACK_BINDING_MISMATCH"
 
 
@@ -297,7 +335,7 @@ def test_rollback_missing_artifact_member_is_typed() -> None:
     with tempfile.TemporaryDirectory() as directory:
         store = LocalArtifactStore(directory)
         _seed_artifact(store, left)
-        store.publish_index(failed_index, context=_context(failed_index, channel="edge"))
+        store.publish_index(failed_index, **_auth("replay:failed"))
         malformed = restore_index.to_dict()
         del malformed["rollback_artifact_digests"]
         malformed_digest = store.put(canonical_bytes(malformed))
@@ -312,7 +350,7 @@ def test_rollback_missing_artifact_member_is_typed() -> None:
         record["record_digest"] = digest_bytes(b"omarchy-channel-record/v1\x00" + canonical_bytes(record))
         store._put_channel_record("edge", restore_index.release_id, record)
         with pytest.raises(StoreError) as caught:
-            store.rollback("edge", failed_index.release_id, restore_index.release_id, context=_context(restore_index, channel="edge"))
+            store.rollback("edge", failed_index.release_id, restore_index.release_id, **_auth("replay:missing-member"))
         assert caught.value.code == "ROLLBACK_ARTIFACT_MISSING"
 
 
@@ -363,6 +401,47 @@ def test_f03_protocol_accepts_only_closed_matching_context() -> None:
     with pytest.raises(TrustRejection) as caught:
         verify_index_bytes(metadata, adapter=ForgedAdapter(), signer_role="artifact-release", channel="edge", expires_at="2099-01-01T00:00:00Z", replay_id="replay:fixture")
     assert caught.value.code == "TRUST_CONTEXT_MISMATCH"
+
+
+def test_mutators_reject_raw_context_and_wrong_adapter_role() -> None:
+    _closure, _recipe, left, right = _results()
+    index = _index(left, right)
+    with tempfile.TemporaryDirectory() as directory:
+        store = LocalArtifactStore(directory)
+        _seed_artifact(store, left)
+        with pytest.raises(TrustRejection) as caught:
+            store.publish_index(index, context=_context(index, channel="edge"), expires_at=EXPIRY, replay_id="replay:raw")
+        assert caught.value.code == "TRUST_ADAPTER_REQUIRED"
+        with pytest.raises(TrustRejection) as caught:
+            store.publish_index(index, adapter=FakeTrustAdapter(accepted_role="emergency/recovery"), expires_at=EXPIRY, replay_id="replay:wrong-role")
+        assert caught.value.code == "TRUST_ROLE_REJECTED"
+
+
+def test_mutation_operation_tokens_cannot_be_replayed() -> None:
+    _closure, _recipe, left, right = _results()
+    first = _index(left, right, release_id="operation-first")
+    second = _index(left, right, release_id="operation-second")
+
+    class StickyAdapter(FakeTrustAdapter):
+        def __init__(self):
+            super().__init__()
+            self.first_context = None
+
+        def verify_and_authorize(self, metadata_bytes: bytes, **kwargs):
+            if self.first_context is None:
+                self.first_context = super().verify_and_authorize(metadata_bytes, **kwargs)
+            return self.first_context
+
+    with tempfile.TemporaryDirectory() as directory:
+        store = LocalArtifactStore(directory)
+        _seed_artifact(store, left)
+        store.publish_index(first, **_auth("replay:first-publish"))
+        store.publish_index(second, **_auth("replay:second-publish"))
+        adapter = StickyAdapter()
+        store.promote("edge", "rc", first.release_id, adapter=adapter, expires_at=EXPIRY, replay_id="replay:promotion")
+        with pytest.raises(TrustRejection) as caught:
+            store.promote("edge", "rc", second.release_id, adapter=adapter, expires_at=EXPIRY, replay_id="replay:promotion")
+        assert caught.value.code == "TRUST_CONTEXT_MISMATCH"
 
 
 def test_cli_build_and_compare_from_unrelated_working_directory() -> None:
