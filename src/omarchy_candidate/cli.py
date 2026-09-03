@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import stat
 import sys
 
 from omarchy_platform.canonical import canonical_bytes
@@ -51,7 +52,10 @@ def _open_regular(path: str, limit: int) -> tuple[int, int]:
         finally:
             os.close(parent_fd)
         stat_result = os.fstat(file_fd)
-        if not __import__("stat").S_ISREG(stat_result.st_mode) or stat_result.st_size > limit:
+        if stat_result.st_size > limit:
+            os.close(file_fd)
+            raise CandidateAssemblyError("RESOURCE_LIMIT", "$", "input byte limit exceeded")
+        if not stat.S_ISREG(stat_result.st_mode):
             os.close(file_fd)
             raise CandidateAssemblyError("INPUT_INVALID", "$", "candidate input must be a bounded regular file")
         return file_fd, stat_result.st_size
